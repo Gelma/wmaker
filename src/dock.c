@@ -970,11 +970,13 @@ static void launchDockedApplication(WAppIcon *btn, Bool withSelection)
 
 static void updateWorkspaceMenu(WMenu *menu, WAppIcon *icon)
 {
-	WScreen *scr = menu->frame->screen_ptr;
+	WScreen *scr;
 	int i;
 
 	if (!menu || !icon)
 		return;
+
+	scr = menu->frame->screen_ptr;
 
 	for (i = 0; i < scr->workspace_count; i++) {
 		if (i < menu->entry_no) {
@@ -1005,8 +1007,10 @@ static WMenu *makeWorkspaceMenu(WScreen *scr)
 	WMenu *menu;
 
 	menu = wMenuCreate(scr, NULL, False);
-	if (!menu)
+	if (!menu) {
 		wwarning(_("could not create workspace submenu for Clip menu"));
+		return NULL;
+	}
 
 	wMenuAddCallback(menu, "", switchWSCommand, (void *)scr->clip_icon);
 
@@ -4748,13 +4752,15 @@ static int indexOfHole(WDock *drawer, WAppIcon *moving_aicon, int redocking)
 
 void wSlideAppicons(WAppIcon **appicons, int n, int to_the_left)
 {
-	int i;
+	int i, idx;
 	int leftmost = -1, min_index = 9999, from_x = -1; // leftmost and from_x initialized to avoid warning
-	Window wins[n];
+	Window *wins;
 	WAppIcon *aicon;
 
 	if (n < 1)
 		return;
+
+	wins = wmalloc(sizeof(Window) * n);
 
 	for (i = 0; i < n; i++) {
 		aicon = appicons[i];
@@ -4769,10 +4775,15 @@ void wSlideAppicons(WAppIcon **appicons, int n, int to_the_left)
 
 	for (i = 0; i < n; i++) {
 		aicon = appicons[i];
-		wins[aicon->xindex - min_index] = aicon->icon->core->window;
+		idx = aicon->xindex - min_index;
+		if (idx >= 0 && idx < n)
+			wins[idx] = aicon->icon->core->window;
+		else
+			wins[i] = aicon->icon->core->window;
 	}
 	aicon = appicons[leftmost];
 	slide_windows(wins, n, from_x, aicon->y_pos, aicon->x_pos, aicon->y_pos);
+	wfree(wins);
 }
 
 
@@ -4780,7 +4791,12 @@ void wDrawerFillTheGap(WDock *drawer, WAppIcon *aicon, Bool redocking)
 {
 	int i, j;
 	int index_of_hole = indexOfHole(drawer, aicon, redocking);
-	WAppIcon *aicons_to_shift[drawer->icon_count];
+	WAppIcon **aicons_to_shift;
+
+	if (drawer->icon_count < 1)
+		return;
+
+	aicons_to_shift = wmalloc(sizeof(WAppIcon *) * drawer->max_icons);
 
 	j = 0;
 	for (i = 0; i < drawer->max_icons; i++) {
@@ -4794,15 +4810,22 @@ void wDrawerFillTheGap(WDock *drawer, WAppIcon *aicon, Bool redocking)
 			index_of_hole, drawer->icon_array[0]->wm_instance,
 			j, drawer->icon_count - abs(index_of_hole) - (redocking ? 1 : 0));
 	wSlideAppicons(aicons_to_shift, j, !drawer->on_right_side);
+	wfree(aicons_to_shift);
 }
 
 
 static void drawerConsolidateIcons(WDock *drawer)
 {
-	WAppIcon *aicons_to_shift[drawer->icon_count];
+	WAppIcon **aicons_to_shift;
 	int maxRemaining = 0;
 	int sum = 0;
 	int i;
+
+	if (drawer->icon_count < 1)
+		return;
+
+	aicons_to_shift = wmalloc(sizeof(WAppIcon *) * drawer->max_icons);
+
 	for (i = 0; i < drawer->max_icons; i++) {
 		WAppIcon *ai = drawer->icon_array[i];
 		if (ai == NULL)
@@ -4843,6 +4866,7 @@ static void drawerConsolidateIcons(WDock *drawer)
 		maxRemaining -= 1;
 		sum -= n;
 	}
+	wfree(aicons_to_shift);
 }
 
 
