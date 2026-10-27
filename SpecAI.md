@@ -32,22 +32,30 @@ Window Maker implementa un'architettura **process-monitoring** in `src/main.c` e
   - Se il crash avviene dopo oltre 3 secondi dall'avvio, il supervisore registra un warning (`Window Maker exited due to a crash (signal %i) and will be restarted`) e **rilancia immediatamente Window Maker**.
   - All'utente questo si manifesta esattamente come un **riavvio improvviso del window manager durante l'utilizzo**, con ricaricamento dell'interfaccia.
 
-#### Principali criticità e bug identificati nel codice:
-1. **Crash in `src/xmodifier.c` (`x_reset_modifier_mapping`)**:
-   - Nella commit recente `b4bd6d0c`, l'assegnazione è stata mutata in `sym = W_KeycodeToKeysym(display, code, column);`.
-   - In determinate configurazioni della mappa tastiera o layout multilivello, `sym` non veniva inizializzato prima della chiamata o risultava `NoSymbol`, ma soprattutto le sub-routine inline (`modwarn`, `modbarf`, `store_modifier`) usavano variabili esterne `code` e `sym` prima che fossero valorizzate per il blocco logico, rischiando decisioni errate e branch su valori spazzatura.
-2. **Buffer Overflow in `src/wmspec.c` (`updateWorkspaceNames`)**:
-   - `char buf[MAX_WORKSPACES * (MAX_WORKSPACENAME_WIDTH + 1)], *pos;`
-   - `strncpy(pos, scr->workspaces[i]->name, sizeof(pos) - 1);`
-   - **Bug formale grave**: `sizeof(pos)` restituisce la dimensione del puntatore (8 byte su 64-bit), invece dello spazio rimanente nel buffer o della lunghezza del nome. Inoltre `strncpy` non garantisce il terminatore null se il nome supera 7 caratteri, e l'avanzamento `pos += (curr_size + 1)` assume ciecamente che tutto il nome sia stato copiato, provocando disallineamenti di memoria e potenziale sovrascrittura di stack quando si manipolano workspace o NetWM aggiorna i nomi.
-3. **Potenziale dereferenziazione NULL in `src/dockedapp.c` (`panelBtnCallback`)**:
-   - Alla riga 168: se `text` è vuoto o NULL (`text = NULL;`), la chiamata `wIconChangeImageFile(..., text)` ritorna false, portando all'esecuzione di `strlen(text)` che va in crash immediato (SIGSEGV).
-4. **Crash in `WINGs/wtext.c`**:
-   - Alla riga 1185/1186: presenza di blocco commentato `if (!tb) printf("...for this app will surely crash :-)\n");` seguito da dereferenziazione incondizionata `tb->sections[s]` senza null-check difensivo durante il calcolo dei confini di scrolling/testo.
-5. **Gestione eventi RandR / Debounce (`src/randr.c`)**:
-   - Il supporto RandR (specie con monitor esterni hotplug o cambio risoluzione) usa un timer di debounce (`randr_debounce_timer`). Se durante un rimescolamento di uscite video (`wRandR_BringAllWindowsInside`, `wDockSwap`) una finestra ha già perso il riferimento al root window o è in stato zombie, si verificano errori `BadWindow` non gestiti su Xlib che portano all'uscita o abort se X synchronous o se un crash handler non è configurato per ignorare `BadWindow`.
-6. **Formati `printf` / `sscanf` non corrispondenti**:
-   - In `src/session.c`, `src/dialog.c`, `src/dock.c` e `src/geomview.c` sono presenti disallineamenti tra specificatori di formato (`%hu`, `%u`, `%i`) e tipi `unsigned int`/`int *`/`signed int *` che possono causare corruzione dello stack su architetture a 64 bit quando combinati con dati esterni del session file.
+#### Analisi v2 (rieseguita, verificata manualmente sul codice)
+Strumenti: clang scan-build 21 (29 segnalazioni su `src/`), cppcheck 2.13 su `src/`, `WINGs/`, `wrlib/`, revisione manuale.
+
+**Correzioni rispetto all'analisi v1 (falsi positivi ritirati):**
+- `dockedapp.c:168` (strlen(NULL)): NON raggiungibile, `wIconChangeImageFile()` ritorna 1 se `file == NULL`.
+- RandR/`BadWindow`: `catchXError()` (startup.c:90) ignora già tutti i `BadWindow`; non causa crash.
+- `xmodifier.c`: nessun uso di variabili non inizializzate; le funzioni annidate (estensione GCC) leggono `code`/`sym` solo dopo l'assegnazione.
+- `wcolorpanel.c` cpColor.hsv: falso positivo (campo non usato con `set = cpRGB`).
+
+**Bug confermati, in ordine di probabilità come causa dei crash:**
+1. `dock.c` `wDrawerFillTheGap()` / `wSlideAppicons()` (righe ~4750-4800): VLA `aicons_to_shift[drawer->icon_count]` riempita contando le icone presenti in `icon_array`; se `icon_count` è disallineato (il codice stesso prevede il caso con un `wwarning`) si scrive oltre lo stack. In `wSlideAppicons` `wins[aicon->xindex - min_index]` non è controllato rispetto a `n`: xindex non contigui ⇒ scrittura fuori dallo stack. Rilevante solo se si usano i **Drawer**.
+2. `wmspec.c` `updateWorkspaceNames()`: `strncpy(pos, name, sizeof(pos) - 1)` copia max 7 byte (sizeof puntatore) senza terminatore ⇒ `_NET_DESKTOP_NAMES` contiene byte non inizializzati dello stack. I nomi caricati da WMState (`workspace.c:910`) non sono troncati a 64 caratteri, quindi con nomi lunghi `pos` può superare `buf` (overflow di stack).
+3. `actions.c:209` `wSetFocusTo()`: `focused->next = wwin` senza controllo; `scr->focused_window` può essere NULL (window.c:1679 dopo la chiusura dell'ultima finestra). Raggiungibile solo se `wwin` non è nella lista focus: guardia difensiva consigliata.
+4. `client.c` `wClientGetGravityOffsets()`: lo `switch` su `win_gravity` (valore fornito dal client) non ha `default`; gravità invalida ⇒ `ofs_x/ofs_y` non inizializzati (posizionamento errato, nessun crash).
+5. `dock.c:973` `updateWorkspaceMenu()`: `menu->frame` dereferenziato prima del controllo `if (!menu)`. `dock.c:1006-1013`: dopo `wMenuCreate` fallito si prosegue usando `menu` NULL.
+6. `dock.c:2005` (`old_top` NULL se nessuna icona precedente), `dock.c:4518` (`aicon` NULL se il drawer non ha icone oltre la [0]): dereferenze NULL su percorsi rari di ripristino stato.
+7. `WINGs/wtext.c:1174-1186`: `tb` dereferenziato dopo controllo `if (!tb)` (solo widget WMText, non usato da wmaker stesso).
+8. `WINGs/string.c:217-220`, `WINGs/wballoon.c:388`: dereferenze dopo controlli NULL ridondanti.
+9. Formati: `session.c:440` `%i` con `unsigned int *`, `geomview.c:109`, `dialog.c:1350`, `dock.c:1426`: innocui su x86_64, formalmente UB.
+10. Stile/formali: `WINGs/memory.c:195` `ptr = NULL` inutile in `wfree`; ordine argomenti diverso tra dichiarazione e definizione in `WMAppendBag`, `WMSetViewExpandsToParent`, `W_SendDnDClientMessage`.
+
+**Nota portabilità**: `xmodifier.c` usa funzioni annidate (estensione GCC): non compila con clang.
+
+**Come diagnosticare il crash reale**: il monitor riavvia wmaker se crasha dopo >3s. Abilitare i core dump (`ulimit -c unlimited` prima di avviare la sessione, o `coredumpctl list wmaker`) e ottenere il backtrace con `gdb /opt/wmaker/bin/wmaker core` (`bt full`). La build ha già i simboli (`-g`).
 
 ---
 
