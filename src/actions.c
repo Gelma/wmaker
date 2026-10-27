@@ -206,7 +206,8 @@ void wSetFocusTo(WScreen *scr, WWindow *wwin)
 			wwin->next->prev = wwin->prev;
 
 		wwin->prev = focused;
-		focused->next = wwin;
+		if (focused)
+			focused->next = wwin;
 		wwin->next = NULL;
 		scr->focused_window = wwin;
 
