@@ -359,7 +359,7 @@ void testGradientButtons(WMScreen * scr)
 	WMSetButtonText(btn, "Button");
 	WMSetButtonTextColor(btn, color);
 
-	WMSetBalloonTextForView("Este È outro bal„o.", WMWidgetView(btn));
+	WMSetBalloonTextForView("Este √© outro bal√£o.", WMWidgetView(btn));
 
 	WMReleaseColor(color);
 	color = WMCreateNamedColor(scr, "orange", True);
@@ -557,7 +557,7 @@ void testText(WMScreen * scr)
 	WMText *text;
 	WMFont *font;
 	void *tb;
-	FILE *file = fopen("wm.html", "rb");
+	FILE *file = NULL;
 
 	windowCount++;
 
