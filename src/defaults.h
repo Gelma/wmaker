@@ -36,7 +36,6 @@ void wReadKeybindings(WScreen *scr, WMPropList *dict);
 void wDefaultUpdateIcons(WScreen *scr);
 void wReadStaticDefaults(WMPropList *dict);
 void wDefaultsCheckDomains(void *arg);
-void wSaveDefaults(WScreen *scr);
 void wDefaultFillAttributes(const char *instance, const char *class,
                             WWindowAttributes *attr, WWindowAttributes *mask,
                             Bool useGlobalDefault);
