@@ -1595,7 +1595,7 @@ void decode_uri(char *uri)
 
 	while (uri < last-2) {
 			if (*uri == '%') {
-					int h;
+					unsigned int h;
 					if (sscanf(uri+1, "%2X", &h) != 1)
 							break;
 					*uri = h;
