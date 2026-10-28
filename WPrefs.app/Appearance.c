@@ -1315,7 +1315,8 @@ static Pixmap loadRImage(WMScreen * scr, const char *path)
 {
 	FILE *f;
 	RImage *image;
-	int w, h, d, cnt;
+	unsigned int w, h, d;
+	int cnt;
 	size_t read_size;
 	Pixmap pixmap;
 
