@@ -84,6 +84,16 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
     - `src/geomview.c`: Sostituito `%+5i` con `%5u` per le dimensioni di larghezza e altezza senza segno.
     - `src/session.c`: Sostituito `%ix%i` con `%ux%u` per memorizzare width ed height senza segno.
     - `WINGs/wruler.c`: Ingrandito il buffer `c` a 16 byte e corretto `%hu` in `%d` con `strlen(c)` dinamico.
+21. **[`b4499511`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/client.c#L310-L320) - `client`: Guardie NULL in `wClientCheckProperty`**:
+    - Aggiunto controllo preventivo `if (!wwin || !event) return;` per evitare dereferenziazione immediata di `wwin->flags` quando viene gestito un evento PropertyNotify su finestre non associate o non valide.
+22. **[`c7dfaef1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c#L732-L1590) - `event`: Verifica puntatore `main_window_desc` negli handler di eventi**:
+    - In `handleDestroyNotify`, `handlePropertyNotify` e nel binding `WKBD_HIDE`, verificata la non-nullità di `wapp->main_window_desc` prima di accedere a `screen_ptr` o a `WFLAGP`, prevenendo crash di Window Maker quando un'applicazione X11 si chiude in modo anomalo.
+23. **[`1b03ad80`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c#L2014-L2018) - `actions`: Controllo NULL in `wUnhideApplication`**:
+    - Aggiunta la guardia `if (!wapp || !wapp->main_window_desc) return;` per evitare la dereferenziazione nulla di `wapp->main_window_desc->screen_ptr`.
+24. **[`d8f5f4cd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/winmenu.c#L638) - `winmenu`: Guardia NULL su `main_window_desc` nel menu finestra**:
+    - In `updateMenu()`, verificata l'esistenza di `wapp->main_window_desc` prima di valutare la macro `WFLAGP(wapp->main_window_desc, no_appicon)`, evitando crash durante l'apertura del menù comandi finestra.
+25. **[`6d46cd4b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1329) - `window`: Controllo NULL su `main_window_desc` in `wManageWindow`**:
+    - Verificato `app->main_window_desc != NULL` prima dell'accesso all'attributo `start_hidden`.
 
 ---
 
