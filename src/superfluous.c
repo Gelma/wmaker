@@ -324,6 +324,11 @@ void wAppBounce(WApplication *wapp)
 		wapp->flags.bouncing = 1;
 
 		AppBouncerData *data = (AppBouncerData *)malloc(sizeof(AppBouncerData));
+		if (!data) {
+			wapp->flags.bouncing = 0;
+			--wapp->refcount;
+			return;
+		}
 		data->wapp = wapp;
 		data->count = data->pow = 0;
 		data->dir = bounceDirection(wapp->app_icon);
