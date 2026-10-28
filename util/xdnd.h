@@ -36,7 +36,7 @@ extern "C" {
 #define XDND_ENTER_THREE_TYPES_SET(e,b)	(e)->xclient.data.l[1] = ((e)->xclient.data.l[1] & ~0x1UL) | (((b) == 0) ? 0 : 0x1UL)
 #define XDND_ENTER_VERSION(e)		((e)->xclient.data.l[1] >> 24)
 #define XDND_ENTER_VERSION_SET(e,v)	(e)->xclient.data.l[1] = ((e)->xclient.data.l[1] & ~(0xFF << 24)) | ((v) << 24)
-#define XDND_ENTER_TYPE(e,i)		((e)->xclient.data.l[2 + i])	/* i => (0, 1, 2) */
+#define XDND_ENTER_TYPE(e,i)		((e)->xclient.data.l[2 + (i)])	/* i => (0, 1, 2) */
 
 /* XdndPosition */
 #define XDND_POSITION_SOURCE_WIN(e)	((e)->xclient.data.l[0])
@@ -56,7 +56,7 @@ extern "C" {
 #define XDND_STATUS_RECT_Y(e)		((e)->xclient.data.l[2] & 0xFFFFL)
 #define XDND_STATUS_RECT_WIDTH(e)	((e)->xclient.data.l[3] >> 16)
 #define XDND_STATUS_RECT_HEIGHT(e)	((e)->xclient.data.l[3] & 0xFFFFL)
-#define XDND_STATUS_RECT_SET(e,x,y,w,h)	{(e)->xclient.data.l[2] = ((x) << 16) | ((y) & 0xFFFFUL); (e)->xclient.data.l[3] = ((w) << 16) | ((h) & 0xFFFFUL); }
+#define XDND_STATUS_RECT_SET(e,x,y,w,h)	do { (e)->xclient.data.l[2] = ((x) << 16) | ((y) & 0xFFFFUL); (e)->xclient.data.l[3] = ((w) << 16) | ((h) & 0xFFFFUL); } while (0)
 #define XDND_STATUS_ACTION(e)		((e)->xclient.data.l[4])
 
 /* XdndLeave */
