@@ -1658,7 +1658,7 @@ static void layOutDocument(Text * tPtr)
 				y += tb->next->sections[0]._y - y;
 				nitems = 0;
 #ifdef DEBUG
-				printf("nitems%d\n", nitems);
+				printf("nitems%u\n", nitems);
 #endif
 				if (ss - sd != 0)
 					y = tPtr->docHeight + ss - sd;
