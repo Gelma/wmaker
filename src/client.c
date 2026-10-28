@@ -314,6 +314,9 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 	int i, g1, g2;
 	char *tmp = NULL;
 
+	if (!wwin || !event)
+		return;
+
 	switch (event->atom) {
 	case XA_WM_NAME:
 		if (!wwin->flags.net_has_title) {
