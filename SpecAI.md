@@ -59,6 +59,31 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
     - In `removeDrawerCallback()`: verificato `aicon != NULL` prima dello spostamento dell'appicon superstite verso il dock principale.
 13. **[`8e562f7d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.c#L900-L915) - `workspace`: Troncamento nomi workspace ripristinati da WMState**:
     - Utilizzato `wstrndup()` con limite `MAX_WORKSPACENAME_WIDTH` per evitare che nomi di workspace eccezionalmente lunghi nel file di configurazione superino i buffer usati da Window Maker.
+14. **[`588e572d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wxpaste.c#L80-L150) - `wxpaste`: Correzione del loop di eventi e variabile non inizializzata**:
+    - In `fetchSelection()` il ciclo d'attesa dell'evento `SelectionNotify` era erroneamente scritto come `while (0)`, saltando completamente la ricezione e lasciando `res` non inizializzata.
+    - In `main()` la variabile di lunghezza `l` passata a `write(STDOUT_FILENO, buf, l)` non veniva impostata da `fetchSelection()`, causando la scrittura di byte casuali su stdout.
+    - Corretto il ciclo in `while (1)`, inizializzata `res = 0`, restituita la lunghezza effettiva della proprietà in `l` e inizializzata `l = 0`.
+15. **[`4d8a5118`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L1170-L1185) - `WINGs`: Controllo NULL preventivo su `tb` in `wtext.c`**:
+    - Nel salto a `_doneH:` all'interno di `findClosestPositionTo()`, `tb->graphic` veniva dereferenziato prima del controllo `if (!tb) return;` situato sotto `_doNothing:`.
+    - Spostato il controllo di validità `if (!tb) return;` all'inizio del blocco `_doneH:`, prevenendo dereferenziazioni su puntatore nullo nei widget di testo.
+16. **[`45de612a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/Extras/wtableview.c#L870-L895) - `WINGs`: Inizializzazione della struttura `range` in `columnsInRect`**:
+    - Se `totalColumns == 0` o nessuna colonna intersecava il rettangolo, `range.position` e `range.count` restavano non inizializzati, causando accessi out-of-bounds in `drawRow()`.
+    - Inizializzati `range.position = 0; range.count = 0;` con uscita rapida se nessuna colonna è presente o trovata.
+17. **[`d0053942`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/appmenu.c#L130-L140) - `appmenu`: Limite di ampiezza in `sscanf` contro stack overflow**:
+    - Nel parsing del menu applicazione X11 in `parseMenu()`, `%s` senza limite di ampiezza leggeva una stringa da finestra client dentro il buffer su stack `char rtext[300]`.
+    - Aggiunto il limite `%299s` per scongiurare stack buffer overflow in caso di payload malevoli o corrotti inviati dai client X.
+18. **[`c4172978`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c#L80-L86), [`b22c8da1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmiv.c#L1595-L1605), [`26370998`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/setstyle.c#L225-L235), [`cfe35312`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WPrefs.app/Appearance.c#L1315-L1330) - Correzione tipi `%x`/`%X` in `sscanf`/`fscanf`**:
+    - Risolti i type mismatch dove venivano passati puntatori a variabili intere con segno (`int *`) a specificatori esadecimali `%x`/`%2X` che richiedono rigorosamente `unsigned int *`.
+19. **[`ae59afa4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wcolorpanel.c#L1890-L3490) - `WINGs`: Inizializzazione struct `CPColor`, fix formato e base length nel Color Panel**:
+    - Inizializzate con `{ 0 }` tutte le istanze locali di `CPColor` sullo stack nelle callback per evitare valori spazzatura in `cpColor.hsv` quando viene impostato solo `cpColor.rgb`.
+    - Corretto l'overflow potenziale di buffer in `hsbInit()` ingrandendo `tmp` a 16 byte con `snprintf()` e specificatore `%d` al posto di `%hu`.
+    - In `generateNewFilename()` verificata la presenza di spazio prima di `{` per evitare indici negativi e buffer underflow in `strncpy()` su nomi colore specifici.
+20. **[`bb0727d2`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1157-L1160) - Allineamento specificatori di formato `printf`/`snprintf` e dimensioni buffer**:
+    - `src/dialog.c`: Corretto `%hu` in `%u` per l'anno corrente in `COPYRIGHT_TEXT`.
+    - `src/dock.c`: Utilizzato `%d` per `current_workspace` e ampliato il buffer `ws_number` a 32 byte per eliminare i warning di troncamento.
+    - `src/geomview.c`: Sostituito `%+5i` con `%5u` per le dimensioni di larghezza e altezza senza segno.
+    - `src/session.c`: Sostituito `%ix%i` con `%ux%u` per memorizzare width ed height senza segno.
+    - `WINGs/wruler.c`: Ingrandito il buffer `c` a 16 byte e corretto `%hu` in `%d` con `strlen(c)` dinamico.
 
 ---
 
