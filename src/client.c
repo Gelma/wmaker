@@ -140,6 +140,10 @@ void wClientGetGravityOffsets(WWindow * wwin, int *ofs_x, int *ofs_y)
 		*ofs_x = 1;
 		*ofs_y = 1;
 		break;
+	default:
+		*ofs_x = 0;
+		*ofs_y = 0;
+		break;
 	}
 }
 
