@@ -21,11 +21,4 @@
 
 void FormatXError(Display *dpy, XErrorEvent *error, char *buffer, int size);
 
-
-void RequestSelection(Display *dpy, Window requestor, Time timestamp);
-
-
-char *GetSelection(Display *dpy, Window requestor);
-
-
 #endif
