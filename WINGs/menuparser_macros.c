@@ -124,7 +124,7 @@ void menu_parser_free_macros(WMenuParser parser)
 		wfree(macro);
 	}
 #ifdef DEBUG
-	printf(__FILE__ ": %d macros\n", count);
+	printf(__FILE__ ": %u macros\n", count);
 #endif
 	parser->macros = NULL; // Security
 }
