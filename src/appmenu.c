@@ -129,7 +129,7 @@ static WMenu *parseMenuCommand(WScreen * scr, Window win, char **slist, int coun
 				wstrlcpy(title, &slist[*index][pos], sizeof(title));
 				rtext[0] = 0;
 			} else {
-				if (sscanf(slist[*index], "%i %i %i %i %s %n",
+				if (sscanf(slist[*index], "%i %i %i %i %299s %n",
 					   &command, &ecode, &etag, &enab, rtext, &pos) != 5 || ecode != code) {
 					wMenuDestroy(menu, True);
 					wwarning(_("appmenu: bad menu entry \"%s\" in window %lx"),
