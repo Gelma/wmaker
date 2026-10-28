@@ -45,25 +45,29 @@
 
 #ifdef NDEBUG
 
-#define wassertr(expr)  \
-	if (!(expr)) { return; }
+#define wassertr(expr) do { \
+	if (!(expr)) { return; } \
+} while (0)
 
-#define wassertrv(expr, val)  \
-	if (!(expr)) { return (val); }
+#define wassertrv(expr, val) do { \
+	if (!(expr)) { return (val); } \
+} while (0)
 
 #else /* !NDEBUG */
 
-#define wassertr(expr) \
+#define wassertr(expr) do { \
     if (!(expr)) { \
         wwarning("wassertr: assertion %s failed", #expr); \
         return;\
-    }
+    } \
+} while (0)
 
-#define wassertrv(expr, val) \
+#define wassertrv(expr, val) do { \
     if (!(expr)) { \
         wwarning("wassertrv: assertion %s failed", #expr); \
         return (val);\
-    }
+    } \
+} while (0)
 
 #endif /* !NDEBUG */
 
@@ -200,8 +204,8 @@ typedef void WMNotificationObserverAction(void *observerData,
  *    wmScaleHeight: the height of the current system font
  * Use the WMGetScaleBaseFromSystemFont function to set these values.
  */
-#define WMScaleX(value) ((int)((double)value / 177.0 * (double)wmScaleWidth + 0.5))
-#define WMScaleY(value) ((int)((double)value / 15.0 * (double)wmScaleHeight + 0.5))
+#define WMScaleX(value) ((int)((double)(value) / 177.0 * (double)wmScaleWidth + 0.5))
+#define WMScaleY(value) ((int)((double)(value) / 15.0 * (double)wmScaleHeight + 0.5))
 
 /* ---[ WINGs/memory.c ]-------------------------------------------------- */
 
