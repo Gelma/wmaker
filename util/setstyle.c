@@ -223,7 +223,7 @@ static WMPropList *getColor(WMPropList * texture)
 	} else if (strcasecmp(str, "dgradient") == 0
 		   || strcasecmp(str, "hgradient") == 0 || strcasecmp(str, "vgradient") == 0) {
 		WMPropList *c1, *c2;
-		int r1, g1, b1, r2, g2, b2;
+		unsigned int r1, g1, b1, r2, g2, b2;
 		char buffer[32];
 
 		c1 = WMGetFromPLArray(texture, 1);
