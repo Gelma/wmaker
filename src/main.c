@@ -124,7 +124,7 @@ static void setWVisualID(int screen, int val)
 		/* no array at all, alloc space for screen + 1 entries
 		 * and init with default value */
 		wVisualID_len = screen + 1;
-		wVisualID = (int *)malloc(wVisualID_len * sizeof(int));
+		wVisualID = (int *)wmalloc(wVisualID_len * sizeof(int));
 		for (i = 0; i < wVisualID_len; i++) {
 			wVisualID[i] = -1;
 		}
@@ -378,7 +378,7 @@ Bool RelaunchWindow(WWindow *wwin)
 #endif
 		/* argv is not null-terminated */
 		char **a = malloc((argc + 1) * sizeof(char *));
-		if (! a) {
+		if (!a) {
 			werror("out of memory trying to relaunch the application");
 			_exit(127);
 		}
