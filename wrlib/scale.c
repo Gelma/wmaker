@@ -332,14 +332,25 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 	int sch = src->format == RRGBAFormat ? 4 : 3;
 
 	dst = RCreateImage(new_width, new_height, False);
+	if (!dst)
+		return NULL;
 
 	/* create intermediate image to hold horizontal zoom */
 	tmp = RCreateImage(dst->width, src->height, False);
+	if (!tmp) {
+		RReleaseImage(dst);
+		return NULL;
+	}
 	xscale = (double)new_width / (double)src->width;
 	yscale = (double)new_height / (double)src->height;
 
 	/* pre-calculate filter contributions for a row */
 	contrib = (CLIST *) calloc(new_width, sizeof(CLIST));
+	if (!contrib) {
+		RReleaseImage(dst);
+		RReleaseImage(tmp);
+		return NULL;
+	}
 	if (xscale < 1.0) {
 		width = fwidth / xscale;
 		fscale = 1.0 / xscale;
@@ -421,6 +432,11 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 
 	/* pre-calculate filter contributions for a column */
 	contrib = (CLIST *) calloc(dst->height, sizeof(CLIST));
+	if (!contrib) {
+		RReleaseImage(dst);
+		RReleaseImage(tmp);
+		return NULL;
+	}
 	if (yscale < 1.0) {
 		width = fwidth / yscale;
 		fscale = 1.0 / yscale;
@@ -471,6 +487,14 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 
 	/* apply filter to zoom vertically from tmp to dst */
 	sp = malloc(tmp->height * 3);
+	if (!sp) {
+		for (i = 0; i < dst->height; ++i)
+			free(contrib[i].p);
+		free(contrib);
+		RReleaseImage(dst);
+		RReleaseImage(tmp);
+		return NULL;
+	}
 
 	for (k = 0; k < new_width; ++k) {
 		CONTRIB *pp;
