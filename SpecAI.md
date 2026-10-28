@@ -52,6 +52,14 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
 10. **[`a9f0042e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L285-L300) - `menu`: Controlli difensivi in `wMenuEntrySetCascade`**:
     - Aggiunto controllo preventivo `if (!menu || !entry || !cascade) return;`.
 
+11. **[`c431060f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WUtil.h#L525-L530) - `WINGs`: Allineamento nomi parametri in `WMAppendBag`**:
+    - Sincronizzati i nomi dei parametri tra prototipo (`WUtil.h`) e definizione (`bagtree.c`).
+12. **[`306917c9`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L2005-L4525) - `dock`: Controlli NULL su `old_top` e rimozione appicon singola nel drawer**:
+    - In `wDockRestoreState()`: verificato `old_top != NULL` prima dell'aggiornamento coordinate icona predefinita.
+    - In `removeDrawerCallback()`: verificato `aicon != NULL` prima dello spostamento dell'appicon superstite verso il dock principale.
+13. **[`8e562f7d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.c#L900-L915) - `workspace`: Troncamento nomi workspace ripristinati da WMState**:
+    - Utilizzato `wstrndup()` con limite `MAX_WORKSPACENAME_WIDTH` per evitare che nomi di workspace eccezionalmente lunghi nel file di configurazione superino i buffer usati da Window Maker.
+
 ---
 
 ## Stato di Verifica
