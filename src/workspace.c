@@ -902,12 +902,12 @@ void wWorkspaceRestoreState(WScreen *scr)
 
 		if (scr->workspace_menu) {
 			wfree(scr->workspace_menu->entries[i + MC_WORKSPACE1]->text);
-			scr->workspace_menu->entries[i + MC_WORKSPACE1]->text = wstrdup(WMGetFromPLString(pstr));
+			scr->workspace_menu->entries[i + MC_WORKSPACE1]->text = wstrndup(WMGetFromPLString(pstr), MAX_WORKSPACENAME_WIDTH);
 			scr->workspace_menu->flags.realized = 0;
 		}
 
 		wfree(scr->workspaces[i]->name);
-		scr->workspaces[i]->name = wstrdup(WMGetFromPLString(pstr));
+		scr->workspaces[i]->name = wstrndup(WMGetFromPLString(pstr), MAX_WORKSPACENAME_WIDTH);
 		if (!wPreferences.flags.noclip) {
 			int added_omnipresent_icons = 0;
 
