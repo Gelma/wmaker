@@ -126,6 +126,12 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
 40. **[`4b7b4e79`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L355-L2085) - `WINGs`: Incapsulamento `printf` di debug sotto macro `DEBUG` e pulizia logica**:
     - Racchiuse le istruzioni di logging diagnostico di basso livello in `#ifdef DEBUG` e corretto specificatore unsigned `%u` per `tb->first`.
     - Rimosse condizioni ridondanti su `tb->graphic` e semplificata l'assegnazione di allineamento del testo.
+41. **[`84cca8a3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/memory.c#L195) - `WINGs`: Rimozione assegnazione morta su `ptr` in `wfree`**:
+    - Rimosso `ptr = NULL;` al termine di `wfree(void *ptr)` in quanto parametro passato per valore, privo di effetti esterni e segnalato da Cppcheck come `uselessAssignmentPtrArg`.
+42. **[`053afe12`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L1660) - `WINGs`: Specificatore `%u` per `nitems` in `wtext.c`**:
+    - Corretto lo specificatore di formato da `%d` a `%u` per la variabile `unsigned int nitems` nella `printf` diagnostica.
+43. **[`ec434c8b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/tests/testgrad.c#L109-L120) - `wrlib/tests`: Verifica valore di ritorno di `malloc` nei test dei gradienti**:
+    - Verificata l'allocazione dell'array `colors` e delle singole strutture `colors[i]` in `testgrad.c` prima della dereferenziazione.
 
 ---
 
