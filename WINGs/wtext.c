@@ -1172,6 +1172,9 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 	}
 
  _doneH:
+	if (!tb)
+		return;
+
 	if (tb->graphic) {
 		tPtr->tpos = (pos <= 1) ? pos : 0;
 	} else {
