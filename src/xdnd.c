@@ -78,7 +78,7 @@ static void wXDNDDecodeURI(char *uri)
 	char *last = uri + strlen(uri);
 	while (uri < last-2) {
 		if (*uri == '%') {
-			int h;
+			unsigned int h;
 			if (sscanf(uri+1, "%2X", &h) != 1)
 				break;
 			*uri = h;
