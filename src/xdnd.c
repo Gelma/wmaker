@@ -257,6 +257,10 @@ static void wXDNDGetTypeList(Display *dpy, Window window)
 	}
 
 	typelist = malloc((count + 1) * sizeof(Atom));
+	if (!typelist) {
+		XFree(data);
+		return;
+	}
 	a = (Atom *) data;
 	for (i = 0; i < count; i++) {
 		typelist[i] = a[i];
