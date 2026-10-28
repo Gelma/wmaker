@@ -165,16 +165,10 @@ WTexIGradient *wTextureMakeIGradient(WScreen*, int, const RColor[2], int, const 
 WTexPixmap *wTextureMakePixmap(WScreen *scr, int style, const char *pixmap_file,
                                XColor *color);
 void wTextureDestroy(WScreen*, WTexture*);
-void wTexturePaint(WTexture *, Pixmap *, WCoreWindow*, int, int);
-void wTextureRender(WScreen*, WTexture*, Pixmap*, int, int, int);
 struct RImage *wTextureRenderImage(WTexture*, int, int, int);
 
 
-void wTexturePaintTitlebar(struct WWindow *wwin, WTexture *texture, Pixmap *tdata,
-                           int repaint);
-
-
-#define FREE_PIXMAP(p) if ((p)!=None) XFreePixmap(dpy, (p)), (p)=None
+#define FREE_PIXMAP(p) do { if ((p) != None) { XFreePixmap(dpy, (p)); (p) = None; } } while (0)
 
 void wDrawBevel(Drawable d, unsigned width, unsigned height,
                 WTexSolid *texture, int relief);
