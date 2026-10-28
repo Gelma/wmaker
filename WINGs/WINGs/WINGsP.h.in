@@ -332,9 +332,9 @@ WMDragOperationType W_ActionToOperation(WMScreen *scr, Atom action);
 void W_FreeDragOperationItem(void* item);
 
 Bool W_SendDnDClientMessage(Display *dpy, Window win, Atom message,
-                            unsigned long data1, unsigned long data2,
-                            unsigned long data3, unsigned long data4,
-                            unsigned long data5);
+                            unsigned long data0, unsigned long data1,
+                            unsigned long data2, unsigned long data3,
+                            unsigned long data4);
 
 void W_DragSourceStartTimer(WMDraggingInfo *info);
 

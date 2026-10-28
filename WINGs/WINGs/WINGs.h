@@ -964,7 +964,7 @@ Window WMViewXID(WMView *view);
 
 void WMSetViewNotifySizeChanges(WMView *view, Bool flag);
 
-void WMSetViewExpandsToParent(WMView *view, int topOffs, int leftOffs,
+void WMSetViewExpandsToParent(WMView *view, int leftOffs, int topOffs,
                               int rightOffs, int bottomOffs);
 
 WMSize WMGetViewSize(WMView *view);
