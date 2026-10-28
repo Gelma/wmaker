@@ -204,7 +204,7 @@ static WMPropList *makeWindowState(WWindow * wwin, WApplication * wapp)
 		snprintf(buffer, sizeof(buffer), "0x%04X", wwin->flags.maximized);
 		maximized = WMCreatePLString(buffer);
 		hidden = wwin->flags.hidden ? sYes : sNo;
-		snprintf(buffer, sizeof(buffer), "%ix%i+%i+%i",
+		snprintf(buffer, sizeof(buffer), "%ux%u+%i+%i",
 			 wwin->client.width, wwin->client.height, wwin->frame_x, wwin->frame_y);
 		geometry = WMCreatePLString(buffer);
 

@@ -160,7 +160,7 @@ static void createDrawBuffer(Ruler * rPtr)
 static void drawRulerOnPixmap(Ruler * rPtr)
 {
 	int i, j, w, m;
-	char c[3];
+	char c[16];
 	int marks[9] = { 11, 3, 5, 3, 7, 3, 5, 3 };
 
 	if (!rPtr->drawBuffer || !rPtr->view->flags.realized)
@@ -179,9 +179,9 @@ static void drawRulerOnPixmap(Ruler * rPtr)
 		XDrawLine(rPtr->view->screen->display, rPtr->drawBuffer,
 			  rPtr->fgGC, rPtr->margins.left + m, 23, rPtr->margins.left + m, marks[i % 8] + 23);
 		if (i != 0 && i % 8 == 0) {
-			snprintf(c, sizeof(c), "%hu", ++j);
+			snprintf(c, sizeof(c), "%d", ++j);
 			WMDrawString(rPtr->view->screen, rPtr->drawBuffer, rPtr->fg,
-				     rPtr->font, rPtr->margins.left + 2 + m, 26, c, 2);
+				     rPtr->font, rPtr->margins.left + 2 + m, 26, c, strlen(c));
 		}
 		m = (++i) * 10;
 	}

@@ -106,7 +106,7 @@ static void paint(WGeometryView * gview)
 	if (gview->showPosition) {
 		snprintf(buffer, sizeof(buffer), "%+5i , %+5i    ", gview->data.pos.x, gview->data.pos.y);
 	} else {
-		snprintf(buffer, sizeof(buffer), "%+5i x %+5i    ",
+		snprintf(buffer, sizeof(buffer), "%5u x %5u    ",
 			 gview->data.size.width, gview->data.size.height);
 	}
 

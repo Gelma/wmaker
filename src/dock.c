@@ -1419,7 +1419,7 @@ void wClipIconPaint(WAppIcon *aicon)
 	WMColor *color;
 	Window win = aicon->icon->core->window;
 	int length, nlength;
-	char *ws_name, ws_number[sizeof scr->current_workspace * CHAR_BIT / 3 + 1];
+	char *ws_name, ws_number[32];
 	int ty, tx;
 
 	wIconPaint(aicon->icon);
@@ -1427,7 +1427,7 @@ void wClipIconPaint(WAppIcon *aicon)
 	length = strlen(workspace->name);
 	ws_name = wmalloc(length + 1);
 	snprintf(ws_name, length + 1, "%s", workspace->name);
-	snprintf(ws_number, sizeof ws_number, "%u", scr->current_workspace + 1);
+	snprintf(ws_number, sizeof ws_number, "%d", scr->current_workspace + 1);
 	nlength = strlen(ws_number);
 
 	if (wPreferences.flags.noclip || !workspace->clip->collapsed)
