@@ -1326,7 +1326,7 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 				 * in a previous incarnation and that state was restored */
 				app->flags.hidden = 1;
 			} else if (app->flags.hidden) {
-				if (WFLAGP(app->main_window_desc, start_hidden)) {
+				if (app->main_window_desc && WFLAGP(app->main_window_desc, start_hidden)) {
 					wwin->flags.hidden = 1;
 				} else {
 					wUnhideApplication(app, False, False);
