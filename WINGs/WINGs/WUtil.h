@@ -524,7 +524,7 @@ WMBag* WMCreateTreeBagWithDestructor(WMFreeDataProc *destructor);
 
 int WMGetBagItemCount(WMBag *bag);
 
-void WMAppendBag(WMBag *bag, WMBag *other);
+void WMAppendBag(WMBag *self, WMBag *bag);
 
 void WMPutInBag(WMBag *bag, void *item);
 
