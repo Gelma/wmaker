@@ -107,12 +107,20 @@ int main(int argc, char **argv)
 	}
 
 	colors = malloc(sizeof(RColor *) * (ncolors + 1));
+	if (!colors) {
+		fprintf(stderr, "could not allocate memory for colors\n");
+		exit(1);
+	}
 	for (i = 0; i < ncolors; i++) {
 		if (!XParseColor(dpy, ctx->cmap, color_name[i], &color)) {
 			printf("could not parse color \"%s\"\n", color_name[i]);
 			exit(1);
 		} else {
 			colors[i] = malloc(sizeof(RColor));
+			if (!colors[i]) {
+				fprintf(stderr, "could not allocate memory for color\n");
+				exit(1);
+			}
 			colors[i]->red = color.red >> 8;
 			colors[i]->green = color.green >> 8;
 			colors[i]->blue = color.blue >> 8;
