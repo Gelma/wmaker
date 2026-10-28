@@ -78,7 +78,7 @@
 /* The argument at index #i must not be NULL */
 #define __wrlib_nonnull(...)     __attribute__ ((nonnull(__VA_ARGS__)))
 #else
-#define __wrlib_nonnull(argidx)
+#define __wrlib_nonnull(...)
 #endif
 
 #if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
