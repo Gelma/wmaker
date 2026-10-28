@@ -353,7 +353,9 @@ static Bool sectionWasSelected(Text * tPtr, TextBlock * tb, XRectangle * rect, i
 			}
 
 			if (i > tb->sections[s].end) {
+#ifdef DEBUG
 				printf("WasSelected: (i > tb->sections[s].end) \n");
+#endif
 				return False;
 			}
 
@@ -389,7 +391,9 @@ static Bool sectionWasSelected(Text * tPtr, TextBlock * tb, XRectangle * rect, i
 		rect->y = tb->sections[s]._y - tPtr->vpos;
 		rect->height = tb->sections[s].h;
 		if (tb->graphic) {
+#ifdef DEBUG
 			printf("DEBUG: graphic s%d h%d\n", s, tb->sections[s].h);
+#endif
 		}
 	}
 	return selected;
@@ -495,14 +499,18 @@ static void setSelectionProperty(WMText * tPtr, WMFont * font, WMColor * color, 
 	if (isFont && tPtr->currentTextBlock) {
 		TextBlock *tb = tPtr->currentTextBlock;
 
+#ifdef DEBUG
 		printf("%d %d %d\n", tPtr->sel.y, tPtr->sel.h, tPtr->sel.w);
+#endif
 		tPtr->sel.y = 3 + tb->sections[0]._y;
 		tPtr->sel.h = tb->sections[tb->nsections - 1]._y - tb->sections[0]._y;
 		tPtr->sel.w = tb->sections[tb->nsections - 1].w;
 		if (tb->sections[tb->nsections - 1]._y != tb->sections[0]._y) {
 			tPtr->sel.x = 0;
 		}
+#ifdef DEBUG
 		printf("%d %d %d\n\n\n", tPtr->sel.y, tPtr->sel.h, tPtr->sel.w);
+#endif
 	}
 
 }
@@ -1139,7 +1147,9 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 				pos = 1;
 				tPtr->cursor.x += gw;
 			} else {
-				printf("first %d\n", tb->first);
+#ifdef DEBUG
+				printf("first %u\n", tb->first);
+#endif
 				if (tb->prior) {
 					if (tb->prior->graphic)
 						pos = 1;
@@ -1634,16 +1644,22 @@ static void layOutDocument(Text * tPtr)
 				int ss, sd;
 
 				lh += 1 + tPtr->visible.y + ltb->sections[ltb->nsections - 1].max_d;
+#ifdef DEBUG
 				printf("it's %d\n", tPtr->visible.y + ltb->sections[ltb->nsections - 1].max_d);
+#endif
 
 				y += layOutLine(tPtr, items, nitems, x, y);
 				ss = ly + lh - y;
 				sd = tPtr->docHeight - y;
 
+#ifdef DEBUG
 				printf("dif %d-%d: %d\n", ss, sd, ss - sd);
+#endif
 				y += tb->next->sections[0]._y - y;
 				nitems = 0;
+#ifdef DEBUG
 				printf("nitems%d\n", nitems);
+#endif
 				if (ss - sd != 0)
 					y = tPtr->docHeight + ss - sd;
 
@@ -1876,8 +1892,11 @@ static void deleteTextInteractively(Text * tPtr, KeySym ksym)
 			} else if (tPtr->currentTextBlock) {
 				tPtr->tpos = (tPtr->currentTextBlock->graphic ? 1 : tPtr->currentTextBlock->used);
 			}
-		} else
+		} else {
+#ifdef DEBUG
 			printf("DEBUG: unaccounted for... catch this!\n");
+#endif
+		}
 	}
 
 	layOutDocument(tPtr);
@@ -2063,8 +2082,11 @@ static WMData *requestHandler(WMView * view, Atom selection, Atom target, void *
 		}
 		*type = target;
 		return data;
-	} else
+	}
+#ifdef DEBUG
+	else
 		printf("didn't get it\n");
+#endif
 
 	if (target == XA_TARGETS) {
 		Atom supported_type[4];
@@ -2842,7 +2864,7 @@ static char *getStream(WMText * tPtr, int sel, int array)
 	tb = tPtr->firstTextBlock;
 	while (tb) {
 
-		if (!tb->graphic || (tb->graphic && !tPtr->flags.monoFont)) {
+		if (!tb->graphic || !tPtr->flags.monoFont) {
 
 			if (!sel || (tb->graphic && tb->selected)) {
 
@@ -3684,8 +3706,7 @@ void WMSetTextUsesMonoFont(WMText * tPtr, Bool mono)
 	if (mono) {
 		if (tPtr->flags.rulerShown)
 			WMShowTextRuler(tPtr, False);
-		if (tPtr->flags.alignment != WALeft)
-			tPtr->flags.alignment = WALeft;
+		tPtr->flags.alignment = WALeft;
 	}
 
 	tPtr->flags.monoFont = mono;
