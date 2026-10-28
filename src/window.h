@@ -80,8 +80,8 @@ typedef enum {
     ? (wwin)->user_flags.FLAG \
     : (wwin)->client_flags.FLAG)
 
-#define WSETUFLAG(wwin, FLAG, VAL)	(wwin)->user_flags.FLAG = (VAL),\
-    (wwin)->defined_user_flags.FLAG = 1
+#define WSETUFLAG(wwin, FLAG, VAL)	(((wwin)->user_flags.FLAG = (VAL)),\
+    ((wwin)->defined_user_flags.FLAG = 1))
 
 typedef struct {
     /* OpenStep */
