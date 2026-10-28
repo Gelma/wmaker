@@ -132,6 +132,30 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
     - Corretto lo specificatore di formato da `%d` a `%u` per la variabile `unsigned int nitems` nella `printf` diagnostica.
 43. **[`ec434c8b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/tests/testgrad.c#L109-L120) - `wrlib/tests`: Verifica valore di ritorno di `malloc` nei test dei gradienti**:
     - Verificata l'allocazione dell'array `colors` e delle singole strutture `colors[i]` in `testgrad.c` prima della dereferenziazione.
+44. **[`199419bd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WUtil.h#L48-L208) - `WINGs`: Protezione macro di asserzione con `do-while` e parentesi in `WMScale`**:
+    - Racchiuse le macro di asserzione `wassertr` e `wassertrv` in blocchi `do { ... } while (0)` per evitare il bug del dangling-else se usate in strutture `if-else`.
+    - Inserite le parentesi `(value)` in `(double)(value)` nelle macro `WMScaleX` e `WMScaleY` per prevenire errori di precedenza operatore quando viene passata un'espressione aritmetica complessa.
+45. **[`d54c888c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/WindowMaker.h#L261-L274) - `wmaker`: Incapsulamento `WCHANGE_STATE` e `SIG_WCHANGE_STATE` in `do-while`**:
+    - Sostituiti i blocchi di istruzioni semplici `{ ... }` con costrutti sicuri `do { ... } while (0)`.
+46. **[`bff27388`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.h#L33-L42) - `xdnd`: Parentesi su parametro indice in `XDND_ENTER_TYPE` e `do-while` per `XDND_STATUS_RECT_SET`**:
+    - In `src/xdnd.h` e `util/xdnd.h`, corretto `2 + i` in `2 + (i)` ed esteso l'incapsulamento in `do { ... } while (0)` per `XDND_STATUS_RECT_SET`.
+47. **[`819e62e8`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h#L83) - `window`: Parentesizzazione espressione con virgola in `WSETUFLAG`**:
+    - Racchiusa tra parentesi tonde l'espressione `((wwin)->user_flags.FLAG = (VAL), ...)` per evitare problemi di precedenza con operatori ternari o assegnazioni.
+48. **[`84e8f018`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/stacking.h#L32) - `stacking`: Rimozione prototipo obsoleto `CommitStackingForFrame`**:
+    - Eliminata la dichiarazione superflua e non implementata, sostituita storicamente da `CommitStackingForWindow`.
+49. **[`fdf528c5`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.h#L40) - `workspace`: Rimozione prototipo orfano `wWorkspaceMenuEdit`**:
+    - Rimosso prototipo non presente in alcuna unità di compilazione.
+50. **[`64d03409`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/texture.h#L168-L177) - `texture`: Rimozione prototipi non implementati e sicurezza `FREE_PIXMAP`**:
+    - Rimossi i prototipi non implementati `wTexturePaint`, `wTextureRender` e `wTexturePaintTitlebar`.
+    - Racchiusa la macro `FREE_PIXMAP` in blocco protetto `do { ... } while (0)`.
+51. **[`e907a7c3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.h#L39) - `defaults`: Rimozione prototipo morto `wSaveDefaults`**:
+    - Eliminata la dichiarazione non implementata.
+52. **[`6a09948f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xutil.h#L25-L28) - `xutil`: Rimozione prototipi orfani `RequestSelection` e `GetSelection`**:
+    - Rimosse le dichiarazioni residue risalenti al vecchio codice di selezione X11.
+53. **[`ec224d35`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/keybind.h#L195) - `keybind`: Rimozione prototipo morto `wKeyboardInitialize`**:
+    - Eliminato prototipo non definito in `src/misc.c` né nel resto del progetto.
+54. **[`e09bbed4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGsP.h.in#L332) - `WINGs`: Rimozione prototipo obsoleto `W_FreeDragOperationItem`**:
+    - Rimosso il prototipo privo di implementazione nel modulo drag-and-drop.
 
 ---
 
