@@ -437,7 +437,7 @@ static WSavedState *getWindowState(WScreen * scr, WMPropList * win_state)
 
 	value = WMGetFromPLDictionary(win_state, sGeometry);
 	if (value && WMIsPLString(value)) {
-		if (!(sscanf(WMGetFromPLString(value), "%ix%i+%i+%i",
+		if (!(sscanf(WMGetFromPLString(value), "%ux%u+%i+%i",
 			     &state->w, &state->h, &state->x, &state->y) == 4 && (state->w > 0 && state->h > 0))) {
 			state->w = 0;
 			state->h = 0;
