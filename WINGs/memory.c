@@ -192,7 +192,6 @@ void wfree(void *ptr)
 #else
 		free(ptr);
 #endif
-	ptr = NULL;
 }
 
 void wrelease(void *ptr)
