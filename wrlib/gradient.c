@@ -44,6 +44,9 @@ RImage *RRenderMultiGradient(unsigned width, unsigned height, RColor **colors, R
 {
 	int count;
 
+	if (!colors)
+		return NULL;
+
 	count = 0;
 	while (colors[count] != NULL)
 		count++;
