@@ -1179,7 +1179,7 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 	}
  _doNothing:
 	if (!tb)
-		printf("...for this app will surely crash :-)\n");
+		return;
 
 	tPtr->currentTextBlock = tb;
 	tPtr->cursor.h = tb->sections[s].h;
