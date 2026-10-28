@@ -2011,7 +2011,7 @@ void wUnhideApplication(WApplication *wapp, Bool miniwindows, Bool bringToCurren
 	WWindow *focused = NULL;
 	int animate;
 
-	if (!wapp)
+	if (!wapp || !wapp->main_window_desc)
 		return;
 
 	scr = wapp->main_window_desc->screen_ptr;
