@@ -29,6 +29,5 @@ void RemoveFromStackList(WCoreWindow *frame);
 void ChangeStackingLevel(WCoreWindow *frame, int new_level);
 void RemakeStackList(WScreen *scr);
 void CommitStacking(WScreen *scr);
-void CommitStackingForFrame(WCoreWindow *frame);
 void CommitStackingForWindow(WCoreWindow * frame);
 #endif
