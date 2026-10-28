@@ -376,16 +376,17 @@ static void showText(Balloon * bPtr, int x, int y, int w, int h, const char *tex
 
 		ptr2 = ptr = text;
 		width = 0;
-		while (ptr && ptr2) {
+		while (ptr) {
 			ptr2 = strchr(ptr, '\n');
 			if (ptr2) {
 				w = WMWidthOfString(font, ptr, ptr2 - ptr);
+				ptr = ptr2 + 1;
 			} else {
 				w = WMWidthOfString(font, ptr, strlen(ptr));
+				ptr = NULL;
 			}
 			if (w > width)
 				width = w;
-			ptr = ptr2 + 1;
 		}
 	}
 
