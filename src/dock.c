@@ -2004,7 +2004,7 @@ WDock *wDockRestoreState(WScreen *scr, WMPropList *dock_state, int type)
 	}
 
 	/* if the first icon is not defined, use the default */
-	if (dock->icon_array[0] == NULL) {
+	if (dock->icon_array[0] == NULL && old_top != NULL) {
 		/* update default icon */
 		old_top->x_pos = dock->x_pos;
 		old_top->y_pos = dock->y_pos;
@@ -4513,16 +4513,19 @@ static void drawerDestroy(WDock *drawer)
 
 	if (drawer->icon_count == 2) {
 		/* Drawer contains a single appicon: dock it where the drawer was */
+		aicon = NULL;
 		for (i = 1; i < drawer->max_icons; i++) {
 			aicon = drawer->icon_array[i];
 			if (aicon != NULL)
 				break;
 		}
 
-		wDockMoveIconBetweenDocks(drawer, scr->dock, aicon,
-					0, (drawer->y_pos - scr->dock->y_pos) / ICON_SIZE);
-		XMoveWindow(dpy, aicon->icon->core->window, drawer->x_pos, drawer->y_pos);
-		XMapWindow(dpy, aicon->icon->core->window);
+		if (aicon != NULL) {
+			wDockMoveIconBetweenDocks(drawer, scr->dock, aicon,
+						0, (drawer->y_pos - scr->dock->y_pos) / ICON_SIZE);
+			XMoveWindow(dpy, aicon->icon->core->window, drawer->x_pos, drawer->y_pos);
+			XMapWindow(dpy, aicon->icon->core->window);
+		}
 	} else if (drawer->icon_count > 2) {
 		icons = WMCreateArray(drawer->icon_count - 1);
 		for (i = 1; i < drawer->max_icons; i++) {
