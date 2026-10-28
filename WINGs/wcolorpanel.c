@@ -1889,7 +1889,7 @@ static void wheelInitMatrix(W_ColorPanel * panel)
 	int i;
 	int x, y;
 	unsigned char *rp, *gp, *bp;
-	CPColor cpColor;
+	CPColor cpColor = {};
 	long ofs[4];
 	int xcor, ycor;
 	unsigned short sat;
@@ -2219,7 +2219,7 @@ static void wheelPositionSelectionOutBounds(W_ColorPanel * panel, int x, int y)
 {
 	int hue;
 	int xcor, ycor;
-	CPColor cpColor;
+	CPColor cpColor = {};
 
 	xcor = x * 2 - colorWheelSize - 4;
 	ycor = y * 2 - colorWheelSize - 4;
@@ -2294,7 +2294,7 @@ static void wheelUpdateBrightnessGradient(W_ColorPanel * panel, CPColor topColor
 
 static void grayBrightnessSliderCallback(WMWidget * w, void *data)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	int value;
 	char tmp[4];
 	W_ColorPanel *panel = (W_ColorPanel *) data;
@@ -2316,7 +2316,7 @@ static void grayBrightnessSliderCallback(WMWidget * w, void *data)
 
 static void grayPresetButtonCallback(WMWidget * w, void *data)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	char tmp[4];
 	int value;
 	int i = 0;
@@ -2343,7 +2343,7 @@ static void grayPresetButtonCallback(WMWidget * w, void *data)
 
 static void grayBrightnessTextFieldCallback(void *observerData, WMNotification * notification)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	char tmp[4];
 	int value;
 	W_ColorPanel *panel = (W_ColorPanel *) observerData;
@@ -2426,7 +2426,7 @@ int *rgbCharToInt(W_ColorPanel *panel)
 
 static void rgbSliderCallback(WMWidget * w, void *data)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	int value[3];
 	W_ColorPanel *panel = (W_ColorPanel *) data;
 
@@ -2450,7 +2450,7 @@ static void rgbSliderCallback(WMWidget * w, void *data)
 
 static void rgbTextFieldCallback(void *observerData, WMNotification * notification)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	int *value;
 	int n;
 	W_ColorPanel *panel = (W_ColorPanel *) observerData;
@@ -2516,7 +2516,7 @@ static void rgbDecToHex(WMWidget *w, void *data)
 
 static void cmykSliderCallback(WMWidget * w, void *data)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	int value[4];
 	char tmp[4];
 	W_ColorPanel *panel = (W_ColorPanel *) data;
@@ -2551,7 +2551,7 @@ static void cmykSliderCallback(WMWidget * w, void *data)
 
 static void cmykTextFieldCallback(void *observerData, WMNotification * notification)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 	int value[4];
 	char tmp[4];
 	int n;
@@ -2695,7 +2695,7 @@ static void hsbUpdateBrightnessGradient(W_ColorPanel * panel)
 {
 	W_Screen *scr = WMWidgetScreen(panel->win);
 	RColor from;
-	CPColor to;
+	CPColor to = {};
 	RImage *sliderImg;
 	WMPixmap *sliderPxmp;
 
@@ -2724,8 +2724,8 @@ static void hsbUpdateBrightnessGradient(W_ColorPanel * panel)
 static void hsbUpdateSaturationGradient(W_ColorPanel * panel)
 {
 	W_Screen *scr = WMWidgetScreen(panel->win);
-	CPColor from;
-	CPColor to;
+	CPColor from = {};
+	CPColor to = {};
 	RImage *sliderImg;
 	WMPixmap *sliderPxmp;
 
@@ -2801,7 +2801,7 @@ static void customRenderSpectrum(W_ColorPanel * panel)
 	RImage *spectrum;
 	int x, y;
 	unsigned char *ptr;
-	CPColor cpColor;
+	CPColor cpColor = {};
 
 	spectrum = RCreateImage(SPECTRUM_WIDTH, SPECTRUM_HEIGHT, False);
 
@@ -3290,7 +3290,7 @@ static void colorListPaintItem(WMList * lPtr, int index, Drawable d, char *text,
 static void colorListSelect(WMWidget * w, void *data)
 {
 	W_ColorPanel *panel = (W_ColorPanel *) data;
-	CPColor cpColor;
+	CPColor cpColor = {};
 
 	cpColor.rgb = *((RColor *) WMGetListSelectedItem(w)->clientData);
 	cpColor.set = cpRGB;
@@ -3339,7 +3339,7 @@ static void colorListListMenuCallback(WMWidget * w, void *data)
 
 static void wheelInit(W_ColorPanel * panel)
 {
-	CPColor cpColor;
+	CPColor cpColor = {};
 
 	if (panel->color.set != cpHSV)
 		convertCPColor(&panel->color);
@@ -3437,7 +3437,7 @@ static void cmykInit(W_ColorPanel * panel)
 static void hsbInit(W_ColorPanel * panel)
 {
 	int value[3];
-	char tmp[4];
+	char tmp[16];
 
 	if (panel->color.set != cpHSV)
 		convertCPColor(&panel->color);
@@ -3450,11 +3450,11 @@ static void hsbInit(W_ColorPanel * panel)
 	WMSetSliderValue(panel->hsbSaturationS, value[1]);
 	WMSetSliderValue(panel->hsbBrightnessS, value[2]);
 
-	sprintf(tmp, "%hu", value[0]);
+	snprintf(tmp, sizeof(tmp), "%d", value[0]);
 	WMSetTextFieldText(panel->hsbHueT, tmp);
-	sprintf(tmp, "%d", value[1]);
+	snprintf(tmp, sizeof(tmp), "%d", value[1]);
 	WMSetTextFieldText(panel->hsbSaturationT, tmp);
-	sprintf(tmp, "%d", value[2]);
+	snprintf(tmp, sizeof(tmp), "%d", value[2]);
 	WMSetTextFieldText(panel->hsbBrightnessT, tmp);
 
 	hsbUpdateBrightnessGradient(panel);
@@ -3479,7 +3479,10 @@ static char *generateNewFilename(const char *curName)
 	if (((ptr = strrchr(ptr, '{')) == 0) || sscanf(ptr, "{%i}%c", &n, &c) != 1)
 		return wstrconcat(curName, " {1}");
 
-	baseLen = ptr - curName - 1;
+	if (ptr > curName && *(ptr - 1) == ' ')
+		baseLen = ptr - curName - 1;
+	else
+		baseLen = ptr - curName;
 
 	newName = wmalloc(baseLen + 16);
 	strncpy(newName, curName, baseLen);
