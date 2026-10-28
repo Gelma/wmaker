@@ -286,9 +286,13 @@ WMenuEntry *wMenuInsertCallback(WMenu *menu, int index, const char *text,
 
 void wMenuEntrySetCascade(WMenu * menu, WMenuEntry * entry, WMenu * cascade)
 {
-	WMenu *brother = menu->brother;
+	WMenu *brother;
 	int i, done;
 
+	if (!menu || !entry || !cascade)
+		return;
+
+	brother = menu->brother;
 	assert(menu->flags.brother == 0);
 
 	if (entry->cascade >= 0) {
