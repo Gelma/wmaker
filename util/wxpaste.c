@@ -79,7 +79,7 @@ static Time getTimestamp(Display * dpy, Window win)
 	return ev.xproperty.time;
 }
 
-static char *fetchSelection(Display *dpy, const char *selection)
+static char *fetchSelection(Display *dpy, const char *selection, int *length)
 {
 	Atom selatom = XInternAtom(dpy, selection, False);
 	Atom clipatom = XInternAtom(dpy, "CLIPBOARD", False);
@@ -103,9 +103,9 @@ static char *fetchSelection(Display *dpy, const char *selection)
 	timeout.tv_sec = 1;
 	timeout.tv_usec = 0;
 
-	/* wait for the convertion */
-	while (0) {
-		int res;
+	/* wait for the conversion */
+	while (1) {
+		int res = 0;
 
 		if (XPending(dpy) == 0) {
 			FD_ZERO(&fdset);
@@ -139,6 +139,8 @@ static char *fetchSelection(Display *dpy, const char *selection)
 		if ((rtype != XA_STRING) || (bits != 8)) {
 			return NULL;
 		} else {
+			if (length)
+				*length = (int)len;
 			return (char *)data;
 		}
 	}
@@ -148,7 +150,7 @@ static char *fetchSelection(Display *dpy, const char *selection)
 int main(int argc, char **argv)
 {
 	Display *dpy;
-	int i, l;
+	int i, l = 0;
 	int buffer = 0;
 	char *buf;
 	int status;
@@ -208,7 +210,7 @@ int main(int argc, char **argv)
 	}
 
 	if (selection_name) {
-		buf = fetchSelection(dpy, selection_name);
+		buf = fetchSelection(dpy, selection_name, &l);
 	} else {
 		buf = NULL;
 	}
