@@ -206,12 +206,10 @@ char *wstrconcat(const char *str1, const char *str2)
 	char *str;
 	size_t slen, slen1;
 
-	if (!str1 && str2)
-		return wstrdup(str2);
-	else if (str1 && !str2)
+	if (!str1)
+		return str2 ? wstrdup(str2) : NULL;
+	if (!str2)
 		return wstrdup(str1);
-	else if (!str1 && !str2)
-		return NULL;
 
 	slen1 = strlen(str1);
 	slen = slen1 + strlen(str2) + 1;
