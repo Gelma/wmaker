@@ -99,19 +99,21 @@ void parse_wmconfig(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 			wfree(label);
 			continue;
 		}
-		if (!lastlabel && label)
-			lastlabel = wstrdup(label);
+		if (label) {
+			if (!lastlabel)
+				lastlabel = wstrdup(label);
 
-		if (strcmp(lastlabel, label) != 0) {
-			if (wmc_to_wm(&wmc, &wm)) {
-				(*addWMMenuEntryCallback)(wm);
-				init_wmconfig_storage(&wmc);
+			if (strcmp(lastlabel, label) != 0) {
+				if (wmc_to_wm(&wmc, &wm)) {
+					(*addWMMenuEntryCallback)(wm);
+					init_wmconfig_storage(&wmc);
+				}
+
+				wfree(lastlabel);
+				lastlabel = wstrdup(label);
 			}
-
-			wfree(lastlabel);
-			lastlabel = wstrdup(label);
+			wfree(label);
 		}
-		wfree(label);
 
 		if (key && value) {
 			if (strcmp(key, "name") == 0)
