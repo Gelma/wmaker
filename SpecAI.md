@@ -94,6 +94,38 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
     - In `updateMenu()`, verificata l'esistenza di `wapp->main_window_desc` prima di valutare la macro `WFLAGP(wapp->main_window_desc, no_appicon)`, evitando crash durante l'apertura del menù comandi finestra.
 25. **[`6d46cd4b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1329) - `window`: Controllo NULL su `main_window_desc` in `wManageWindow`**:
     - Verificato `app->main_window_desc != NULL` prima dell'accesso all'attributo `start_hidden`.
+26. **[`8dcb6567`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/wraster.h.in#L65) - `wrlib`: Macro `__wrlib_nonnull` variadica nel template `wraster.h.in`**:
+    - Nel template di fallback, la macro `#define __wrlib_nonnull(argidx)` accettava un solo argomento invece di `(...)`, causando l'abort dell'espansione macro e dei parser di analisi statica. Corretta in macro variadica `__wrlib_nonnull(...)`.
+27. **[`99a11f75`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/xdnd.c#L525-L545) - `xdnd`: Correzione aritmetica puntatori out-of-bounds e controlli allocazione heap**:
+    - In `util/xdnd.c:526`, `*descriptions` è di tipo `char **`. L'istruzione `memcpy(*descriptions + l, data, dcount)` sommava l'offset moltiplicato per `sizeof(char *)`, provocando grave corruzione dello heap e stack smash. Corretto con casting a byte `(char *)*descriptions + l`.
+    - Aggiunti controlli di fallimento allocazione su `*descriptions` e `*types`.
+28. **[`2873c117`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmmenugen_parse_wmconfig.c#L105) - `wmmenugen`: Guardia NULL su `label` in `parse_wmconfig_file`**:
+    - Se una linea di configurazione non forniva label (`label == NULL`), la chiamata `strcmp(lastlabel, label)` causava crash immediato di `wmmenugen`. Aggiunta la condizione di guardia `if (label)`.
+29. **[`14f5d37e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/session.c#L188-L195) - `session`: Eliminazione leak di memoria e possibile crash NULL su classe finestra**:
+    - La riassegnazione `class = strdup(wwin->wm_class)` perdeva il riferimento al puntatore allocato da XGetClassHint e non controllava `wwin->wm_class != NULL`. Sostituito con un puntatore temporaneo `const char *c` sicuro.
+30. **[`9dc319ea`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/superfluous.c#L145-L155) - `superfluous`: Controllo del valore di ritorno di `malloc` in `wAppBounce`**:
+    - Verificata la corretta allocazione di memoria per il buffer `points` prima del ciclo di calcolo dell'animazione.
+31. **[`83ebd261`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1840) - `window`: Pulizia controllo ridondante di `focus_mode` in `wUnmanageWindow`**:
+    - Rimosso controllo annidato duplicato `focus_mode == WKF_CLICK` già garantito dalla condizione esterna.
+32. **[`5625724f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c#L365) - `main`: Utilizzo di `wmalloc` per `wVisualID`**:
+    - Sostituita la chiamata non controllata a `malloc()` con la funzione sicura `wmalloc()`.
+33. **[`0a48ac89`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c#L445) - `xdnd`: Controllo fallimento allocazione in `wXDNDGetTypeList`**:
+    - Verificata l'allocazione dell'array `typelist` per evitare dereferenziazione NULL in condizioni OOM.
+34. **[`22f090e0`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1158) - `dialog`: Allineamento specificatore di formato `%d` per `current_year`**:
+    - Sostituito lo specificatore unsigned `%u` con `%d` per intero con segno in `COPYRIGHT_TEXT`.
+35. **[`58f2a261`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/menuparser_macros.c#L205) - `WINGs`: Specificatore `%u` per conteggio senza segno in `menuparser_macros`**:
+    - Corretto specificatore `%d` in `%u` per variabile unsigned int.
+36. **[`757e51a2`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/scale.c#L740-L750) - `wrlib`: Controllo allocazioni di memoria in `RSmoothScaleImage`**:
+    - Verificata la corretta allocazione delle linee di raster `wlines[0]` e `wlines[1]` per prevenire crash su immagini scalate in esaurimento memoria.
+37. **[`f3fd4576`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/Tests/wtest.c#L360) - `WINGs/Tests`: Chiusura file descriptor e conversione encoding a UTF-8**:
+    - Inserita la chiusura `fclose(f)` nel ciclo di lettura dei file di test e convertito il carattere accentato Latin-1 in UTF-8 valido.
+38. **[`42bdb767`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/gradient.c#L47) - `wrlib`: Controllo NULL su array `colors` in `RRenderMultiGradient`**:
+    - Aggiunta guardia `if (!colors) return NULL;` prima dell'accesso ciclico agli stop del gradiente.
+39. **[`f2a3be62`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/string.c#L209) - `WINGs`: Semplificazione controlli null pointer in `wstrconcat`**:
+    - Ottimizzata la sequenza di guardie sui puntatori alle stringhe concatenate.
+40. **[`4b7b4e79`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L355-L2085) - `WINGs`: Incapsulamento `printf` di debug sotto macro `DEBUG` e pulizia logica**:
+    - Racchiuse le istruzioni di logging diagnostico di basso livello in `#ifdef DEBUG` e corretto specificatore unsigned `%u` per `tb->first`.
+    - Rimosse condizioni ridondanti su `tb->graphic` e semplificata l'assegnazione di allineamento del testo.
 
 ---
 
