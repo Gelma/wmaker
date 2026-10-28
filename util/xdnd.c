@@ -416,6 +416,10 @@ void xdnd_get_type_list (DndClass * dnd, Window window, Atom ** typelist)
         return;
     }
     *typelist = malloc ((count + 1) * sizeof (Atom));
+    if (!*typelist) {
+        XFree (data);
+        return;
+    }
     a = (Atom *) data;
     for (i = 0; i < count; i++)
         (*typelist)[i] = a[i];
@@ -430,6 +434,8 @@ void xdnd_get_three_types (DndClass * dnd, XEvent * xevent, Atom ** typelist)
 	(void) dnd;
 
     *typelist = malloc ((XDND_THREE + 1) * sizeof (Atom));
+    if (!*typelist)
+        return;
     for (i = 0; i < XDND_THREE; i++)
         (*typelist)[i] = XDND_ENTER_TYPE (xevent, i);
     (*typelist)[XDND_THREE] = 0;        /* although (*typelist)[1] or (*typelist)[2] may also be set to nill */
@@ -499,6 +505,10 @@ int xdnd_get_actions (DndClass * dnd, Window window, Atom ** actions, char ***de
         return 1;
     }
     *actions = malloc ((count + 1) * sizeof (Atom));
+    if (!*actions) {
+        XFree (data);
+        return 1;
+    }
     a = (Atom *) data;
     for (i = 0; i < count; i++)
         (*actions)[i] = a[i];
@@ -515,6 +525,8 @@ int xdnd_get_actions (DndClass * dnd, Window window, Atom ** actions, char ***de
         if (data)
             XFree (data);
         *descriptions = malloc ((count + 1) * sizeof (char *));
+        if (!*descriptions)
+            return 1;
         dnd_warning ("XGetWindowProperty no property or wrong format for action descriptions");
         for (i = 0; i < count; i++)
             (*descriptions)[i] = "";
@@ -523,7 +535,11 @@ int xdnd_get_actions (DndClass * dnd, Window window, Atom ** actions, char ***de
         int l;
         l = (count + 1) * sizeof (char *);
         *descriptions = malloc (l + dcount);
-        memcpy (*descriptions + l, data, dcount);
+        if (!*descriptions) {
+            XFree (data);
+            return 1;
+        }
+        memcpy ((char *) *descriptions + l, data, dcount);
         XFree (data);
         data = (unsigned char *) *descriptions;
         data += l;
