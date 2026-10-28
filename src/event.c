@@ -733,12 +733,14 @@ static void handleDestroyNotify(XEvent * event)
 	if (app) {
 		if (window == app->main_window) {
 			app->refcount = 0;
-			wwin = app->main_window_desc->screen_ptr->focused_window;
-			while (wwin) {
-				if (wwin->main_window == window) {
-					wwin->main_window = None;
+			if (app->main_window_desc && app->main_window_desc->screen_ptr) {
+				wwin = app->main_window_desc->screen_ptr->focused_window;
+				while (wwin) {
+					if (wwin->main_window == window) {
+						wwin->main_window = None;
+					}
+					wwin = wwin->prev;
 				}
-				wwin = wwin->prev;
 			}
 		}
 		wApplicationDestroy(app);
@@ -1021,7 +1023,7 @@ static void handlePropertyNotify(XEvent * event)
 		wClientCheckProperty(wwin, &event->xproperty);
 	}
 	wapp = wApplicationOf(event->xproperty.window);
-	if (wapp) {
+	if (wapp && wapp->main_window_desc) {
 		wClientCheckProperty(wapp->main_window_desc, &event->xproperty);
 	}
 }
@@ -1584,7 +1586,7 @@ static void dispatchWKBDCommand(int command, WScreen *scr, WWindow *wwin, XEvent
 			WApplication *wapp = wApplicationOf(wwin->main_window);
 			CloseWindowMenu(scr);
 
-			if (wapp && !WFLAGP(wapp->main_window_desc, no_appicon)) {
+			if (wapp && wapp->main_window_desc && !WFLAGP(wapp->main_window_desc, no_appicon)) {
 				wHideApplication(wapp);
 			}
 		}
