@@ -515,6 +515,9 @@ static char *next_token(char *line, char **next)
 	char *ret;
 
 	*next = NULL;
+	if (!line)
+		return NULL;
+
 	while (*line == ' ' || *line == '\t')
 		line++;
 
