@@ -258,20 +258,20 @@ typedef enum {
 #define WCHECK_STATE(chk_state)	(w_global.program.state == (chk_state))
 
 
-#define WCHANGE_STATE(nstate) {\
+#define WCHANGE_STATE(nstate) do {\
 		if (w_global.program.state == WSTATE_NORMAL		\
 		    || (nstate) != WSTATE_MODAL)			\
 			w_global.program.state = (nstate);		\
 		if (w_global.program.signal_state != 0)			\
 			w_global.program.state = w_global.program.signal_state;	\
-}
+} while (0)
 
 
 /* only call inside signal handlers, with signals blocked */
-#define SIG_WCHANGE_STATE(nstate) {\
+#define SIG_WCHANGE_STATE(nstate) do {\
 		w_global.program.signal_state = (nstate);	\
 		w_global.program.state = (nstate);		\
-}
+} while (0)
 
 
 /* Flags for the Window Maker state when restarting/crash situations */
