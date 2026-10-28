@@ -183,15 +183,14 @@ static WMPropList *makeWindowState(WWindow * wwin, WApplication * wapp)
 	}
 
 	if (PropGetWMClass(win, &class, &instance)) {
-		if (class && instance) {
-			if (class[0] == '\0' && wwin->wm_class && wwin->wm_class[0] != '\0')
-				class = strdup(wwin->wm_class);
-			snprintf(buffer, sizeof(buffer), "%s%s%s", instance, class[0] ? "." : "", class);
+		const char *c = (class && class[0] != '\0') ? class : (wwin->wm_class ? wwin->wm_class : class);
+		if (c && instance) {
+			snprintf(buffer, sizeof(buffer), "%s%s%s", instance, c[0] ? "." : "", c);
 		}
 		else if (instance)
 			snprintf(buffer, sizeof(buffer), "%s", instance);
-		else if (class)
-			snprintf(buffer, sizeof(buffer), ".%s", class);
+		else if (c)
+			snprintf(buffer, sizeof(buffer), ".%s", c);
 		else
 			snprintf(buffer, sizeof(buffer), ".");
 
