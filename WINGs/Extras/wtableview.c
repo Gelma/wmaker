@@ -874,6 +874,11 @@ static WMRange columnsInRect(WMTableView * table, WMRect rect)
 	int totalColumns = WMGetArrayItemCount(table->columns);
 	WMRange range;
 
+	range.position = 0;
+	range.count = 0;
+	if (totalColumns == 0)
+		return range;
+
 	pos = 0;
 	found = 0;
 	for (i = 0; i < totalColumns; i++) {
@@ -892,6 +897,9 @@ static WMRange columnsInRect(WMTableView * table, WMRect rect)
 		}
 		pos += column->width;
 	}
+	if (!found)
+		return range;
+
 	range.count = WMAX(1, WMIN(range.count, totalColumns - range.position));
 	return range;
 }
