@@ -1001,6 +1001,10 @@ static ItemData *parseCommand(WMPropList * item)
 		char *p;
 
 		p = parameter;
+		if (p == NULL) {
+			wfree(data);
+			return NULL;
+		}
 		while (isspace(*p) && *p)
 			p++;
 		if (*p == '|') {

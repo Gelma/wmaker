@@ -475,6 +475,9 @@ static void suspendDropAuthorization(WMView * destView, WMDraggingInfo * info)
 {
 	sendStatusMessage(destView, info, None);
 
+	if (XDND_DEST_INFO(info) == NULL)
+		return;
+
 	/* Free datas that depend on destination behaviour */
 	if (XDND_DROP_DATAS(info) != NULL) {
 		WMFreeArray(XDND_DROP_DATAS(info));

@@ -83,7 +83,8 @@ WMWindow *WMCreatePanelWithStyleForWindow(WMWindow * owner, const char *name, in
 	WMWindow *win;
 
 	win = WMCreateWindowWithStyle(owner->view->screen, name, style);
-	win->owner = owner;
+	if (win)
+		win->owner = owner;
 
 	return win;
 }

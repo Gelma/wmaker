@@ -569,7 +569,7 @@ void StartUp(Bool defaultScreenOnly)
 
 	/* initialize defaults stuff */
 	w_global.domain.wmaker = wDefaultsInitDomain("WindowMaker", True);
-	if (!w_global.domain.wmaker->dictionary)
+	if (!w_global.domain.wmaker || !w_global.domain.wmaker->dictionary)
 		wwarning(_("could not read domain \"%s\" from defaults database"), "WindowMaker");
 
 	/* read defaults that don't change until a restart and are
@@ -585,7 +585,7 @@ void StartUp(Bool defaultScreenOnly)
 
 	/* init other domains */
 	w_global.domain.root_menu = wDefaultsInitDomain("WMRootMenu", False);
-	if (!w_global.domain.root_menu->dictionary)
+	if (!w_global.domain.root_menu || !w_global.domain.root_menu->dictionary)
 		wwarning(_("could not read domain \"%s\" from defaults database"), "WMRootMenu");
 
 	wDefaultsMergeGlobalMenus(w_global.domain.root_menu);

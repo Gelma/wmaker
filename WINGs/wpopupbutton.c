@@ -403,8 +403,9 @@ static void paintMenuEntry(PopUpButton * bPtr, int index, int highlight)
 
 	W_DrawRelief(scr, bPtr->menuView->window, 0, index * itemHeight, width, itemHeight, WRRaised);
 
-	W_PaintText(bPtr->menuView, bPtr->menuView->window, scr->normalFont, 6,
-		    index * itemHeight + yo, width, WALeft, scr->black, False, title, strlen(title));
+	if (title)
+		W_PaintText(bPtr->menuView, bPtr->menuView->window, scr->normalFont, 6,
+			    index * itemHeight + yo, width, WALeft, scr->black, False, title, strlen(title));
 
 	if (!bPtr->flags.pullsDown && index == bPtr->selectedItemIndex) {
 		XCopyArea(scr->display, scr->popUpIndicator->pixmap,

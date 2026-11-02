@@ -548,7 +548,7 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 	char *type;
 	RImage *image = NULL;
 	RImage *timage = NULL;
-	Pixmap pixmap;
+	Pixmap pixmap = None;
 	RContext *rc = WMScreenRContext(scr);
 	char *str;
 	RColor rcolor;
@@ -571,12 +571,17 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 			timage = NULL;
 		}
 		if (!timage) {
-			texture = WMCreatePropListFromDescription("(solid, black)");
-			type = "solid";
+			str2rcolor(rc, "black", &rcolor);
+			image = RCreateImage(width, height, False);
+			if (!image)
+				return None;
+			RClearImage(image, &rcolor);
 		}
 	}
 
-	if (strcasecmp(type, "solid") == 0) {
+	if (image != NULL) {
+		/* fallback solid black image already created above */
+	} else if (strcasecmp(type, "solid") == 0) {
 
 		str = WMGetFromPLString(WMGetFromPLArray(texture, 1));
 
@@ -628,7 +633,7 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 		str2rcolor(rc, str, &rcolor2);
 
 		image = RRenderGradient(width, height, &rcolor, &rcolor2, style);
-	} else if (strcasecmp(&type[2], "gradient") == 0 && toupper(type[0]) == 'T') {
+	} else if (strcasecmp(&type[2], "gradient") == 0 && toupper(type[0]) == 'T' && timage != NULL) {
 		RGradientStyle style;
 		RColor rcolor2;
 		int i;
@@ -702,7 +707,7 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 				wfree(colors[i]);
 			wfree(colors);
 		}
-	} else if (strcasecmp(&type[1], "pixmap") == 0) {
+	} else if (strcasecmp(&type[1], "pixmap") == 0 && timage != NULL) {
 		RColor color;
 
 		str = WMGetFromPLString(WMGetFromPLArray(texture, 2));

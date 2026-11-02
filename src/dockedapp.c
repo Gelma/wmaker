@@ -164,12 +164,13 @@ static void panelBtnCallback(WMWidget * self, void *data)
 		}
 
 		if (!wIconChangeImageFile(panel->editedIcon->icon, text)) {
+			const char *err_text = text ? text : "";
 			char *buf;
-			int len = strlen(text) + 64;
+			int len = strlen(err_text) + 64;
 			int rc;
 
 			buf = wmalloc(len);
-			snprintf(buf, len, _("Could not open specified icon file: %s"), text);
+			snprintf(buf, len, _("Could not open specified icon file: %s"), err_text);
 			panel->choosingIcon = 1;
 			rc = wMessageDialog(panel->wwin->screen_ptr, _("Error"), buf,
 					    _("OK"), _("Ignore"), NULL);
@@ -182,7 +183,8 @@ static void panelBtnCallback(WMWidget * self, void *data)
 				return;
 			}
 			if (rc == WAPRDefault) {
-				wfree(text);
+				if (text)
+					wfree(text);
 				return;
 			}
 		} else {

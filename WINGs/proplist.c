@@ -351,6 +351,8 @@ static char *description(WMPropList * plist)
 		retstr = wstrdup("(");
 		for (i = 0; i < WMGetArrayItemCount(plist->d.array); i++) {
 			str = description(WMGetFromArray(plist->d.array, i));
+			if (!str)
+				continue;
 			if (i == 0) {
 				retstr = wstrappend(retstr, str);
 			} else {
@@ -369,6 +371,13 @@ static char *description(WMPropList * plist)
 		while (WMNextHashEnumeratorItemAndKey(&e, (void **)&val, (void **)&key)) {
 			skey = description(key);
 			sval = description(val);
+			if (!skey || !sval) {
+				if (skey)
+					wfree(skey);
+				if (sval)
+					wfree(sval);
+				continue;
+			}
 			tmp = (char *)wmalloc(strlen(retstr) + strlen(skey) + strlen(sval) + 5);
 			sprintf(tmp, "%s%s = %s;", retstr, skey, sval);
 			wfree(skey);

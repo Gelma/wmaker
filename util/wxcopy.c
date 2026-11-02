@@ -194,8 +194,9 @@ int main(int argc, char **argv)
 		if ((nl = fread(tmp, 1, LINESIZE, file)) <= 0) {
 			break;
 		}
-		if (buf_len == 0) {
-			nbuf = malloc(buf_len = l + nl + 1);
+		if (buf == NULL) {
+			buf_len = l + nl + 1;
+			nbuf = malloc(buf_len);
 		} else if (buf_len < l + nl + 1) {
 			/*
 			 * To avoid terrible performance on big input buffers,
@@ -203,17 +204,13 @@ int main(int argc, char **argv)
 			 * current line.
 			 */
 			buf_len = 2 * buf_len + nl + 1;
-			/* some realloc implementations don't do malloc if buf==NULL */
-			if (buf == NULL) {
-				nbuf = malloc(buf_len);
-			} else {
-				nbuf = realloc(buf, buf_len);
-			}
+			nbuf = realloc(buf, buf_len);
 		} else {
 			nbuf = buf;
 		}
 		if (!nbuf) {
 			fprintf(stderr, "%s: out of memory\n", prog_name);
+			free(buf);
 			exit(1);
 		}
 		buf = nbuf;
@@ -228,6 +225,7 @@ int main(int argc, char **argv)
 			    (stderr,
 			     "%s: too much data in input - more than %d bytes\n"
 			     "  use the -nolimit argument to remove the limit check.\n", prog_name, MAXDATA);
+			free(buf);
 			exit(1);
 		}
 	}

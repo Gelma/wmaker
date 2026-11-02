@@ -1102,7 +1102,7 @@ static WEditMenuItem *duplicateItem(WEditMenuItem * item)
 	WEditMenuItem *nitem;
 
 	nitem = WCreateEditMenuItem(item->parent, item->label, False);
-	if (item->pixmap)
+	if (nitem && item->pixmap)
 		nitem->pixmap = WMRetainPixmap(item->pixmap);
 
 	return nitem;
@@ -1185,6 +1185,10 @@ static void dragItem(WEditMenu * menu, WEditMenuItem * item, Bool copy)
 
 	if (menu->flags.isFactory || copy) {
 		dritem = duplicateItem(item);
+		if (!dritem) {
+			W_DestroyView(dview);
+			return;
+		}
 
 		W_ReparentView(dritem->view, dview, 0, 0);
 		WMResizeWidget(dritem, oldSize.width, oldSize.height);

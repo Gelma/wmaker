@@ -232,18 +232,24 @@ WMColor *WMGrayColor(WMScreen * scr)
 							LIGHT_STIPPLE_HEIGHT);
 
 			color = createRGBAColor(scr, 0xffff, 0xffff, 0xffff, 0xffff);
+			if (!color)
+				color = WMBlackColor(scr);
 
-			gcv.foreground = white->color.pixel;
-			gcv.background = black->color.pixel;
-			gcv.fill_style = FillStippled;
-			gcv.stipple = stipple;
-			color->gc = XCreateGC(scr->display, W_DRAWABLE(scr), GCForeground
-					      | GCBackground | GCStipple | GCFillStyle
-					      | GCGraphicsExposures, &gcv);
+			if (color && white && black) {
+				gcv.foreground = white->color.pixel;
+				gcv.background = black->color.pixel;
+				gcv.fill_style = FillStippled;
+				gcv.stipple = stipple;
+				color->gc = XCreateGC(scr->display, W_DRAWABLE(scr), GCForeground
+						      | GCBackground | GCStipple | GCFillStyle
+						      | GCGraphicsExposures, &gcv);
+			}
 
 			XFreePixmap(scr->display, stipple);
-			WMReleaseColor(white);
-			WMReleaseColor(black);
+			if (white)
+				WMReleaseColor(white);
+			if (black)
+				WMReleaseColor(black);
 		} else {
 			color = WMCreateRGBColor(scr, 0xaeba, 0xaaaa, 0xaeba, True);
 			if (!color->flags.exact)
@@ -270,18 +276,24 @@ WMColor *WMDarkGrayColor(WMScreen * scr)
 							DARK_STIPPLE_HEIGHT);
 
 			color = createRGBAColor(scr, 0, 0, 0, 0xffff);
+			if (!color)
+				color = WMBlackColor(scr);
 
-			gcv.foreground = white->color.pixel;
-			gcv.background = black->color.pixel;
-			gcv.fill_style = FillStippled;
-			gcv.stipple = stipple;
-			color->gc = XCreateGC(scr->display, W_DRAWABLE(scr), GCForeground
-					      | GCBackground | GCStipple | GCFillStyle
-					      | GCGraphicsExposures, &gcv);
+			if (color && white && black) {
+				gcv.foreground = white->color.pixel;
+				gcv.background = black->color.pixel;
+				gcv.fill_style = FillStippled;
+				gcv.stipple = stipple;
+				color->gc = XCreateGC(scr->display, W_DRAWABLE(scr), GCForeground
+						      | GCBackground | GCStipple | GCFillStyle
+						      | GCGraphicsExposures, &gcv);
+			}
 
 			XFreePixmap(scr->display, stipple);
-			WMReleaseColor(white);
-			WMReleaseColor(black);
+			if (white)
+				WMReleaseColor(white);
+			if (black)
+				WMReleaseColor(black);
 		} else {
 			color = WMCreateRGBColor(scr, 0x5144, 0x5555, 0x5144, True);
 			if (!color->flags.exact)

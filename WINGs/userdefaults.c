@@ -100,6 +100,8 @@ char *wdefaultspathfordomain(const char *domain)
 	size_t slen;
 
 	gspath = wusergnusteppath();
+	if (!gspath)
+		return NULL;
 	slen = strlen(gspath) + strlen("/" DEFAULTS_SUBDIR "/") + strlen(domain) + 1;
 	path = wmalloc(slen);
 
@@ -190,6 +192,9 @@ void WMSynchronizeUserDefaults(WMUserDefaults * database)
 		path = database->path;
 	}
 
+	if (!path)
+		return;
+
 	if (stat(path, &stbuf) >= 0 && stbuf.st_mtime > database->timestamp)
 		fileIsNewer = True;
 
@@ -253,6 +258,8 @@ void WMSaveUserDefaults(WMUserDefaults * database)
 		} else {
 			path = database->path;
 		}
+		if (!path)
+			return;
 		WMWritePropListToFile(database->appDomain, path);
 		database->dirty = 0;
 		if (stat(path, &stbuf) >= 0)
@@ -297,15 +304,16 @@ WMUserDefaults *WMGetStandardUserDefaults(void)
 
 	path = wdefaultspathfordomain(WMGetFromPLString(key));
 
-	if (stat(path, &stbuf) >= 0)
+	if (path && stat(path, &stbuf) >= 0)
 		defaults->timestamp = stbuf.st_mtime;
 
-	domain = WMReadPropListFromFile(path);
+	domain = path ? WMReadPropListFromFile(path) : NULL;
 
 	if (!domain)
 		domain = WMCreatePLDictionary(NULL, NULL);
 
-	wfree(path);
+	if (path)
+		wfree(path);
 
 	defaults->appDomain = domain;
 
@@ -318,9 +326,10 @@ WMUserDefaults *WMGetStandardUserDefaults(void)
 
 	path = wdefaultspathfordomain(WMGetFromPLString(key));
 
-	domain = WMReadPropListFromFile(path);
+	domain = path ? WMReadPropListFromFile(path) : NULL;
 
-	wfree(path);
+	if (path)
+		wfree(path);
 
 	if (!domain)
 		domain = WMCreatePLDictionary(NULL, NULL);

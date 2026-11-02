@@ -155,6 +155,9 @@ static int initWVisualID(const char *user_str)
 	int cur_screen = 0;
 	int error_found = 0;
 
+	if (mystr == NULL)
+		return 1;
+
 	for (;;) {
 		/* check for delimiter */
 		if (user_str[cur_in_pos] == '\0' || user_str[cur_in_pos] == ',') {

@@ -1002,10 +1002,16 @@ int change_title(XTextProperty *prop, char *filename)
 */
 int rescale_image(void)
 {
-	long final_width = img->width;
-	long final_height = img->height;
+	long final_width;
+	long final_height;
 	int max_width_tmp = max_width;
 	int max_height_tmp = max_height;
+
+	if (!img)
+		return EXIT_FAILURE;
+
+	final_width = img->width;
+	final_height = img->height;
 
 	if (!fullscreen_flag) {
 		max_width_tmp -= extents.left + extents.right;
@@ -1266,6 +1272,7 @@ int linked_list_add(linked_list_t *list, const void *data)
 	link = calloc(1, sizeof(link_t));
 	if (!link) {
 		fprintf(stderr, "Error: failed to allocate memory\n");
+		free((void *)data);
 		return EXIT_FAILURE;
 	}
 	link->data = data;
@@ -1465,7 +1472,8 @@ int change_image(int way)
 		} else {
 			merge_with_background(img);
 		}
-		rescale_image();
+		if (rescale_image() != EXIT_SUCCESS)
+			return EXIT_FAILURE;
 		if (win) {
 			if (!fullscreen_flag) {
 				if ((old_img_width != img->width) || (old_img_height != img->height))

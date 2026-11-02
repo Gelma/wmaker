@@ -454,6 +454,10 @@ static char *concat_string_list (char **t, int *bytes)
         l += strlen (t[n]) + 1;
     }
     s = malloc (l + 1);
+    if (!s) {
+        *bytes = 0;
+        return NULL;
+    }
     for (l = n = 0;; n++) {
         if (!t[n])
             break;

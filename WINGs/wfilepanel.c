@@ -664,6 +664,9 @@ static void normalizePath(char *s)
 {
 	int i, j, found;
 
+	if (!s)
+		return;
+
 	found = 0;
 	for (i = 0; s[i]; (void)(!found && i++)) {
 		found = 0;
@@ -878,10 +881,11 @@ static void buttonClick(WMWidget *widget, void *p_panel)
 			char *file;
 
 			file = getCurrentFileName(panel);
-			if (access(file, F_OK) != 0) {
+			if (!file || access(file, F_OK) != 0) {
 				WMRunAlertPanel(WMWidgetScreen(panel->win), panel->win,
 						_("Error"), _("File does not exist."), _("OK"), NULL, NULL);
-				wfree(file);
+				if (file)
+					wfree(file);
 				return;
 			}
 			wfree(file);
