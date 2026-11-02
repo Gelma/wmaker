@@ -220,11 +220,14 @@ static void workspace_map_realize(WWorkspaceMap *wsmap, WMFrame *frame_border, W
 	WMSetWidgetBackgroundPixmap(frame_border, frame_border_pixmap);
 	WMReleasePixmap(frame_border_pixmap);
 
+	mini_workspace_cnt = (wsmap->scr->workspace_count <= 2 * mini_workspace_per_line) ? wsmap->scr->workspace_count : 2 * mini_workspace_per_line;
+	if (mini_workspace_cnt <= 0 || !wsmap_array[0].workspace_label)
+		return;
+
 	label_size = WMGetViewSize(W_VIEW(wsmap_array[0].workspace_label));
 	frame_bg_focused = get_frame_background_color(wsmap, label_size.width, label_size.height, WS_FOCUSED);
 	frame_bg_unfocused = get_frame_background_color(wsmap, label_size.width, label_size.height, WS_UNFOCUSED);
 
-	mini_workspace_cnt = (wsmap->scr->workspace_count <= 2 * mini_workspace_per_line) ? wsmap->scr->workspace_count : 2 * mini_workspace_per_line;
 	for (i = 0; i < mini_workspace_cnt; i++) {
 		general_index = i + wsmap_bulk_index * 2 * mini_workspace_per_line;
 		if (general_index == wsmap->scr->current_workspace) {
@@ -545,11 +548,17 @@ static void handle_event(WWorkspaceMap *wsmap, W_WorkspaceMap *wsmap_array)
 
 			if (icon) {
 				int i;
+				int max_cnt = wsmap->scr->workspace_count - wsmap_bulk_index * 2 * mini_workspace_per_line;
+
+				if (max_cnt > 2 * mini_workspace_per_line)
+					max_cnt = 2 * mini_workspace_per_line;
 
 				WMDrawString(wmscr, WMGetPixmapXID(icon),
 						black, bold, x, y, text, strlen(text));
-				for (i = 0; i < wsmap->scr->workspace_count; i++) {
-					if (!wsmap->scr->workspaces[i]->map)
+				for (i = 0; i < max_cnt; i++) {
+					int g_idx = i + wsmap_bulk_index * 2 * mini_workspace_per_line;
+					if (g_idx < wsmap->scr->workspace_count && !wsmap->scr->workspaces[g_idx]->map &&
+					    wsmap_array[i].workspace_img_button)
 						WMSetButtonImage(wsmap_array[i].workspace_img_button, icon);
 				}
 				WMReleasePixmap(icon);
@@ -581,6 +590,8 @@ void StartWorkspaceMap(WScreen *scr)
 {
 	WWorkspaceMap *wsmap;
 	W_WorkspaceMap wsmap_array[2 * mini_workspace_per_line];
+
+	memset(wsmap_array, 0, sizeof(wsmap_array));
 
 	/* save the current screen before displaying the workspace map */
 	wWorkspaceMapUpdate(scr);

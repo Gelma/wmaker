@@ -1742,7 +1742,6 @@ static int getPathList(WScreen * scr, WDefaultEntry * entry, WMPropList * value,
 		return False;
 	}
 
-	i = 0;
 	count = WMGetPropListItemCount(value);
 	if (count < 1) {
 		if (changed == 0) {
@@ -2104,14 +2103,14 @@ static WTexture *parse_texture(WScreen * scr, WMPropList * pl)
 
 		/* get opacity */
 		elem = WMGetFromPLArray(pl, 2);
-		if (!elem || !WMIsPLString(elem))
+		if (!elem || !WMIsPLString(elem)) {
 			opacity = 128;
-		else
+		} else {
 			val = WMGetFromPLString(elem);
-
-		if (!val || (opacity = atoi(val)) < 0 || opacity > 255) {
-			wwarning(_("bad opacity value for tgradient texture \"%s\". Should be [0..255]"), val);
-			opacity = 128;
+			if (!val || (opacity = atoi(val)) < 0 || opacity > 255) {
+				wwarning(_("bad opacity value for tgradient texture \"%s\". Should be [0..255]"), val ? val : "(null)");
+				opacity = 128;
+			}
 		}
 
 		/* get file name */

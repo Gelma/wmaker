@@ -1293,7 +1293,6 @@ static void do_snap(WWindow *wwin, MoveData *data, Bool opaqueMove)
 	int directions;
 	WScreen *scr;
 
-	directions = 0;
 	scr = wwin->screen_ptr;
 
 	/* erase frames */
@@ -1330,6 +1329,9 @@ static void do_snap(WWindow *wwin, MoveData *data, Bool opaqueMove)
 		break;
 	case SNAP_BOTTOMRIGHT:
 		directions = MAX_BOTTOMHALF | MAX_RIGHTHALF;
+		break;
+	default:
+		directions = 0;
 		break;
 	}
 
@@ -2328,13 +2330,14 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 				wwin->moveresize.active = 0;
 			}
 
-			return;
+			goto resize_done;
 
 		default:
 			WMHandleEvent(&event);
 		}
 	}
 
+ resize_done:
 	if (wPreferences.auto_arrange_icons && wXineramaHeads(scr) > 1 && head != wGetHeadForWindow(wwin))
 		wArrangeIcons(scr, True);
 }

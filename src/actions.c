@@ -455,9 +455,11 @@ void update_saved_geometry(WWindow *wwin)
 
 void wMaximizeWindow(WWindow *wwin, int directions, int head)
 {
-	unsigned int new_width, new_height, half_scr_width, half_scr_height;
-	int new_x = 0;
-	int new_y = 0;
+	unsigned int new_width = wwin->frame->core->width;
+	unsigned int new_height = wwin->frame->core->height;
+	unsigned int half_scr_width = 0, half_scr_height = 0;
+	int new_x = wwin->frame_x;
+	int new_y = wwin->frame_y;
 	int maximus_x = 0;
 	int maximus_y = 0;
 	unsigned int maximus_width = 0;

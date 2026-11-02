@@ -263,7 +263,7 @@ void StartWindozeCycle(WWindow *wwin, XEvent *event, Bool next, Bool class_only)
 	if (swpanel)
 		wSwitchPanelDestroy(swpanel);
 
-	if (isManagedWindow(scr, newFocused) && !esc_cancel) {
+	if (newFocused && newFocused->frame && isManagedWindow(scr, newFocused) && !esc_cancel) {
 		wRaiseFrame(newFocused->frame->core);
 		CommitStacking(scr);
 		if (!newFocused->flags.mapped)

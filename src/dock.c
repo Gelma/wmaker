@@ -3816,7 +3816,7 @@ static void handleDockMove(WDock *dock, WAppIcon *aicon, XEvent *event)
 		XMapWindow(dpy, scr->dock_shadow);
 	}
 
-	previously_on_right = now_on_right = dock->on_right_side;
+	previously_on_right = dock->on_right_side;
 	previous_x_pos = dock->x_pos;
 	done = 0;
 	while (!done) {
@@ -4863,7 +4863,9 @@ void wDrawerFillTheGap(WDock *drawer, WAppIcon *aicon, Bool redocking)
 	}
 	if (j != drawer->icon_count - abs(index_of_hole) - (redocking ? 1 : 0))
 		wwarning("Removing aicon at index %d from %s: j=%d but should be %d",
-			index_of_hole, drawer->icon_array[0]->wm_instance,
+			index_of_hole,
+			(drawer->icon_array[0] && drawer->icon_array[0]->wm_instance) ?
+			drawer->icon_array[0]->wm_instance : "(nil)",
 			j, drawer->icon_count - abs(index_of_hole) - (redocking ? 1 : 0));
 	wSlideAppicons(aicons_to_shift, j, !drawer->on_right_side);
 	wfree(aicons_to_shift);

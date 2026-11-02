@@ -243,6 +243,11 @@ WTexMGradient *wTextureMakeMGradient(WScreen * scr, int style, RColor ** colors)
 	texture->type = style;
 	texture->subtype = 0;
 
+	if (!colors || !colors[0]) {
+		wfree(texture);
+		return NULL;
+	}
+
 	i = 0;
 	while (colors[i] != NULL)
 		i++;

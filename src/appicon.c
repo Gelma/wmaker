@@ -758,6 +758,7 @@ Bool wHandleAppIconMove(WAppIcon *aicon, XEvent *event)
 	WDock *originalDock = aicon->dock; /* can be NULL */
 	WDock *lastDock = originalDock;
 	WDock *allDocks[scr->drawer_count + 2]; /* clip, dock and drawers (order determined at runtime) */
+	memset(allDocks, 0, sizeof(allDocks));
 	WDrawerChain *dc;
 	Bool dockable, ondock;
 	Bool grabbed = False;
@@ -1048,6 +1049,7 @@ Bool wHandleAppIconMove(WAppIcon *aicon, XEvent *event)
 				 * right away (the timer will take care of it) */
 				if (lastDock->auto_collapse)
 					collapsed = 0;
+				(void) collapsed;
 			}
 			else {
 				if (originalDock != NULL) { /* Detaching a docked appicon */

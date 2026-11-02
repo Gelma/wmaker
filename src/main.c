@@ -393,6 +393,11 @@ Bool RelaunchWindow(WWindow *wwin)
 			a[i] = argv[i];
 		a[i] = NULL;
 
+		if (argc == 0 || !a[0]) {
+			free(a);
+			_exit(127);
+		}
+
 		execvp(a[0], a);
 		/* exec failed in child -- exit immediately */
 		_exit(127);
