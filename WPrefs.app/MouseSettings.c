@@ -696,6 +696,8 @@ static void storeCommandInScript(const char *cmd, const char *line)
 			fputs(line, fo);
 			fputs("\n", fo);
 		}
+		if (fchmod(fileno(fo), permissions) != 0)
+			wwarning(_("could not set permission 0%03o on file \"%s\""), permissions, tmppath);
 		fsync(fileno(fo));
 		fclose(fo);
 
@@ -704,8 +706,6 @@ static void storeCommandInScript(const char *cmd, const char *line)
 		}
 		wfree(tmppath);
 	}
-	if (chmod(path, permissions) != 0)
-		wwarning(_("could not set permission 0%03o on file \"%s\""), permissions, path);
 
  end:
 	wfree(path);
