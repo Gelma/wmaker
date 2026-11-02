@@ -204,6 +204,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Prevented the monitor process from crashing or leaking child argument memory upon receiving session termination signals (`SIGHUP`/`SIGTERM` from GDM/X11), allowing graceful child shutdown and `child_argv` freeing.
 66. **[`de93034c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c#L1040-L1057) - `defaults`: Release unmerged global PropList in `wDefaultsInitDomain`**:
     - In `wDefaultsInitDomain()` (`src/defaults.c`), fixed a leak of the system global domain `shared_dict` (e.g. `PKGCONFDIR/WMRootMenu`, ~13 KB) when the user domain was already loaded as an array (not a dictionary). Added an explicit `WMReleasePropList(shared_dict)` in the unmerged branch, achieving 0 definitely lost blocks on clean exit.
+67. **[`41742a92`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c#L2331-L2370) - `actions`, `framewin`, `screen`, `switchmenu`, `window`, `winmenu`, `workspace`: Fix active session memory leaks and Use-After-Free crashes**:
+    - In `wWorkspaceMenuUpdate()` (`src/workspace.c`) and `updateWorkspaceMenu()` (`src/winmenu.c`), freed existing `entry->rtext` shortcut labels before reassigning new ones, eliminating thousands of repetitive leaked heap blocks during workspace switching.
+    - In `wFrameWindowUpdateBorders()` and `wFrameWindowDestroy()` (`src/framewin.c`), freed previously allocated `fwin->border_pixel`, `fwin->focused_border_pixel`, and `fwin->selected_border_pixel` heap blocks, and freed RGB description strings returned by `WMGetColorRGBDescription()`. Also freed color strings in `wScreenInit()` (`src/screen.c`).
+    - In `wWindowGetLanguageLabel()` (`src/window.c`), freed all dynamically allocated string members (`rules`, `model`, `layout`, `variant`, `options`) returned by `XkbRF_GetNamesProp()`.
+    - Implemented `wWindowIsManaged()` in `src/window.c` and `src/window.h`. In `wWindowSingleFocus()` (`src/window.c`) and `wMakeWindowVisible()` (`src/actions.c`), retained window references and checked `wWindowIsManaged(scr, wwin)` and `!wwin->flags.destroyed` before and after workspace switching or unhiding applications, preventing Use-After-Free when client windows close during `ProcessPendingEvents()`.
 
 ---
 
