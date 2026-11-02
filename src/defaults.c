@@ -1052,6 +1052,8 @@ WDDomain *wDefaultsInitDomain(const char *domain, Bool requireDictionary)
 		db->dictionary = shared_dict;
 		if (stbuf.st_mtime > db->timestamp)
 			db->timestamp = stbuf.st_mtime;
+	} else if (shared_dict) {
+		WMReleasePropList(shared_dict);
 	}
 
 	return db;
