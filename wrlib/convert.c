@@ -28,6 +28,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -328,31 +329,61 @@ static RXImage *image2TrueColor(RContext * ctx, RImage * image)
 		int x, y;
 		unsigned long pixel;
 		unsigned char *ptr = image->data;
+		static const int test_endian = 1;
+		int native_order = (*(const char *)&test_endian == 1) ? LSBFirst : MSBFirst;
+		int direct32 = (ximg->image->bits_per_pixel == 32 && ximg->image->byte_order == native_order);
 
 		/* fake match */
 #ifdef WRLIB_DEBUG
 		fputs("true color match\n", stderr);
 #endif
 		if (rmask == 0xff && gmask == 0xff && bmask == 0xff) {
-			for (y = 0; y < image->height; y++) {
-				for (x = 0; x < image->width; x++, ptr += channels) {
-					/* reduce pixel */
-					r = ptr[0];
-					g = ptr[1];
-					b = ptr[2];
-					pixel = (r << roffs) | (g << goffs) | (b << boffs);
-					XPutPixel(ximg->image, x, y, pixel);
+			if (direct32) {
+				int bpl = ximg->image->bytes_per_line;
+				char *imdata = ximg->image->data;
+				for (y = 0; y < image->height; y++) {
+					uint32_t *line = (uint32_t *)(imdata + y * bpl);
+					for (x = 0; x < image->width; x++, ptr += channels) {
+						line[x] = ((uint32_t)ptr[0] << roffs) |
+						          ((uint32_t)ptr[1] << goffs) |
+						          ((uint32_t)ptr[2] << boffs);
+					}
+				}
+			} else {
+				for (y = 0; y < image->height; y++) {
+					for (x = 0; x < image->width; x++, ptr += channels) {
+						/* reduce pixel */
+						r = ptr[0];
+						g = ptr[1];
+						b = ptr[2];
+						pixel = (r << roffs) | (g << goffs) | (b << boffs);
+						XPutPixel(ximg->image, x, y, pixel);
+					}
 				}
 			}
 		} else {
-			for (y = 0, ofs = 0; y < image->height; y++) {
-				for (x = 0; x < image->width; x++, ofs += channels - 3) {
-					/* reduce pixel */
-					r = rtable[ptr[ofs++]];
-					g = gtable[ptr[ofs++]];
-					b = btable[ptr[ofs++]];
-					pixel = (r << roffs) | (g << goffs) | (b << boffs);
-					XPutPixel(ximg->image, x, y, pixel);
+			if (direct32) {
+				int bpl = ximg->image->bytes_per_line;
+				char *imdata = ximg->image->data;
+				for (y = 0, ofs = 0; y < image->height; y++) {
+					uint32_t *line = (uint32_t *)(imdata + y * bpl);
+					for (x = 0; x < image->width; x++, ofs += channels - 3) {
+						r = rtable[ptr[ofs++]];
+						g = gtable[ptr[ofs++]];
+						b = btable[ptr[ofs++]];
+						line[x] = (r << roffs) | (g << goffs) | (b << boffs);
+					}
+				}
+			} else {
+				for (y = 0, ofs = 0; y < image->height; y++) {
+					for (x = 0; x < image->width; x++, ofs += channels - 3) {
+						/* reduce pixel */
+						r = rtable[ptr[ofs++]];
+						g = gtable[ptr[ofs++]];
+						b = btable[ptr[ofs++]];
+						pixel = (r << roffs) | (g << goffs) | (b << boffs);
+						XPutPixel(ximg->image, x, y, pixel);
+					}
 				}
 			}
 		}
