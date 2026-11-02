@@ -46,44 +46,57 @@
  * implied warranty.
  */
 
-char pm_getc(FILE *const fileP, const char *filename)
+static int pm_getc(FILE *const fileP, const char *filename)
 {
 	int ich;
-	char ch;
+
+	if (feof(fileP) || ferror(fileP))
+		return EOF;
 
 	ich = getc(fileP);
-	if (ich == EOF)
+	if (ich == EOF) {
 		fprintf(stderr, _("wrlib: EOF / read error reading a byte from PPM file \"%s\"\n"), filename);
-	ch = (char)ich;
-
-	if (ch == '#') {
-		do {
-			ich = getc(fileP);
-			if (ich == EOF)
-				fprintf(stderr, _("wrlib: EOF / read error reading a byte from PPM file \"%s\"\n"), filename);
-			ch = (char)ich;
-		} while (ch != '\n' && ch != '\r');
+		return EOF;
 	}
-	return ch;
+
+	if (ich == '#') {
+		do {
+			if (feof(fileP) || ferror(fileP))
+				return EOF;
+			ich = getc(fileP);
+			if (ich == EOF) {
+				fprintf(stderr, _("wrlib: EOF / read error reading a byte from PPM file \"%s\"\n"), filename);
+				return EOF;
+			}
+		} while (ich != '\n' && ich != '\r');
+	}
+	return ich;
 }
 
-unsigned char pm_getrawbyte(FILE *const file, const char *filename)
+static unsigned char pm_getrawbyte(FILE *const file, const char *filename)
 {
 	int iby;
 
+	if (feof(file) || ferror(file))
+		return 0;
+
 	iby = getc(file);
-	if (iby == EOF)
+	if (iby == EOF) {
 		fprintf(stderr, _("wrlib: EOF / read error reading a byte from PPM file \"%s\"\n"), filename);
+		return 0;
+	}
 	return (unsigned char)iby;
 }
 
-int pm_getuint(FILE *const ifP, const char *filename)
+static int pm_getuint(FILE *const ifP, const char *filename)
 {
-	char ch;
+	int ch;
 	unsigned int i;
 
 	do {
 		ch = pm_getc(ifP, filename);
+		if (ch == EOF)
+			return -1;
 	} while (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r');
 
 	if (ch < '0' || ch > '9') {

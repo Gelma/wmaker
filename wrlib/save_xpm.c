@@ -168,6 +168,11 @@ Bool RSaveXPM(RImage * image, const char *filename)
 	char transp[16];
 	char buf[128];
 
+	if (!image || !image->data) {
+		RErrorCode = RERR_BADIMAGEFILE;
+		return False;
+	}
+
 	file = fopen(filename, "wb+");
 	if (!file) {
 		RErrorCode = RERR_OPEN;
@@ -271,9 +276,10 @@ Bool RSaveXPM(RImage * image, const char *filename)
 	ok = 1;
  uhoh:
 	errno = 0;
-	fclose(file);
-	if (ok && errno == ENOSPC) {
-		RErrorCode = RERR_WRITE;
+	if (fclose(file) != 0) {
+		if (errno == ENOSPC)
+			RErrorCode = RERR_WRITE;
+		ok = 0;
 	}
 
 	freecolormap(colormap);

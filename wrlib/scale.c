@@ -378,6 +378,10 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 				} else {
 					n = j;
 				}
+				if (n < 0)
+					n = 0;
+				else if (n >= src->width)
+					n = src->width - 1;
 				k = contrib[i].n++;
 				contrib[i].p[k].pixel = n * sch;
 				contrib[i].p[k].weight = rweight;
@@ -409,6 +413,10 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 				} else {
 					n = j;
 				}
+				if (n < 0)
+					n = 0;
+				else if (n >= src->width)
+					n = src->width - 1;
 				k = contrib[i].n++;
 				contrib[i].p[k].pixel = n * sch;
 				contrib[i].p[k].weight = rweight;
@@ -480,6 +488,10 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 				} else {
 					n = j;
 				}
+				if (n < 0)
+					n = 0;
+				else if (n >= tmp->height)
+					n = tmp->height - 1;
 				k = contrib[i].n++;
 				contrib[i].p[k].pixel = n * 3;
 				contrib[i].p[k].weight = rweight;
@@ -510,6 +522,10 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 				} else {
 					n = j;
 				}
+				if (n < 0)
+					n = 0;
+				else if (n >= tmp->height)
+					n = tmp->height - 1;
 				k = contrib[i].n++;
 				contrib[i].p[k].pixel = n * 3;
 				contrib[i].p[k].weight = rweight;
@@ -518,7 +534,7 @@ RImage *RSmoothScaleImage(RImage * src, unsigned new_width, unsigned new_height)
 	}
 
 	/* apply filter to zoom vertically from tmp to dst */
-	sp = malloc(tmp->height * 3);
+	sp = calloc(tmp->height, 3);
 	if (!sp) {
 		for (i = 0; i < dst->height; ++i)
 			free(contrib[i].p);
