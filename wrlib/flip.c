@@ -22,6 +22,7 @@
 #include "config.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -61,7 +62,8 @@ RImage *r_flip_vertically(RImage *source)
 {
 	RImage *target;
 	int nwidth, nheight;
-	int x, y;
+	int y;
+	size_t row_stride;
 
 	nwidth = source->width;
 	nheight = source->height;
@@ -70,42 +72,14 @@ RImage *r_flip_vertically(RImage *source)
 	if (!target)
 		return NULL;
 
-	if (source->format == RRGBFormat) {
-		unsigned char *optr, *nptr;
+	row_stride = (size_t)nwidth * (source->format == RRGBFormat ? 3 : 4);
 
-		optr = source->data;
-		nptr = target->data + 3 * (nwidth * nheight - nwidth);
-
-		for (y = 0; y < nheight; y++) {
-			for (x = 0; x < nwidth; x++) {
-				nptr[0] = optr[0];
-				nptr[1] = optr[1];
-				nptr[2] = optr[2];
-
-				optr += 3;
-				nptr += 3;
-			}
-			nptr -= (nwidth * 3) * 2;
-		}
-	} else {
-		unsigned char *optr, *nptr;
-
-		optr = source->data;
-		nptr = target->data + 4 * (nwidth * nheight - nwidth);
-
-		for (y = 0; y < nheight; y++) {
-			for (x = 0; x < nwidth; x++) {
-				nptr[0] = optr[0];
-				nptr[1] = optr[1];
-				nptr[2] = optr[2];
-				nptr[3] = optr[3];
-
-				optr += 4;
-				nptr += 4;
-			}
-			nptr -= (nwidth * 4) * 2;
-		}
+	for (y = 0; y < nheight; y++) {
+		memcpy(target->data + (size_t)(nheight - 1 - y) * row_stride,
+		       source->data + (size_t)y * row_stride,
+		       row_stride);
 	}
+
 	return target;
 }
 
@@ -123,40 +97,31 @@ RImage *r_flip_horizontally(RImage *source)
 		return NULL;
 
 	if (source->format == RRGBFormat) {
-		unsigned char *optr, *nptr;
+		for (y = 0; y < nheight; y++) {
+			const unsigned char *s_row = source->data + (size_t)y * nwidth * 3;
+			unsigned char *d_row = target->data + (size_t)y * nwidth * 3;
 
-		optr = source->data;
-		nptr = target->data + 3 * (nwidth - 1);
-
-		for (y = nheight; y; y--) {
 			for (x = 0; x < nwidth; x++) {
-				nptr[0] = optr[0];
-				nptr[1] = optr[1];
-				nptr[2] = optr[2];
-
-				optr += 3;
-				nptr -= 3;
+				int sx = x * 3;
+				int dx = (nwidth - 1 - x) * 3;
+				d_row[dx] = s_row[sx];
+				d_row[dx + 1] = s_row[sx + 1];
+				d_row[dx + 2] = s_row[sx + 2];
 			}
-			nptr += (nwidth * 3) * 2;
 		}
 	} else {
-		unsigned char *optr, *nptr;
+		const uint32_t *src32 = (const uint32_t *)source->data;
+		uint32_t *dst32 = (uint32_t *)target->data;
 
-		optr = source->data;
-		nptr = target->data + 4 * (nwidth - 1);
+		for (y = 0; y < nheight; y++) {
+			const uint32_t *s_row = src32 + (size_t)y * nwidth;
+			uint32_t *d_row = dst32 + (size_t)y * nwidth;
 
-		for (y = nheight; y; y--) {
 			for (x = 0; x < nwidth; x++) {
-				nptr[0] = optr[0];
-				nptr[1] = optr[1];
-				nptr[2] = optr[2];
-				nptr[3] = optr[3];
-
-				optr += 4;
-				nptr -= 4;
+				d_row[nwidth - 1 - x] = s_row[x];
 			}
-			nptr += (nwidth * 4) * 2;
 		}
 	}
+
 	return target;
 }
