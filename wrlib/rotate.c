@@ -22,6 +22,7 @@
 #include <config.h>
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -104,18 +105,14 @@ static RImage *rotate_image_90(RImage *source)
 		}
 
 	} else {
-		unsigned char *optr, *nptr;
+		const uint32_t *src32 = (const uint32_t *)source->data;
+		uint32_t *dst32 = (uint32_t *)target->data;
 
-		optr = source->data;
 		for (x = nwidth; x; x--) {
-			nptr = target->data + 4 * (x - 1);
+			uint32_t *d = dst32 + (x - 1);
 			for (y = nheight; y; y--) {
-				nptr[0] = *optr++;
-				nptr[1] = *optr++;
-				nptr[2] = *optr++;
-				nptr[3] = *optr++;
-
-				nptr += 4 * nwidth;
+				*d = *src32++;
+				d += nwidth;
 			}
 		}
 	}
@@ -154,19 +151,12 @@ RImage *wraster_rotate_image_180(RImage *source)
 		}
 
 	} else {
-		unsigned char *optr, *nptr;
+		const uint32_t *src32 = (const uint32_t *)source->data;
+		uint32_t *dst32 = (uint32_t *)target->data;
+		int total = nwidth * nheight;
 
-		optr = source->data;
-		nptr = target->data + nwidth * nheight * 4 - 4;
-
-		for (y = nheight * nwidth - 1; y >= 0; y--) {
-			nptr[0] = optr[0];
-			nptr[1] = optr[1];
-			nptr[2] = optr[2];
-			nptr[3] = optr[3];
-
-			optr += 4;
-			nptr -= 4;
+		for (y = 0; y < total; y++) {
+			dst32[total - 1 - y] = src32[y];
 		}
 	}
 
@@ -202,18 +192,14 @@ static RImage *rotate_image_270(RImage *source)
 		}
 
 	} else {
-		unsigned char *optr, *nptr;
+		const uint32_t *src32 = (const uint32_t *)source->data;
+		uint32_t *dst32 = (uint32_t *)target->data;
 
-		optr = source->data;
 		for (x = nwidth; x; x--) {
-			nptr = target->data + 4 * nwidth * nheight - x * 4;
+			uint32_t *d = dst32 + nwidth * nheight - x;
 			for (y = nheight; y; y--) {
-				nptr[0] = *optr++;
-				nptr[1] = *optr++;
-				nptr[2] = *optr++;
-				nptr[3] = *optr++;
-
-				nptr -= 4 * nwidth;
+				*d = *src32++;
+				d -= nwidth;
 			}
 		}
 	}
