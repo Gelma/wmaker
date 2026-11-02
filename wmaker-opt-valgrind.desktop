@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Window Maker OPT (Valgrind)
+Comment=Sessione Window Maker (/opt/wmaker) sotto supervisione Valgrind con log in ~/valgrind-wmaker-*.log
+Exec=/opt/wmaker/bin/wmaker-valgrind-session
+TryExec=/opt/wmaker/bin/wmaker-valgrind-session
+Icon=/opt/wmaker/share/WindowMaker/Icons/wmicons/GNUstep.xpm
+Type=Application
+DesktopNames=WindowMaker

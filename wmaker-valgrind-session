@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WM_PREFIX="/opt/wmaker"
+export PATH="${WM_PREFIX}/bin:${PATH}"
+export LD_LIBRARY_PATH="${WM_PREFIX}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export XDG_DATA_DIRS="${WM_PREFIX}/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Directory dei log di Valgrind
+LOG_DIR="${HOME}/.local/share/wmaker/logs"
+mkdir -p "${LOG_DIR}"
+
+TIMESTAMP="$(date +'%Y%m%d_%H%M%S')"
+VALGRIND_LOG="${LOG_DIR}/valgrind-wmaker-${TIMESTAMP}-%p.log"
+WM_STDOUT_LOG="${LOG_DIR}/wmaker-${TIMESTAMP}.log"
+
+# Opzioni consigliate per Valgrind con un Window Manager X11:
+# - tracciamento errori di memoria e leak
+# - child-silent-after-fork per non tracciare tutti i processi client figli lanciati dal menu/dock
+#   (oppure tracciarli separatamente solo per wmaker stesso con --trace-children=no)
+VALGRIND_OPTS=(
+    --tool=memcheck
+    --leak-check=full
+    --show-leak-kinds=definite,indirect,possible
+    --track-origins=yes
+    --trace-children=no
+    --read-var-info=yes
+    --num-callers=30
+    --log-file="${VALGRIND_LOG}"
+)
+
+echo "Starting Window Maker under Valgrind supervision..." >> "${WM_STDOUT_LOG}"
+echo "Valgrind log target: ${VALGRIND_LOG}" >> "${WM_STDOUT_LOG}"
+date >> "${WM_STDOUT_LOG}"
+
+exec valgrind "${VALGRIND_OPTS[@]}" "${WM_PREFIX}/bin/wmaker" "$@" >> "${WM_STDOUT_LOG}" 2>&1
