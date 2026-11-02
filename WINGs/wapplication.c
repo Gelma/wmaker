@@ -67,6 +67,11 @@ void WMReleaseApplication(void) {
 		WMApplication.applicationName = NULL;
 	}
 
+	if (WMApplication.resourcePath) {
+		wfree(WMApplication.resourcePath);
+		WMApplication.resourcePath = NULL;
+	}
+
 	if (WMApplication.argv) {
 		for (i = 0; i < WMApplication.argc; i++)
 			wfree(WMApplication.argv[i]);

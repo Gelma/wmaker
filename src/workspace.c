@@ -215,6 +215,23 @@ typedef struct WorkspaceNameData {
 	time_t timeout;
 } WorkspaceNameData;
 
+void wWorkspaceResetName(WScreen *scr)
+{
+	if (scr->workspace_name_timer) {
+		WMDeleteTimerHandler(scr->workspace_name_timer);
+		scr->workspace_name_timer = NULL;
+	}
+
+	if (scr->workspace_name_data) {
+		if (scr->workspace_name_data->back)
+			RReleaseImage(scr->workspace_name_data->back);
+		if (scr->workspace_name_data->text)
+			RReleaseImage(scr->workspace_name_data->text);
+		wfree(scr->workspace_name_data);
+		scr->workspace_name_data = NULL;
+	}
+}
+
 static void hideWorkspaceName(void *data)
 {
 	WScreen *scr = (WScreen *) data;

@@ -429,3 +429,8 @@ WMFont *WMCopyFontWithStyle(WMScreen * scrPtr, WMFont * font, WMFontStyle style)
 
 	return copy;
 }
+
+void W_FontShutdown(void)
+{
+	FcFini();
+}

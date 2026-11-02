@@ -551,6 +551,8 @@ static void createInternalWindows(WScreen * scr)
 	int vmask;
 	XSetWindowAttributes attribs;
 
+	memset(&attribs, 0, sizeof(attribs));
+
 	/* InputOnly window to get the focus when no other window can get it */
 	vmask = CWEventMask | CWOverrideRedirect;
 	attribs.event_mask = KeyPressMask | FocusChangeMask;
@@ -1400,10 +1402,221 @@ void ScreenCapture(WScreen *scr, int mode)
 
 void wScreenDestroy(WScreen *scr)
 {
+	int i;
+
 #ifdef USE_RANDR
 	wRandRTeardown(scr);
-#else
-	/* Parameter not used, but tell the compiler that it is ok */
-	(void) scr;
 #endif
+
+	wWorkspaceResetName(scr);
+
+	if (scr->no_focus_win != None) {
+		XDestroyWindow(dpy, scr->no_focus_win);
+		scr->no_focus_win = None;
+	}
+
+	if (scr->dock_shadow != None) {
+		XDestroyWindow(dpy, scr->dock_shadow);
+		scr->dock_shadow = None;
+	}
+
+	if (scr->workspace_name != None) {
+		XDestroyWindow(dpy, scr->workspace_name);
+		scr->workspace_name = None;
+	}
+
+	for (i = 0; i < 3; i++) {
+		if (scr->window_title_texture[i]) {
+			wTextureDestroy(scr, scr->window_title_texture[i]);
+			scr->window_title_texture[i] = NULL;
+		}
+		if (scr->menu_title_texture[i]) {
+			wTextureDestroy(scr, scr->menu_title_texture[i]);
+			scr->menu_title_texture[i] = NULL;
+		}
+		if (scr->resizebar_texture[i]) {
+			wTextureDestroy(scr, scr->resizebar_texture[i]);
+			scr->resizebar_texture[i] = NULL;
+		}
+		if (scr->window_title_color[i]) {
+			WMReleaseColor(scr->window_title_color[i]);
+			scr->window_title_color[i] = NULL;
+		}
+		if (scr->menu_title_color[i]) {
+			WMReleaseColor(scr->menu_title_color[i]);
+			scr->menu_title_color[i] = NULL;
+		}
+	}
+
+	for (i = 0; i < 2; i++) {
+		if (scr->clip_title_color[i]) {
+			WMReleaseColor(scr->clip_title_color[i]);
+			scr->clip_title_color[i] = NULL;
+		}
+	}
+
+	if (scr->menu_item_texture) {
+		wTextureDestroy(scr, scr->menu_item_texture);
+		scr->menu_item_texture = NULL;
+	}
+	if (scr->menu_item_auxtexture) {
+		wTextureDestroy(scr, (WTexture *)scr->menu_item_auxtexture);
+		scr->menu_item_auxtexture = NULL;
+	}
+	if (scr->icon_title_texture) {
+		wTextureDestroy(scr, (WTexture *)scr->icon_title_texture);
+		scr->icon_title_texture = NULL;
+	}
+	if (scr->widget_texture) {
+		wTextureDestroy(scr, (WTexture *)scr->widget_texture);
+		scr->widget_texture = NULL;
+	}
+	if (scr->icon_back_texture) {
+		wTextureDestroy(scr, (WTexture *)scr->icon_back_texture);
+		scr->icon_back_texture = NULL;
+	}
+
+	if (scr->select_color) {
+		WMReleaseColor(scr->select_color);
+		scr->select_color = NULL;
+	}
+	if (scr->select_text_color) {
+		WMReleaseColor(scr->select_text_color);
+		scr->select_text_color = NULL;
+	}
+	if (scr->mtext_color) {
+		WMReleaseColor(scr->mtext_color);
+		scr->mtext_color = NULL;
+	}
+	if (scr->dtext_color) {
+		WMReleaseColor(scr->dtext_color);
+		scr->dtext_color = NULL;
+	}
+	if (scr->icon_title_color) {
+		WMReleaseColor(scr->icon_title_color);
+		scr->icon_title_color = NULL;
+	}
+	if (scr->frame_border_color) {
+		WMReleaseColor(scr->frame_border_color);
+		scr->frame_border_color = NULL;
+	}
+	if (scr->frame_focused_border_color) {
+		WMReleaseColor(scr->frame_focused_border_color);
+		scr->frame_focused_border_color = NULL;
+	}
+	if (scr->frame_selected_border_color) {
+		WMReleaseColor(scr->frame_selected_border_color);
+		scr->frame_selected_border_color = NULL;
+	}
+
+	if (scr->title_font) {
+		WMReleaseFont(scr->title_font);
+		scr->title_font = NULL;
+	}
+	if (scr->menu_title_font) {
+		WMReleaseFont(scr->menu_title_font);
+		scr->menu_title_font = NULL;
+	}
+	if (scr->menu_entry_font) {
+		WMReleaseFont(scr->menu_entry_font);
+		scr->menu_entry_font = NULL;
+	}
+	if (scr->icon_title_font) {
+		WMReleaseFont(scr->icon_title_font);
+		scr->icon_title_font = NULL;
+	}
+	if (scr->clip_title_font) {
+		WMReleaseFont(scr->clip_title_font);
+		scr->clip_title_font = NULL;
+	}
+	if (scr->info_text_font) {
+		WMReleaseFont(scr->info_text_font);
+		scr->info_text_font = NULL;
+	}
+	if (scr->workspace_name_font) {
+		WMReleaseFont(scr->workspace_name_font);
+		scr->workspace_name_font = NULL;
+	}
+
+	if (scr->black) {
+		WMReleaseColor(scr->black);
+		scr->black = NULL;
+	}
+	if (scr->white) {
+		WMReleaseColor(scr->white);
+		scr->white = NULL;
+	}
+	if (scr->gray) {
+		WMReleaseColor(scr->gray);
+		scr->gray = NULL;
+	}
+	if (scr->darkGray) {
+		WMReleaseColor(scr->darkGray);
+		scr->darkGray = NULL;
+	}
+
+	if (scr->session_state) {
+		WMReleasePropList(scr->session_state);
+		scr->session_state = NULL;
+	}
+
+	if (scr->fakeGroupLeaders) {
+		WMFreeArray(scr->fakeGroupLeaders);
+		scr->fakeGroupLeaders = NULL;
+	}
+
+	if (scr->usableArea) {
+		wfree(scr->usableArea);
+		scr->usableArea = NULL;
+	}
+	if (scr->totalUsableArea) {
+		wfree(scr->totalUsableArea);
+		scr->totalUsableArea = NULL;
+	}
+	if (scr->reservedAreas) {
+		wfree(scr->reservedAreas);
+		scr->reservedAreas = NULL;
+	}
+
+	if (scr->stipple_bitmap != None) {
+		XFreePixmap(dpy, scr->stipple_bitmap);
+		scr->stipple_bitmap = None;
+	}
+	if (scr->transp_stipple != None) {
+		XFreePixmap(dpy, scr->transp_stipple);
+		scr->transp_stipple = None;
+	}
+	if (scr->dock_dots != NULL) {
+		wPixmapDestroy(scr->dock_dots);
+		scr->dock_dots = NULL;
+	}
+
+	if (scr->stipple_gc) {
+		XFreeGC(dpy, scr->stipple_gc);
+		scr->stipple_gc = NULL;
+	}
+	if (scr->icon_select_gc) {
+		XFreeGC(dpy, scr->icon_select_gc);
+		scr->icon_select_gc = NULL;
+	}
+	if (scr->frame_gc) {
+		XFreeGC(dpy, scr->frame_gc);
+		scr->frame_gc = NULL;
+	}
+	if (scr->line_gc) {
+		XFreeGC(dpy, scr->line_gc);
+		scr->line_gc = NULL;
+	}
+	if (scr->copy_gc) {
+		XFreeGC(dpy, scr->copy_gc);
+		scr->copy_gc = NULL;
+	}
+	if (scr->draw_gc) {
+		XFreeGC(dpy, scr->draw_gc);
+		scr->draw_gc = NULL;
+	}
+	if (scr->mono_gc) {
+		XFreeGC(dpy, scr->mono_gc);
+		scr->mono_gc = NULL;
+	}
 }

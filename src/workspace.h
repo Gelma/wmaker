@@ -41,5 +41,6 @@ void wWorkspaceSaveState(WScreen *scr, WMPropList *old_state);
 void wWorkspaceRestoreState(WScreen *scr);
 void wWorkspaceRename(WScreen *scr, int workspace, const char *name);
 void wWorkspaceRelativeChange(WScreen *scr, int amount);
+void wWorkspaceResetName(WScreen *scr);
 
 #endif

@@ -646,6 +646,7 @@ void WMInitializeApplication(const char *applicationName, int *argc, char **argv
 
 /* You're supposed to call this funtion before exiting so WINGs can terminate properly */
 void WMReleaseApplication(void);
+void W_FontShutdown(void);
 
 void WMSetResourcePath(const char *path);
 
