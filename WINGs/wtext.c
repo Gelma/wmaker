@@ -2853,7 +2853,7 @@ static char *getStream(WMText * tPtr, int sel, int array)
 	if (!tPtr)
 		return NULL;
 
-	if (!(tb = tPtr->firstTextBlock))
+	if (!tPtr->firstTextBlock)
 		return NULL;
 
 	if (tPtr->writer) {

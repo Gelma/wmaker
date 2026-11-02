@@ -374,7 +374,7 @@ static void showText(Balloon * bPtr, int x, int y, int w, int h, const char *tex
 		int w;
 		const char *ptr, *ptr2;
 
-		ptr2 = ptr = text;
+		ptr = text;
 		width = 0;
 		while (ptr) {
 			ptr2 = strchr(ptr, '\n');

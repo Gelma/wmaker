@@ -258,6 +258,9 @@ static WMView *findDestinationViewInToplevel(WMView * toplevel, int x, int y)
 /* Clear datas only used by current destination view */
 static void freeDestinationViewInfos(WMDraggingInfo * info)
 {
+	if (!info || !XDND_DEST_INFO(info))
+		return;
+
 	if (XDND_SOURCE_TYPES(info) != NULL) {
 		WMFreeArray(XDND_SOURCE_TYPES(info));
 		XDND_SOURCE_TYPES(info) = NULL;
@@ -324,11 +327,18 @@ void W_DragDestinationStoreEnterMsgInfo(WMDraggingInfo * info, WMView * toplevel
 
 void W_DragDestinationStorePositionMsgInfo(WMDraggingInfo * info, WMView * toplevel, XClientMessageEvent * event)
 {
-	int x = event->data.l[2] >> 16;
-	int y = event->data.l[2] & 0xffff;
+	int x, y;
 	WMView *newDestView;
 
+	if (!info || !event)
+		return;
+
+	x = event->data.l[2] >> 16;
+	y = event->data.l[2] & 0xffff;
+
 	newDestView = findDestinationViewInToplevel(toplevel, x, y);
+	if (!newDestView)
+		return;
 
 	if (XDND_DEST_INFO(info) == NULL) {
 		initDestinationDragInfo(info, newDestView);

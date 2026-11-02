@@ -212,10 +212,10 @@ W_PaintTextAndImage(W_View * view, int wrap, WMColor * textColor, W_Font * font,
 	W_Screen *screen = view->screen;
 	int ix, iy;
 	int x, y, w, h;
+#ifndef DOUBLE_BUFFER
 	Drawable d = view->window;
-
-#ifdef DOUBLE_BUFFER
-	d = XCreatePixmap(screen->display, view->window, view->size.width, view->size.height, screen->depth);
+#else
+	Drawable d = XCreatePixmap(screen->display, view->window, view->size.width, view->size.height, screen->depth);
 #endif
 
 	/* background */

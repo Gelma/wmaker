@@ -757,7 +757,6 @@ static void setFontPanelFontName(FontPanel * panel, const char *family, const ch
 
 	famrow = WMFindRowOfListItemWithTitle(panel->famLs, family);
 	if (famrow < 0) {
-		famrow = 0;
 		return;
 	}
 	WMSelectListItem(panel->famLs, famrow);
@@ -786,7 +785,6 @@ static void setFontPanelFontName(FontPanel * panel, const char *family, const ch
 	stlrow = WMFindRowOfListItemWithTitle(panel->typLs, style);
 
 	if (stlrow < 0) {
-		stlrow = 0;
 		return;
 	}
 

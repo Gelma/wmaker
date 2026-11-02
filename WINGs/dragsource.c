@@ -61,13 +61,21 @@ static const char *stateName(W_DndState * state)
 
 static WMScreen *sourceScreen(WMDraggingInfo * info)
 {
+	if (!info || !info->sourceInfo || !info->sourceInfo->sourceView)
+		return NULL;
 	return W_VIEW_SCREEN(XDND_SOURCE_VIEW(info));
 }
 
 static void endDragProcess(WMDraggingInfo * info, Bool deposited)
 {
-	WMView *view = XDND_SOURCE_VIEW(info);
-	WMScreen *scr = W_VIEW_SCREEN(XDND_SOURCE_VIEW(info));
+	WMView *view;
+	WMScreen *scr;
+
+	if (!info || !info->sourceInfo || !info->sourceInfo->sourceView)
+		return;
+
+	view = XDND_SOURCE_VIEW(info);
+	scr = W_VIEW_SCREEN(view);
 
 	/* free selection handler while view exists */
 	WMDeleteSelectionHandler(view, scr->xdndSelectionAtom, CurrentTime);
@@ -113,6 +121,9 @@ static void initDragCursor(WMDraggingInfo * info)
 static void recolorCursor(WMDraggingInfo * info, Bool dropIsAllowed)
 {
 	WMScreen *scr = sourceScreen(info);
+
+	if (!scr || !info->sourceInfo)
+		return;
 
 	if (dropIsAllowed) {
 		XDefineCursor(scr->display, scr->rootWin, XDND_DRAG_CURSOR(info));
@@ -306,8 +317,14 @@ static void startDragImage(WMView * view, WMDraggingInfo * info, XEvent * event)
 
 static void endDragImage(WMDraggingInfo * info, Bool slideBack)
 {
-	WMView *view = XDND_SOURCE_VIEW(info);
-	Display *dpy = W_VIEW_SCREEN(view)->display;
+	WMView *view;
+	Display *dpy;
+
+	if (!info || !info->sourceInfo || !info->sourceInfo->sourceView)
+		return;
+
+	view = XDND_SOURCE_VIEW(info);
+	dpy = W_VIEW_SCREEN(view)->display;
 
 	if (slideBack) {
 		WMPoint toLocation;
@@ -397,12 +414,18 @@ static Bool sendLeaveMessage(WMDraggingInfo * info)
 {
 	WMScreen *scr = sourceScreen(info);
 
+	if (!scr)
+		return False;
+
 	return sendDnDClientMessage(info, scr->xdndLeaveAtom, 0, 0, 0, 0);
 }
 
 static Bool sendDropMessage(WMDraggingInfo * info)
 {
 	WMScreen *scr = sourceScreen(info);
+
+	if (!scr)
+		return False;
 
 	return sendDnDClientMessage(info, scr->xdndDropAtom, 0, XDND_TIMESTAMP(info), 0, 0);
 }
@@ -787,17 +810,31 @@ static void initMotionProcess(WMView * view, WMDraggingInfo * info, XEvent * eve
 
 static void processMotion(WMDraggingInfo * info, WMPoint * mousePos)
 {
-	Window newDestination = findDestination(info, mousePos);
+	Window newDestination;
+
+	if (!info || !info->sourceInfo)
+		return;
+
+	newDestination = findDestination(info, mousePos);
 
 	W_DragSourceStopTimer();
 
+	if (!info->sourceInfo)
+		return;
+
 	if (newDestination != XDND_DEST_WIN(info)) {
 		recolorCursor(info, False);
+
+		if (!info->sourceInfo)
+			return;
 
 		if (XDND_DEST_WIN(info) != None) {
 			/* leaving a xdnd window */
 			sendLeaveMessage(info);
 		}
+
+		if (!info->sourceInfo)
+			return;
 
 		XDND_DEST_WIN(info) = newDestination;
 		XDND_DEST_ACTION(info) = None;
@@ -810,7 +847,8 @@ static void processMotion(WMDraggingInfo * info, WMPoint * mousePos)
 			storeDestinationProtocolVersion(info);
 
 			if (!sendEnterMessage(info)) {
-				XDND_DEST_WIN(info) = None;
+				if (info->sourceInfo)
+					XDND_DEST_WIN(info) = None;
 				return;
 			}
 
@@ -821,7 +859,8 @@ static void processMotion(WMDraggingInfo * info, WMPoint * mousePos)
 	} else {
 		if (XDND_DEST_WIN(info) != None) {
 			if (!sendPositionMessage(info, mousePos)) {
-				XDND_DEST_WIN(info) = None;
+				if (info->sourceInfo)
+					XDND_DEST_WIN(info) = None;
 				return;
 			}
 
@@ -1065,12 +1104,22 @@ static void *finishDropState(WMView * view, XClientMessageEvent * event, WMDragg
 static void dragSourceResponseTimeOut(void *source)
 {
 	WMView *view = (WMView *) source;
-	WMDraggingInfo *info = &(W_VIEW_SCREEN(view)->dragInfo);
+	WMDraggingInfo *info;
+
+	if (!view)
+		return;
+
+	info = &(W_VIEW_SCREEN(view)->dragInfo);
+	if (!info || !info->sourceInfo)
+		return;
 
 	wwarning(_("delay for drag destination response expired"));
 	sendLeaveMessage(info);
 
 	recolorCursor(info, False);
+	if (!info->sourceInfo)
+		return;
+
 	if (XDND_SOURCE_STATE(info) == finishDropState) {
 		/* drop failed */
 		endDragImage(info, True);
