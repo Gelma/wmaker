@@ -1428,6 +1428,15 @@ void wKeyTreeRebuild(WScreen *scr)
 	/* Parameter not used */
 	(void)scr;
 
+	if (w_global.shortcut.chain_timeout_handler != NULL) {
+		WMDeleteTimerHandler(w_global.shortcut.chain_timeout_handler);
+		w_global.shortcut.chain_timeout_handler = NULL;
+	}
+	if (w_global.shortcut.curpos != NULL) {
+		XUngrabKeyboard(dpy, CurrentTime);
+		w_global.shortcut.curpos = NULL;
+	}
+
 	wKeyTreeDestroy(wKeyTreeRoot);
 	wKeyTreeRoot = NULL;
 

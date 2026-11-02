@@ -2292,15 +2292,36 @@ static void handleKeyPress(XEvent * event)
 	}
 
 	/* Execute all leaf actions for this key sequence */
-	for (act = match->actions; act != NULL; act = act->next) {
-		if (act->type == WKN_MENU) {
-			WMenu *menu  = (WMenu *) act->u.menu.menu;
-			WMenuEntry *entry = (WMenuEntry *) act->u.menu.entry;
+	if (match->actions != NULL) {
+		int nactions = 0, i;
+		WKeyAction *actions_copy;
 
-			(*entry->callback)(menu, entry);
-		} else {
-			dispatchWKBDCommand(act->u.wkbd_idx, scr, wwin, event);
+		for (act = match->actions; act != NULL; act = act->next)
+			nactions++;
+
+		actions_copy = wmalloc(nactions * sizeof(WKeyAction));
+		for (i = 0, act = match->actions; act != NULL; i++, act = act->next)
+			actions_copy[i] = *act;
+
+		if (wwin)
+			wretain(wwin);
+
+		for (i = 0; i < nactions; i++) {
+			if (actions_copy[i].type == WKN_MENU) {
+				WMenu *menu  = (WMenu *) actions_copy[i].u.menu.menu;
+				WMenuEntry *entry = (WMenuEntry *) actions_copy[i].u.menu.entry;
+
+				(*entry->callback)(menu, entry);
+			} else {
+				WWindow *target_win = (wwin && !wwin->flags.destroyed) ? wwin : scr->focused_window;
+
+				dispatchWKBDCommand(actions_copy[i].u.wkbd_idx, scr, target_win, event);
+			}
 		}
+
+		if (wwin)
+			wrelease(wwin);
+		wfree(actions_copy);
 	}
 	return;
 }
