@@ -209,6 +209,14 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `wFrameWindowUpdateBorders()` and `wFrameWindowDestroy()` (`src/framewin.c`), freed previously allocated `fwin->border_pixel`, `fwin->focused_border_pixel`, and `fwin->selected_border_pixel` heap blocks, and freed RGB description strings returned by `WMGetColorRGBDescription()`. Also freed color strings in `wScreenInit()` (`src/screen.c`).
     - In `wWindowGetLanguageLabel()` (`src/window.c`), freed all dynamically allocated string members (`rules`, `model`, `layout`, `variant`, `options`) returned by `XkbRF_GetNamesProp()`.
     - Implemented `wWindowIsManaged()` in `src/window.c` and `src/window.h`. In `wWindowSingleFocus()` (`src/window.c`) and `wMakeWindowVisible()` (`src/actions.c`), retained window references and checked `wWindowIsManaged(scr, wwin)` and `!wwin->flags.destroyed` before and after workspace switching or unhiding applications, preventing Use-After-Free when client windows close during `ProcessPendingEvents()`.
+68. **[`8479a4f0`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c#L848-L860) - `WINGs`, `dock`, `event`, `misc`, `session`, `wdefaults`, `window`: Fix uninitialized `XColor`/`XEvent` and remaining session memory leaks**:
+    - Zero-initialized stack `XColor bla` in `WMCreateScreenWithRContext()` (`WINGs/widgets.c`) before passing it to `XCreatePixmapCursor()`, eliminating the Valgrind `writev(vector[0]) points to uninitialised byte(s)` error when Xlib flushes the request buffer during `XInternAtoms()`.
+    - Freed `classHint->res_name` and `classHint->res_class` via `XFree()` in `fixLeaderProperties()` (`src/window.c`) when `XGetClassHint()` succeeds, fixing a 651-byte / 70-block leak across mapped windows.
+    - Freed the dynamically allocated icon path strings in `get_default_image()` and `get_icon_image()` (`src/wdefaults.c`), fixing path string leaks during startup, dock icon restoration, and `UpdateSwitchMenu()`.
+    - Freed `user_input` returned by `getuserinput()` (`wInputDialog` / `wAdvancedInputDialog`) in `ExpandOptions()` (`src/misc.c`) after appending it to the expanded command buffer.
+    - Removed unused static `dHost` and `sHost` `WMPropList` keys in `make_keys()` (`src/dock.c`, `src/session.c`) that compiler optimization turned into orphaned allocations, and removed redundant `WMRetainPropList()` calls on `WMCreatePLString()`.
+    - Zero-initialized stack `XSelectionEvent notify` and freed `XGetAtomName()` strings in `handle_selection_request()` (`src/event.c`).
+    - Expanded `--trace-children-skip` in `wmaker-valgrind-session` to also skip external binaries in `/tmp/*`, `/home/*`, `/var/*`, `/sbin/*`, `/etc/*`, and `/lib*`.
 
 ---
 
