@@ -16,14 +16,15 @@ WM_STDOUT_LOG="${LOG_DIR}/wmaker-${TIMESTAMP}.log"
 
 # Opzioni consigliate per Valgrind con un Window Manager X11:
 # - tracciamento errori di memoria e leak
-# - child-silent-after-fork per non tracciare tutti i processi client figli lanciati dal menu/dock
-#   (oppure tracciarli separatamente solo per wmaker stesso con --trace-children=no)
+# - segui i processi figli con --trace-children=yes ma salta i programmi esterni (/bin, /usr)
+#   cosicché sia il processo monitor che il processo wmaker effettivo (--for-real) vengano analizzati
 VALGRIND_OPTS=(
     --tool=memcheck
     --leak-check=full
     --show-leak-kinds=definite,indirect,possible
     --track-origins=yes
-    --trace-children=no
+    --trace-children=yes
+    --trace-children-skip="/bin/*,/usr/bin/*,!${WM_PREFIX}/bin/wmaker"
     --read-var-info=yes
     --num-callers=30
     --log-file="${VALGRIND_LOG}"
