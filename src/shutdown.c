@@ -62,6 +62,10 @@ void Shutdown(WShutdownMode mode)
 		/* if there is no session manager, send SAVE_YOURSELF to
 		 * the clients */
 #ifdef HAVE_INOTIFY
+		if (w_global.inotify.handler_id) {
+			WMDeleteInputHandler(w_global.inotify.handler_id);
+			w_global.inotify.handler_id = NULL;
+		}
 		if (w_global.inotify.fd_event_queue >= 0) {
 			close(w_global.inotify.fd_event_queue);
 			w_global.inotify.fd_event_queue = -1;
@@ -89,15 +93,19 @@ void Shutdown(WShutdownMode mode)
 		break;
 
 	case WSRestartPreparationMode:
+#ifdef HAVE_INOTIFY
+		if (w_global.inotify.handler_id) {
+			WMDeleteInputHandler(w_global.inotify.handler_id);
+			w_global.inotify.handler_id = NULL;
+		}
+		if (w_global.inotify.fd_event_queue >= 0) {
+			close(w_global.inotify.fd_event_queue);
+			w_global.inotify.fd_event_queue = -1;
+		}
+#endif
 		for (i = 0; i < w_global.screen_count; i++) {
 			WScreen *scr;
 
-#ifdef HAVE_INOTIFY
-			if (w_global.inotify.fd_event_queue >= 0) {
-				close(w_global.inotify.fd_event_queue);
-				w_global.inotify.fd_event_queue = -1;
-			}
-#endif
 			scr = wScreenWithNumber(i);
 			if (scr) {
 				if (scr->helper_pid)

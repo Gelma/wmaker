@@ -563,6 +563,7 @@ extern struct wmaker_global_variables {
 	struct {
 		int fd_event_queue;   /* Inotify's queue file descriptor */
 		int wd_defaults;   /* Watch Descriptor for the 'Defaults' configuration file */
+		WMHandlerID handler_id; /* WINGs input handler */
 	} inotify;
 #endif
 

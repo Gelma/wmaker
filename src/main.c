@@ -504,6 +504,7 @@ static void inotifyWatchConfig(void)
 {
 	char *watchPath = NULL;
 
+	w_global.inotify.handler_id = NULL;
 	w_global.inotify.fd_event_queue = inotify_init();	/* Initialise an inotify instance */
 	if (w_global.inotify.fd_event_queue < 0) {
 		wwarning(_("could not initialise an inotify instance."
