@@ -326,16 +326,19 @@ static XColor *allocateGrayScale(RContext * ctx)
 
 	if (ctx->vclass == StaticGray) {
 		/* we might as well use all grays */
-		ncolors = 1 << ctx->depth;
+		ncolors = 1 << (ctx->depth <= 8 ? ctx->depth : 8);
 	} else {
-		if (ncolors > (1 << ctx->depth)) {
+		if (ncolors > (1 << (ctx->depth <= 8 ? ctx->depth : 8))) {
 			/* reduce colormap size */
 			cpc = ctx->attribs->colors_per_channel = 1 << ((int)ctx->depth / 3);
 			ncolors = cpc * cpc * cpc;
 		}
 
-		assert(cpc >= 2 && ncolors <= (1 << ctx->depth));
+		assert(cpc >= 2 && ncolors <= (1 << (ctx->depth <= 8 ? ctx->depth : 8)));
 	}
+
+	if (ncolors <= 1)
+		return NULL;
 
 	if (ncolors >= 256 && ctx->vclass == StaticGray) {
 		/* don't need dithering for 256 levels of gray in StaticGray visual */

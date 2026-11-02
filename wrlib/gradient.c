@@ -118,9 +118,9 @@ static RImage *renderHGradient(unsigned width, unsigned height, int r0, int g0, 
 	g = g0 << 16;
 	b = b0 << 16;
 
-	dr = ((rf - r0) << 16) / (int)width;
-	dg = ((gf - g0) << 16) / (int)width;
-	db = ((bf - b0) << 16) / (int)width;
+	dr = ((rf - r0) * 65536L) / (int)width;
+	dg = ((gf - g0) * 65536L) / (int)width;
+	db = ((bf - b0) * 65536L) / (int)width;
 	/* render the first line */
 	for (i = 0; i < width; i++) {
 		*(ptr++) = (unsigned char)(r >> 16);
@@ -208,9 +208,9 @@ static RImage *renderVGradient(unsigned width, unsigned height, int r0, int g0, 
 	g = g0 << 16;
 	b = b0 << 16;
 
-	dr = ((rf - r0) << 16) / (int)height;
-	dg = ((gf - g0) << 16) / (int)height;
-	db = ((bf - b0) << 16) / (int)height;
+	dr = ((rf - r0) * 65536L) / (int)height;
+	dg = ((gf - g0) * 65536L) / (int)height;
+	db = ((bf - b0) * 65536L) / (int)height;
 
 	for (i = 0; i < height; i++) {
 		ptr = renderGradientWidth(ptr, width, r >> 16, g >> 16, b >> 16);
@@ -306,9 +306,9 @@ static RImage *renderMHGradient(unsigned width, unsigned height, RColor ** color
 
 	/* render the first line */
 	for (i = 1; i < count; i++) {
-		dr = ((int)(colors[i]->red - colors[i - 1]->red) << 16) / (int)width2;
-		dg = ((int)(colors[i]->green - colors[i - 1]->green) << 16) / (int)width2;
-		db = ((int)(colors[i]->blue - colors[i - 1]->blue) << 16) / (int)width2;
+		dr = ((int)(colors[i]->red - colors[i - 1]->red) * 65536L) / (int)width2;
+		dg = ((int)(colors[i]->green - colors[i - 1]->green) * 65536L) / (int)width2;
+		db = ((int)(colors[i]->blue - colors[i - 1]->blue) * 65536L) / (int)width2;
 		for (j = 0; j < width2; j++) {
 			*ptr++ = (unsigned char)(r >> 16);
 			*ptr++ = (unsigned char)(g >> 16);
@@ -367,9 +367,9 @@ static RImage *renderMVGradient(unsigned width, unsigned height, RColor ** color
 	b = colors[0]->blue << 16;
 
 	for (i = 1; i < count; i++) {
-		dr = ((int)(colors[i]->red - colors[i - 1]->red) << 16) / (int)height2;
-		dg = ((int)(colors[i]->green - colors[i - 1]->green) << 16) / (int)height2;
-		db = ((int)(colors[i]->blue - colors[i - 1]->blue) << 16) / (int)height2;
+		dr = ((int)(colors[i]->red - colors[i - 1]->red) * 65536L) / (int)height2;
+		dg = ((int)(colors[i]->green - colors[i - 1]->green) * 65536L) / (int)height2;
+		db = ((int)(colors[i]->blue - colors[i - 1]->blue) * 65536L) / (int)height2;
 
 		for (j = 0; j < height2; j++) {
 			ptr = renderGradientWidth(ptr, width, r >> 16, g >> 16, b >> 16);
@@ -467,13 +467,13 @@ RImage *RRenderInterwovenGradient(unsigned width, unsigned height,
 	g2 = colors2[0].green << 16;
 	b2 = colors2[0].blue << 16;
 
-	dr1 = ((colors1[1].red - colors1[0].red) << 16) / (int)height;
-	dg1 = ((colors1[1].green - colors1[0].green) << 16) / (int)height;
-	db1 = ((colors1[1].blue - colors1[0].blue) << 16) / (int)height;
+	dr1 = ((colors1[1].red - colors1[0].red) * 65536L) / (int)height;
+	dg1 = ((colors1[1].green - colors1[0].green) * 65536L) / (int)height;
+	db1 = ((colors1[1].blue - colors1[0].blue) * 65536L) / (int)height;
 
-	dr2 = ((colors2[1].red - colors2[0].red) << 16) / (int)height;
-	dg2 = ((colors2[1].green - colors2[0].green) << 16) / (int)height;
-	db2 = ((colors2[1].blue - colors2[0].blue) << 16) / (int)height;
+	dr2 = ((colors2[1].red - colors2[0].red) * 65536L) / (int)height;
+	dg2 = ((colors2[1].green - colors2[0].green) * 65536L) / (int)height;
+	db2 = ((colors2[1].blue - colors2[0].blue) * 65536L) / (int)height;
 
 	for (i = 0, k = 0, l = 0, ll = thickness1; i < height; i++) {
 		if (k == 0)
