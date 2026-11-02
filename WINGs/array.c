@@ -102,7 +102,9 @@ void WMAppendArray(WMArray * array, WMArray * other)
 		return;
 
 	if (array->itemCount + other->itemCount > array->allocSize) {
-		array->allocSize += other->allocSize;
+		int needed = array->itemCount + other->itemCount;
+		int grown = array->allocSize + (array->allocSize >> 1) + RESIZE_INCREMENT;
+		array->allocSize = (needed > grown) ? needed : grown;
 		array->items = wrealloc(array->items, sizeof(void *) * array->allocSize);
 	}
 
@@ -116,7 +118,7 @@ void WMAddToArray(WMArray * array, void *item)
 		return;
 
 	if (array->itemCount >= array->allocSize) {
-		array->allocSize += RESIZE_INCREMENT;
+		array->allocSize += (array->allocSize >> 1) + RESIZE_INCREMENT;
 		array->items = wrealloc(array->items, sizeof(void *) * array->allocSize);
 	}
 	array->items[array->itemCount] = item;
@@ -132,7 +134,7 @@ void WMInsertInArray(WMArray * array, int index, void *item)
 	wassertr(index >= 0 && index <= array->itemCount);
 
 	if (array->itemCount >= array->allocSize) {
-		array->allocSize += RESIZE_INCREMENT;
+		array->allocSize += (array->allocSize >> 1) + RESIZE_INCREMENT;
 		array->items = wrealloc(array->items, sizeof(void *) * array->allocSize);
 	}
 	if (index < array->itemCount) {
