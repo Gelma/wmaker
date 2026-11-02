@@ -190,6 +190,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `winspector.c`, removed notification observers in `wDestroyInspectorPanels()` before unmanaging, and guarded `showIconFor()` and `applySettings()` modal `wMessageDialog()` calls with `choosingIcon`/`destroyed` checks.
     - In `switchpanel.c` and `cycling.c`, retained `WWindow` references while the switch panel is open and verified windows remain managed before focusing or raising them during `Alt+Tab` cycling.
     - In `balloon.c`, unconditionally cancelled `scr->balloon->timer` in `wBalloonHide()` even when the balloon is currently mapped, and guarded `NULL` `aicon->wm_instance` for GNUstep appicons.
+63. **[`5f4bf48f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1144-L1765) - `client`, `cycling`, `dialog`, `switchpanel`, `window`: Fix dangling pointer dereferences and resource leaks in window lifecycle and dialogs**:
+    - In `switchpanel.c` and `cycling.c`, avoided dereferencing unverified `WWindow *` pointers before verifying they remain in the screen's live window list; also guarded `sameWindowClass()` against checking `wm_class` if either window has `flags.destroyed` set (since `wWindowDestroy` frees `wm_class` while the struct is kept alive by `wretain`).
+    - In `window.c`, explicitly reset `normal_hints`, `wm_hints`, `wm_instance`, `wm_class`, `wm_gnustep_attr`, and `cmap_windows` to `NULL` upon freeing them in `wWindowDestroy()`, ensuring any retained references do not hold dangling member pointers.
+    - In `dialog.c`, recorded the parent X11 window in `InfoPanel` and `LegalPanel` structs and destroyed them on panel closure via `XDestroyWindow(dpy, parent)` to eliminate orphaned X11 window leaks; also released the logo pixmap with `WMReleasePixmap(logo)` in `wShowCrashingDialogPanel()`.
+    - In `client.c`, reset `wapp->menu = NULL` immediately after calling `wAppMenuDestroy(wapp->menu)` when handling `WM_COMMAND` property updates.
 
 ---
 
