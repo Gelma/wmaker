@@ -247,12 +247,15 @@ static WMArray *LoadHistory(const char *filename, int max)
 static void SaveHistory(WMArray * history, const char *filename)
 {
 	int i;
-	WMPropList *plhistory;
+	WMPropList *plhistory, *item;
 
 	plhistory = WMCreatePLArray(NULL);
 
-	for (i = 0; i < WMGetArrayItemCount(history); ++i)
-		WMAddToPLArray(plhistory, WMCreatePLString(WMGetFromArray(history, i)));
+	for (i = 0; i < WMGetArrayItemCount(history); ++i) {
+		item = WMCreatePLString(WMGetFromArray(history, i));
+		WMAddToPLArray(plhistory, item);
+		WMReleasePropList(item);
+	}
 
 	WMWritePropListToFile(plhistory, filename);
 	WMReleasePropList(plhistory);

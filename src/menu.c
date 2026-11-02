@@ -2381,8 +2381,11 @@ static void saveMenuInfo(WMPropList * dict, WMenu * menu, WMPropList * key)
 	snprintf(buffer, sizeof(buffer), "%i,%i", menu->frame_x, menu->frame_y);
 	value = WMCreatePLString(buffer);
 	list = WMCreatePLArray(value, NULL);
-	if (menu->flags.lowered)
-		WMAddToPLArray(list, WMCreatePLString("lowered"));
+	if (menu->flags.lowered) {
+		WMPropList *lowered = WMCreatePLString("lowered");
+		WMAddToPLArray(list, lowered);
+		WMReleasePropList(lowered);
+	}
 	WMPutInPLDictionary(dict, key, list);
 	WMReleasePropList(value);
 	WMReleasePropList(list);

@@ -887,8 +887,11 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 	if (wwin->main_window) {
 		XTextProperty text_prop;
 
-		if (XGetTextProperty(dpy, wwin->main_window, &text_prop, w_global.atom.wmaker.menu))
+		if (XGetTextProperty(dpy, wwin->main_window, &text_prop, w_global.atom.wmaker.menu)) {
 			wwin->client_flags.shared_appicon = 0;
+			if (text_prop.value)
+				XFree(text_prop.value);
+		}
 	}
 
 	if (wwin->flags.is_dockapp)
@@ -2223,6 +2226,7 @@ void wWindowSynthConfigureNotify(WWindow *wwin)
 {
 	XEvent sevent;
 
+	memset(&sevent, 0, sizeof(sevent));
 	sevent.type = ConfigureNotify;
 	sevent.xconfigure.display = dpy;
 	sevent.xconfigure.event = wwin->client_win;
@@ -2306,7 +2310,7 @@ void wWindowConfigure(WWindow *wwin, int req_x, int req_y, int req_width, int re
 		 * with non-NorthWest gravity inside the frame to compensate (visible as
 		 * a GravityNotify with xev), leaving it at the wrong offset.
 		 */
-		if (wwin->normal_hints->win_gravity != NorthWestGravity)
+		if (wwin->normal_hints && wwin->normal_hints->win_gravity != NorthWestGravity)
 			XMoveWindow(dpy, wwin->client_win, 0, wwin->frame->top_width);
 
 		if (!(req_height > wwin->frame->core->height || req_width > wwin->frame->core->width))

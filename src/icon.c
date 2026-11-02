@@ -256,7 +256,7 @@ static void drawIconTitleBackground(WScreen *scr, Pixmap pixmap, int height)
 static void icon_update_pixmap(WIcon *icon, RImage *image)
 {
 	RImage *tile;
-	Pixmap pixmap;
+	Pixmap pixmap = None;
 	int x, y, sx, sy;
 	unsigned w, h;
 	int theight = 0;
@@ -323,9 +323,11 @@ static void icon_update_pixmap(WIcon *icon, RImage *image)
 	RReleaseImage(tile);
 
 	/* Draw the icon's title background (without text) */
-	if (icon->show_title)
+	if (icon->show_title && pixmap != None)
 		drawIconTitleBackground(scr, pixmap, theight);
 
+	if (icon->pixmap != None)
+		XFreePixmap(dpy, icon->pixmap);
 	icon->pixmap = pixmap;
 }
 
@@ -685,15 +687,14 @@ void update_icon_pixmap(WIcon *icon)
 
 	icon->pixmap = None;
 
-	/* Create the pixmap */
-	if (icon->file_image)
-		icon_update_pixmap(icon, icon->file_image);
-
 	/* If dockapp, put inside the icon */
 	if (icon->icon_win != None) {
 		/* file_image is NULL, because is docked app */
 		icon_update_pixmap(icon, NULL);
 		set_dockapp_in_icon(icon);
+	} else if (icon->file_image) {
+		/* Create the pixmap */
+		icon_update_pixmap(icon, icon->file_image);
 	}
 
 	/* No pixmap, set default background */
@@ -982,6 +983,8 @@ static void miniwindowMouseDown(WObjDescriptor *desc, XEvent *event)
 void set_icon_image_from_database(WIcon *icon, const char *wm_instance, const char *wm_class, const char *command)
 {
 	char *file = NULL;
+
+	unset_icon_image(icon);
 
 	file = get_icon_filename(wm_instance, wm_class, command, False);
 	if (file) {
