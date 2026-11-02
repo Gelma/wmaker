@@ -143,6 +143,7 @@ W_SendDnDClientMessage(Display * dpy, Window win, Atom message,
 		return False;	/* message not sent */
 	}
 
+	memset(&ev, 0, sizeof(ev));
 	ev.type = ClientMessage;
 	ev.xclient.message_type = message;
 	ev.xclient.format = 32;

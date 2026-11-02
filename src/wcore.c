@@ -44,6 +44,7 @@ WCoreWindow *wCoreCreateTopLevel(WScreen *screen, int x, int y, int width, int h
 
 	core = wmalloc(sizeof(WCoreWindow));
 
+	memset(&attribs, 0, sizeof(attribs));
 	vmask = CWBorderPixel | CWCursor | CWEventMask | CWOverrideRedirect | CWColormap;
 	attribs.override_redirect = True;
 	attribs.cursor = wPreferences.cursor[WCUR_NORMAL];
@@ -96,10 +97,12 @@ WCoreWindow *wCoreCreate(WCoreWindow *parent, int x, int y, int width, int heigh
 
 	core = wmalloc(sizeof(WCoreWindow));
 
+	memset(&attribs, 0, sizeof(attribs));
 	vmask = CWBorderPixel | CWCursor | CWEventMask | CWColormap;
 	attribs.cursor = wPreferences.cursor[WCUR_NORMAL];
 	attribs.background_pixmap = None;
 	attribs.background_pixel = parent->screen_ptr->black_pixel;
+	attribs.border_pixel = 0;
 	attribs.event_mask = KeyPressMask | KeyReleaseMask | ButtonPressMask |
 			     ButtonReleaseMask | ButtonMotionMask |
 			     ExposureMask | EnterWindowMask | LeaveWindowMask;

@@ -144,6 +144,7 @@ static void notifySelection(XEvent * event, Atom prop)
 
 	/* printf("event to %x\n", event->xselectionrequest.requestor); */
 
+	memset(&ev, 0, sizeof(ev));
 	ev.xselection.type = SelectionNotify;
 	ev.xselection.serial = 0;
 	ev.xselection.send_event = True;

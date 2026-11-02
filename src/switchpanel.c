@@ -181,7 +181,7 @@ static void changeImage(WSwitchPanel *panel, int idecks, int selected, Bool dim,
 			RFillImage(back, &color);
 		}
 
-		if (selected) {
+		if (selected && panel->tile) {
 			tile = panel->tile;
 			RCombineArea(back, tile, 0, 0, tile->width, tile->height,
 				     (back->width - tile->width) / 2, (back->height - tile->height) / 2);
@@ -580,7 +580,10 @@ void wSwitchPanelDestroy(WSwitchPanel *panel)
 	if (panel->win) {
 		Window info_win = panel->scr->info_window;
 		XEvent ev;
+
+		memset(&ev, 0, sizeof(ev));
 		ev.xclient.type = ClientMessage;
+		ev.xclient.window = info_win;
 		ev.xclient.message_type = w_global.atom.wm.ignore_focus_events;
 		ev.xclient.format = 32;
 		ev.xclient.data.l[0] = True;

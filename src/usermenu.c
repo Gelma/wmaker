@@ -96,6 +96,7 @@ static void notifyClient(WMenu *menu, WMenuEntry *entry)
 	window = scr->focused_window->client_win;
 
 	for (i = 0; i < data->key_no; i++) {
+		memset(&event, 0, sizeof(event));
 		event.xkey.type = KeyPress;
 		event.xkey.display = dpy;
 		event.xkey.window = window;

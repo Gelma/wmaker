@@ -58,6 +58,7 @@ static void sendMessage(Window window, int what, int tag)
 {
 	XEvent event;
 
+	memset(&event, 0, sizeof(event));
 	event.xclient.type = ClientMessage;
 	event.xclient.message_type = w_global.atom.wmaker.menu;
 	event.xclient.format = 32;

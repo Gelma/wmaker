@@ -274,6 +274,7 @@ void wClientSendProtocol(WWindow * wwin, Atom protocol, Time time)
 {
 	XEvent event;
 
+	memset(&event, 0, sizeof(event));
 	event.xclient.type = ClientMessage;
 	event.xclient.message_type = w_global.atom.wm.protocols;
 	event.xclient.format = 32;

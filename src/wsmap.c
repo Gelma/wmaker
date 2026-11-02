@@ -117,7 +117,9 @@ static void workspace_map_destroy(WWorkspaceMap *wsmap)
 		Window info_win = wsmap->scr->info_window;
 		XEvent ev;
 
+		memset(&ev, 0, sizeof(ev));
 		ev.xclient.type = ClientMessage;
+		ev.xclient.window = info_win;
 		ev.xclient.message_type = w_global.atom.wm.ignore_focus_events;
 		ev.xclient.format = 32;
 		ev.xclient.data.l[0] = True;

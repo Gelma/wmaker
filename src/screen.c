@@ -186,6 +186,7 @@ static Bool replace_existing_wm(WScreen *scr)
 	if (XGetSelectionOwner(dpy, scr->sn_atom) != scr->info_window)
 		return False;
 
+	memset(&event, 0, sizeof(event));
 	event.type = ClientMessage;
 	event.message_type = scr->sn_atom;
 	event.format = 32;
