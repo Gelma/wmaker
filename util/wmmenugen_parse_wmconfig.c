@@ -185,7 +185,7 @@ static void parse_wmconfig_line(char **label, char **key, char **value, const ch
 
 	p = line;
 	*label = *key = *value = NULL;
-	kstart = kend = 0;
+	kstart = 0;
 
 	/* skip whitespace */
 	while (isspace(*(p + kstart)))

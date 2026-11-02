@@ -326,8 +326,8 @@ void xdnd_set_dnd_aware (DndClass * dnd, Window window, Atom * typelist)
         int n;
         n = array_length (typelist);
         if (n)
-            s = XChangeProperty (dnd->display, window, dnd->XdndAware, XA_ATOM, 32, PropModeAppend,
-                                 (unsigned char *) typelist, n);
+            XChangeProperty (dnd->display, window, dnd->XdndAware, XA_ATOM, 32, PropModeAppend,
+                             (unsigned char *) typelist, n);
     }
     r =
         XQueryTree (dnd->display, window, &root_return, &parent, &children_return,
@@ -547,7 +547,6 @@ int xdnd_get_actions (DndClass * dnd, Window window, Atom ** actions, char ***de
         XFree (data);
         data = (unsigned char *) *descriptions;
         data += l;
-        l = 0;
         for (i = 0, r = data;; r += l + 1, i++) {
             l = strlen ((char *) r);
             if (!l || i >= count)
@@ -711,7 +710,9 @@ static void xdnd_send_finished (DndClass * dnd, Window window, Window from, int 
 /* returns non-zero on error - i.e. no selection owner set. Type is of course the mime type */
 static int xdnd_convert_selection (DndClass * dnd, Window window, Window requester, Atom type)
 {
-    if (!(window = XGetSelectionOwner (dnd->display, dnd->XdndSelection))) {
+    (void) window;
+
+    if (XGetSelectionOwner (dnd->display, dnd->XdndSelection) == None) {
         dnd_debug1 ("xdnd_convert_selection(): XGetSelectionOwner failed");
         return 1;
     }

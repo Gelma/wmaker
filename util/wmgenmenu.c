@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
 		}
 
 	argc -= optind;
-	argv += optind;
 
 	if (argc != 0)
 		print_help(0, 1);

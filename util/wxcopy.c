@@ -182,18 +182,11 @@ int main(int argc, char **argv)
 		buffer = 0;
 	}
 
-	while (!feof(file)) {
-		char *nbuf;
-		char tmp[LINESIZE + 2];
-		int nl = 0;
+	char tmp[LINESIZE + 2];
+	int nl;
 
-		/*
-		 * Use read() instead of fgets() to preserve NULLs, since
-		 * especially since there's no reason to read one line at a time.
-		 */
-		if ((nl = fread(tmp, 1, LINESIZE, file)) <= 0) {
-			break;
-		}
+	while ((nl = fread(tmp, 1, LINESIZE, file)) > 0) {
+		char *nbuf;
 		if (buf == NULL) {
 			buf_len = l + nl + 1;
 			nbuf = malloc(buf_len);
@@ -228,6 +221,8 @@ int main(int argc, char **argv)
 			free(buf);
 			exit(1);
 		}
+		if (nl < LINESIZE)
+			break;
 	}
 
 	if (clear_selection) {
@@ -238,5 +233,8 @@ int main(int argc, char **argv)
 	}
 	XFlush(dpy);
 	XCloseDisplay(dpy);
+	if (file != stdin)
+		fclose(file);
+	free(buf);
 	exit(buf == NULL || errno != 0);
 }

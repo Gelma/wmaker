@@ -392,6 +392,9 @@ static char *find_image_directory(const char *start_dir)
 	int image_count = 0;
 	char *result = NULL;
 
+	if (!start_dir)
+		return NULL;
+
 	dir = opendir(start_dir);
 	if (!dir)
 		return NULL;

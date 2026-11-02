@@ -417,7 +417,6 @@ static void createPanel(Panel * p)
 	panel->marginB = WMCreateSwitchButton(panel->optF);
 	WMResizeWidget(panel->marginB, 198, 26);
 	WMMoveWidget(panel->marginB, 12, starty);
-	starty += 26;
 	WMSetButtonText(panel->marginB, _("Enforce icon margin"));
 
 	WMSetBalloonTextForView(_("Make sure that the icon image does not protrude into the icon frame."), WMWidgetView(panel->marginB));
