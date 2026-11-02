@@ -156,6 +156,19 @@ Tutte le correzioni sono state applicate in singoli commit Git incrementali, cia
     - Eliminato prototipo non definito in `src/misc.c` né nel resto del progetto.
 54. **[`e09bbed4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGsP.h.in#L332) - `WINGs`: Rimozione prototipo obsoleto `W_FreeDragOperationItem`**:
     - Rimosso il prototipo privo di implementazione nel modulo drag-and-drop.
+55. **[`510eb8c4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L553-L573) - `menu`: Cancellazione timer `jump_back` alla distruzione del menu (Fix Segfault `wMenuMove` offset `0x4a903`)**:
+    - Analizzato il crash kernel (`segfault at 51 ip 000055555559e903 ... in wmaker[4a903]`), localizzato in `wMenuMove` (`src/menu.c:2126`) durante la dereferenziazione di `menu->frame->core->window` su una struttura `WMenu` già liberata (use-after-free).
+    - `wMenuScroll()` registrava un timer di 400ms (`MENU_JUMP_BACK_DELAY`, `callback_leaving`) passando `menu->jump_back`, ma `wMenuDestroy()` cancellava solo `menu->timer` dimenticando `menu->jump_back`. Se il menu veniva distrutto prima dello scadere dei 400ms, `callback_leaving` invocava `wMenuMove(dl->menu, ...)` sul menu deallocato.
+    - Corretto `wMenuDestroy` per cancellare e liberare `menu->jump_back`, e corretto `wMenuScroll` quando `jump_back` viene azzerato cliccando sulla barra del titolo.
+56. **[`e999a4bd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/winmenu.c#L849-L879) - `winmenu`: Reset di `scr->workspace_submenu` e pulizia `rtext` in `DestroyWindowMenu`**:
+    - `DestroyWindowMenu()` distruggeva ricorsivamente `scr->window_menu` (incluso il sottomenu `scr->workspace_submenu`) senza azzerare `scr->workspace_submenu = NULL` e senza liberare preventivamente le stringhe `rtext` delle scorciatoie nel sottomenu opzioni (prevenendo un double-free con `setModifierKeyLabels`/`setModifierShortKeyLabels`).
+57. **[`108f91eb`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c#L1623-L1687) - `rootmenu`: Protezione contro la distruzione di `scr->root_menu` mentre è attivo/mappato e ricostruzione di `wKeyTreeRoot`**:
+    - Impedita in `wRootMenuReparse()` la distruzione di `scr->root_menu` (es. su evento `inotify` di `wDefaultsCheckDomains`) mentre il menu o un suo sottomenu/brother è mappato o dentro `menuMouseDown` (`flags.inside_handler`), evitando il use-after-free in `menuMouseDown` -> `wMenuMove(parentMenu(desc->parent), ...)`.
+    - Aggiunta la chiamata a `wKeyTreeRebuild(scr)` quando cambiano le scorciatoie del root menu in `wRootMenuReparse()`, `OpenRootMenu()` ed `executeButtonAction()`, evitando puntatori pendenti `WMenu *` / `WMenuEntry *` nell'albero `wKeyTreeRoot`.
+58. **[`55a742a3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L604-L2189) - `menu`: Hardening di `wMenuMove`, `wMenuDestroy` e `menuMouseDown` contro puntatori NULL o pendenti**:
+    - Aggiunte guardie su `menu->frame`, `menu->frame->core`, limiti di `selected_entry` e `menu->cascades[i] != NULL` in `wMenuMove`, `selectEntry`, `closeBrotherCascadesOf`, `parentMenu`, `raiseMenus`, `keyboardMenu`, `saveMenuRecurs` e `restoreMenuRecurs`.
+    - In `wMenuDestroy(menu, False)`, scollegato `menu->cascades[i]->parent = NULL` per evitare puntatori `parent` pendenti nei sottomenu non distrutti.
+    - In `menuMouseDown()`, evitata la sovrascrittura di `desc` all'apertura del window menu tramite tasto destro su `scr->switch_menu`, garantendo l'azzeramento di `flags.inside_handler`.
 
 ---
 
