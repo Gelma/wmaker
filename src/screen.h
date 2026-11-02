@@ -336,7 +336,7 @@ typedef struct _WScreen {
         /* some client has issued a WM_COLORMAP_NOTIFY */
         unsigned int colormap_stuff_blocked:1;
         unsigned int doing_alt_tab:1;
-        unsigned int jump_back_pending:1;
+        unsigned int jump_back_pending:8;
         unsigned int ignore_focus_events:1;
         unsigned int in_hot_corner:3;
         unsigned int mark_capture_mode:3;  /* one of WMarkCaptureMode */

@@ -561,6 +561,16 @@ void wMenuDestroy(WMenu * menu, int recurse)
 		WMDeleteTimerHandler(menu->timer);
 	menu->timer = NULL;
 
+	if (menu->jump_back) {
+		WMDeleteTimerWithClientData(menu->jump_back);
+		wfree(menu->jump_back);
+		menu->jump_back = NULL;
+		if (menu->menu && menu->menu->screen_ptr &&
+		    menu->menu->screen_ptr->flags.jump_back_pending > 0) {
+			menu->menu->screen_ptr->flags.jump_back_pending--;
+		}
+	}
+
 	/* call destroy handler */
 	if (menu->on_destroy)
 		(*menu->on_destroy) (menu);
@@ -1626,7 +1636,10 @@ static void callback_leaving(void *user_param)
 
 	wMenuMove(dl->menu, dl->ox, dl->oy, True);
 	dl->menu->jump_back = NULL;
-	dl->menu->menu->screen_ptr->flags.jump_back_pending = 0;
+	if (dl->menu->menu && dl->menu->menu->screen_ptr &&
+	    dl->menu->menu->screen_ptr->flags.jump_back_pending > 0) {
+		dl->menu->menu->screen_ptr->flags.jump_back_pending--;
+	}
 	wfree(dl);
 }
 
@@ -1740,10 +1753,15 @@ void wMenuScroll(WMenu *menu)
 			delayer->ox = old_frame_x;
 			delayer->oy = old_frame_y;
 			omenu->jump_back = delayer;
-			scr->flags.jump_back_pending = 1;
+			scr->flags.jump_back_pending++;
 		} else
 			delayer = omenu->jump_back;
 		WMAddTimerHandler(MENU_JUMP_BACK_DELAY, callback_leaving, delayer);
+	} else if (omenu->jump_back) {
+		wfree(omenu->jump_back);
+		omenu->jump_back = NULL;
+		if (scr->flags.jump_back_pending > 0)
+			scr->flags.jump_back_pending--;
 	}
 }
 
