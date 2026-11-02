@@ -1,6 +1,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdint.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -102,31 +103,26 @@ static Bool caseSensitive = True;
 static unsigned hashPropList(const void *param)
 {
 	WMPropList *plist= (WMPropList *) param;
-	unsigned ret = 0;
-	unsigned ctr = 0;
-	const char *key;
+	uint32_t hash = 2166136261u;
+	const unsigned char *key;
 	int i, len;
 
 	switch (plist->type) {
 	case WPLString:
-		key = plist->d.string;
-		len = WMIN(strlen(key), MaxHashLength);
+		key = (const unsigned char *)plist->d.string;
+		len = WMIN(strlen((const char *)key), MaxHashLength);
 		for (i = 0; i < len; i++) {
-			ret ^= tolower(key[i]) << ctr;
-			ctr = (ctr + 1) % sizeof(char *);
+			hash ^= (unsigned char)tolower(key[i]);
+			hash *= 16777619u;
 		}
-		/*while (*key) {
-		   ret ^= tolower(*key++) << ctr;
-		   ctr = (ctr + 1) % sizeof (char *);
-		   } */
 		break;
 
 	case WPLData:
 		key = WMDataBytes(plist->d.data);
 		len = WMIN(WMGetDataLength(plist->d.data), MaxHashLength);
 		for (i = 0; i < len; i++) {
-			ret ^= key[i] << ctr;
-			ctr = (ctr + 1) % sizeof(char *);
+			hash ^= key[i];
+			hash *= 16777619u;
 		}
 		break;
 
@@ -136,7 +132,7 @@ static unsigned hashPropList(const void *param)
 		break;
 	}
 
-	return ret;
+	return hash;
 }
 
 static WMPropList *retainPropListByCount(WMPropList * plist, int count)

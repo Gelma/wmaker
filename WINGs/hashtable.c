@@ -1,6 +1,7 @@
 #include <config.h>
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,21 +38,21 @@ typedef struct W_HashTable {
 
 static inline unsigned hashString(const void *param)
 {
-	const char *key = param;
-	unsigned ret = 0;
-	unsigned ctr = 0;
+	const unsigned char *key = param;
+	uint32_t hash = 2166136261u;
 
 	while (*key) {
-		ret ^= *key++ << ctr;
-		ctr = (ctr + 1) % sizeof(char *);
+		hash ^= *key++;
+		hash *= 16777619u;
 	}
 
-	return ret;
+	return hash;
 }
 
 static inline unsigned hashPtr(const void *key)
 {
-	return ((size_t) key / sizeof(char *));
+	uintptr_t k = (uintptr_t)key;
+	return (unsigned)((k >> 3) * 2654435761u);
 }
 
 static void rellocateItem(WMHashTable * table, HashItem * item)
