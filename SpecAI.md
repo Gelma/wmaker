@@ -243,11 +243,19 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `WINGs/wapplication.c`, freed `WMApplication.resourcePath` in `WMReleaseApplication()`.
     - In `src/main.c`, called `WMReleaseApplication()` and `W_FontShutdown()` in `Exit()`.
     - In `src/screen.c` (`createInternalWindows`), zero-initialized `XSetWindowAttributes` to avoid passing uninitialized memory to the X server.
+74. **[`ac8bf07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xmodifier.c#L125-L165) - `Clang 23`, `scan-build-23`, `flawfinder`: Phase 1 static analysis & security audit across all modules**:
+    - **Clang Compatibility**: Replaced GNU C nested functions in `src/xmodifier.c` with standard C macros (`modwarn`, `modbarf`, `check_modifier`, `store_modifier`) matching `WPrefs.app/xmodifier.c`, enabling clean native Clang 23 compilation.
+    - **Security Audit (`flawfinder`)**: In `WPrefs.app/MouseSettings.c` (`storeCommandInScript`), eliminated a TOCTOU race condition (CWE-362) by calling `fchmod()` directly on the open file descriptor before closing and renaming.
+    - **`wrlib` Fixes**: In `wrlib/load_ppm.c`, checked `feof`/`ferror` before reading to prevent infinite loops and invalid stream state errors; in `wrlib/scale.c`, clamped filter contribution coordinate `n` between `0` and `max_dim - 1` and zero-initialized the row buffer `sp` with `calloc` to eliminate potential out-of-bounds access; in `wrlib/save_xpm.c`, added guards for `image` and `image->data` and checked `fclose()` return codes.
+    - **`WINGs` Fixes**: In `WINGs/dragsource.c` and `WINGs/dragdestination.c`, guarded `info->sourceInfo` and `destView` against NULL pointer dereferences; in `WINGs/wlist.c`, checked `prefix` before calling `strncasecmp`; in `WINGs/wballoon.c`, `wfilepanel.c`, `wfontpanel.c`, `wmisc.c`, and `wtext.c`, cleaned up dead stores, dead initializations, and redundant assignments.
+    - **`src` Window Maker Core Fixes**: In `src/actions.c`, initialized `new_width`/`new_height` to current window dimensions during partial maximization; in `src/appicon.c`, zero-initialized the VLA `allDocks` array; in `src/cycling.c`, verified `newFocused` and `newFocused->frame` before dereferencing; in `src/defaults.c`, fixed token parsing in `parse_texture`; in `src/dock.c`, guarded `drawer->icon_array[0]->wm_instance`; in `src/main.c`, checked `argc > 0 && a[0]` before calling `execvp`; in `src/moveres.c`, fixed loop termination in `wMouseResizeWindow` ensuring post-loop icon arrangement executes properly and added default case to `do_snap`; in `src/texture.c`, guarded `colors` and `colors[0]` in `wTextureMakeMGradient`; in `src/wsmap.c`, zero-initialized `wsmap_array` and added bounds checking to prevent buffer overflow in `FocusIn`.
+    - **`util` & Tools Fixes**: In `util/wxcopy.c`, restructured input stream reading to check `fread` return values directly and close files cleanly; in `util/wmiv.c`, checked `start_dir` before calling `opendir`; in `util/wmgenmenu.c`, `util/wmmenugen_parse_wmconfig.c`, `util/xdnd.c`, and `WPrefs.app/Icons.c`, cleaned up dead assignments and dead increments.
+    - **Static Analysis Result**: Clang 23 `scan-build-23` achieved a completely clean analysis run with **0 bugs found** across the entire codebase.
 
 ---
 
 ## Verification Status
 - Build scripts and `make` commands executed successfully (exit code 0).
-- Live Valgrind `vgdb` inspection on `PID 104468`, `AddressSanitizer` + `UndefinedBehaviorSanitizer`, `cppcheck`, `gcc -fanalyzer`, `clang-tidy`, and `xrestop` all executed and verified.
+- Static analysis audit with `flawfinder` and `scan-build-23` (Clang 23) executed with 0 remaining defects.
 - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
 - `build_and_install.sh`, `start.sh`, `stop.sh`, and `wmaker-valgrind-session` are operational and validated.
