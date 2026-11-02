@@ -194,8 +194,13 @@ static void doAppBounce(void *arg)
 	AppBouncerData *data = (AppBouncerData*)arg;
 	WAppIcon *aicon = data->wapp->app_icon;
 
-	if (!aicon)
+	if (!aicon) {
+		data->wapp->flags.bouncing = 0;
+		WMDeleteTimerHandler(data->timer);
+		wApplicationDestroy(data->wapp);
+		free(data);
 		return;
+	}
 
 reinit:
 	if (data->wapp->refcount > 1) {

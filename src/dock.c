@@ -216,6 +216,7 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 
 	icon = (WAppIcon *) entry->clientdata;
 
+	wretain(icon);
 	icon->editing = 1;
 
 	WCHANGE_STATE(WSTATE_MODAL);
@@ -246,19 +247,21 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	if (wPreferences.dont_confirm_kill
 	    || wMessageDialog(menu->frame->screen_ptr, _("Kill Application"),
 			      buffer, _("Yes"), _("No"), NULL) == WAPRDefault) {
-		if (fPtr != NULL) {
-			WWindow *wwin, *twin;
+		if (!icon->destroyed) {
+			if (fPtr != NULL) {
+				WWindow *wwin, *twin;
 
-			wwin = scr->focused_window;
-			while (wwin) {
-				twin = wwin->prev;
-				if (wwin->fake_group == fPtr)
-					wClientKill(wwin);
+				wwin = scr->focused_window;
+				while (wwin) {
+					twin = wwin->prev;
+					if (wwin->fake_group == fPtr)
+						wClientKill(wwin);
 
-				wwin = twin;
+					wwin = twin;
+				}
+			} else if (icon->icon && icon->icon->owner) {
+				wClientKill(icon->icon->owner);
 			}
-		} else if (icon->icon && icon->icon->owner) {
-			wClientKill(icon->icon->owner);
 		}
 	}
 
@@ -266,6 +269,7 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	wtokenfree(argv, argc);
 
 	icon->editing = 0;
+	wrelease(icon);
 
 	WCHANGE_STATE(WSTATE_NORMAL);
 }
@@ -496,20 +500,31 @@ static void removeIconsCallback(WMenu *menu, WMenuEntry *entry)
 	assert(clickedIcon != NULL);
 
 	dock = clickedIcon->dock;
+	if (!dock)
+		return;
 
+	wretain(clickedIcon);
 	selectedIcons = getSelected(dock);
 
 	if (WMGetArrayItemCount(selectedIcons)) {
+		WMFreeArray(selectedIcons);
 		if (wMessageDialog(dock->screen_ptr,
 					dock->type == WM_CLIP ? _("Workspace Clip") : _("Drawer"),
 					_("All selected icons will be removed!"),
 					_("OK"), _("Cancel"), NULL) != WAPRDefault) {
-			WMFreeArray(selectedIcons);
+			wrelease(clickedIcon);
 			return;
 		}
+		if (clickedIcon->destroyed || !clickedIcon->dock) {
+			wrelease(clickedIcon);
+			return;
+		}
+		dock = clickedIcon->dock;
+		selectedIcons = getSelected(dock);
 	} else {
 		if (clickedIcon->xindex == 0 && clickedIcon->yindex == 0) {
 			WMFreeArray(selectedIcons);
+			wrelease(clickedIcon);
 			return;
 		}
 		WMAddToArray(selectedIcons, clickedIcon);
@@ -520,6 +535,7 @@ static void removeIconsCallback(WMenu *menu, WMenuEntry *entry)
 	if (dock->type == WM_DRAWER) {
 		drawerConsolidateIcons(dock);
 	}
+	wrelease(clickedIcon);
 }
 
 static void keepIconsCallback(WMenu *menu, WMenuEntry *entry)
@@ -535,7 +551,10 @@ static void keepIconsCallback(WMenu *menu, WMenuEntry *entry)
 
 	assert(clickedIcon != NULL);
 	dock = clickedIcon->dock;
+	if (!dock)
+		return;
 
+	wretain(clickedIcon);
 	selectedIcons = getSelected(dock);
 
 	if (!WMGetArrayItemCount(selectedIcons)
@@ -550,17 +569,26 @@ static void keepIconsCallback(WMenu *menu, WMenuEntry *entry)
 					wfree(command);
 					command = NULL;
 				}
-				clickedIcon->command = command;
+				if (!clickedIcon->destroyed)
+					clickedIcon->command = command;
+				else if (command)
+					wfree(command);
 				clickedIcon->editing = 0;
 			} else {
 				clickedIcon->editing = 0;
 				if (command)
 					wfree(command);
 				WMFreeArray(selectedIcons);
+				wrelease(clickedIcon);
 				return;
 			}
 		}
 
+		if (clickedIcon->destroyed || !clickedIcon->dock) {
+			WMFreeArray(selectedIcons);
+			wrelease(clickedIcon);
+			return;
+		}
 		WMAddToArray(selectedIcons, clickedIcon);
 	}
 
@@ -586,6 +614,7 @@ static void keepIconsCallback(WMenu *menu, WMenuEntry *entry)
 		save_appicon(aicon);
 	}
 	WMFreeArray(selectedIcons);
+	wrelease(clickedIcon);
 }
 
 static void toggleAutoAttractCallback(WMenu *menu, WMenuEntry *entry)
@@ -1386,6 +1415,23 @@ void wDockDestroy(WDock *dock)
 {
 	int i;
 	WAppIcon *aicon;
+
+	if (dock->auto_collapse_magic) {
+		WMDeleteTimerHandler(dock->auto_collapse_magic);
+		dock->auto_collapse_magic = NULL;
+	}
+	if (dock->auto_expand_magic) {
+		WMDeleteTimerHandler(dock->auto_expand_magic);
+		dock->auto_expand_magic = NULL;
+	}
+	if (dock->auto_lower_magic) {
+		WMDeleteTimerHandler(dock->auto_lower_magic);
+		dock->auto_lower_magic = NULL;
+	}
+	if (dock->auto_raise_magic) {
+		WMDeleteTimerHandler(dock->auto_raise_magic);
+		dock->auto_raise_magic = NULL;
+	}
 
 	for (i = (dock->type == WM_CLIP) ? 1 : 0; i < dock->max_icons; i++) {
 		aicon = dock->icon_array[i];
@@ -4541,9 +4587,17 @@ static void drawerDestroy(WDock *drawer)
 		WMDeleteTimerHandler(drawer->auto_collapse_magic);
 		drawer->auto_collapse_magic = NULL;
 	}
+	if (drawer->auto_expand_magic) {
+		WMDeleteTimerHandler(drawer->auto_expand_magic);
+		drawer->auto_expand_magic = NULL;
+	}
 	if (drawer->auto_lower_magic) {
 		WMDeleteTimerHandler(drawer->auto_lower_magic);
 		drawer->auto_lower_magic = NULL;
+	}
+	if (drawer->auto_raise_magic) {
+		WMDeleteTimerHandler(drawer->auto_raise_magic);
+		drawer->auto_raise_magic = NULL;
 	}
 
 	wAppIconDestroy(drawer->icon_array[0]);

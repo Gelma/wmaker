@@ -335,6 +335,7 @@ void wAppIconDestroy(WAppIcon * aicon)
 {
 	WScreen *scr = aicon->icon->core->screen_ptr;
 
+	WMDeleteTimerWithClientData(aicon);
 	RemoveFromStackList(aicon->icon->core);
 	wIconDestroy(aicon->icon);
 	if (aicon->command)
@@ -561,6 +562,8 @@ static void setIconCallback(WMenu *menu, WMenuEntry *entry)
 static void killCallback(WMenu * menu, WMenuEntry * entry)
 {
 	WApplication *wapp = (WApplication *) entry->clientdata;
+	WWindow *wwin;
+	WScreen *scr;
 	WFakeGroupLeader *fPtr;
 	char *buffer;
 	char *shortname;
@@ -572,33 +575,36 @@ static void killCallback(WMenu * menu, WMenuEntry * entry)
 
 	assert(entry->clientdata != NULL);
 
-	shortname = basename(wapp->app_icon->wm_instance);
+	shortname = (wapp->app_icon && wapp->app_icon->wm_instance)
+	    ? basename(wapp->app_icon->wm_instance) : NULL;
 
-	buffer = wstrconcat(wapp->app_icon ? shortname : NULL,
+	buffer = wstrconcat(shortname,
 			    _(" will be forcibly closed.\n"
 			      "Any unsaved changes will be lost.\n" "Please confirm."));
 
-	fPtr = wapp->main_window_desc->fake_group;
+	wwin = wapp->main_window_desc;
+	scr = wwin->screen_ptr;
+	fPtr = wwin->fake_group;
 
-	wretain(wapp->main_window_desc);
+	wretain(wwin);
 	if (wPreferences.dont_confirm_kill
 	    || wMessageDialog(menu->frame->screen_ptr, _("Kill Application"),
 			      buffer, _("Yes"), _("No"), NULL) == WAPRDefault) {
 		if (fPtr != NULL) {
-			WWindow *wwin, *twin;
+			WWindow *iter, *twin;
 
-			wwin = wapp->main_window_desc->screen_ptr->focused_window;
-			while (wwin) {
-				twin = wwin->prev;
-				if (wwin->fake_group == fPtr)
-					wClientKill(wwin);
-				wwin = twin;
+			iter = scr->focused_window;
+			while (iter) {
+				twin = iter->prev;
+				if (iter->fake_group == fPtr)
+					wClientKill(iter);
+				iter = twin;
 			}
-		} else if (!wapp->main_window_desc->flags.destroyed) {
-			wClientKill(wapp->main_window_desc);
+		} else if (!wwin->flags.destroyed) {
+			wClientKill(wwin);
 		}
 	}
-	wrelease(wapp->main_window_desc);
+	wrelease(wwin);
 	wfree(buffer);
 	WCHANGE_STATE(WSTATE_NORMAL);
 }

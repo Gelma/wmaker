@@ -166,16 +166,25 @@ static void panelBtnCallback(WMWidget * self, void *data)
 		if (!wIconChangeImageFile(panel->editedIcon->icon, text)) {
 			char *buf;
 			int len = strlen(text) + 64;
+			int rc;
 
 			buf = wmalloc(len);
 			snprintf(buf, len, _("Could not open specified icon file: %s"), text);
-			if (wMessageDialog(panel->wwin->screen_ptr, _("Error"), buf,
-					   _("OK"), _("Ignore"), NULL) == WAPRDefault) {
-				wfree(text);
-				wfree(buf);
+			panel->choosingIcon = 1;
+			rc = wMessageDialog(panel->wwin->screen_ptr, _("Error"), buf,
+					    _("OK"), _("Ignore"), NULL);
+			panel->choosingIcon = 0;
+			wfree(buf);
+			if (panel->destroyed || panel->editedIcon->destroyed) {
+				if (text)
+					wfree(text);
+				DestroyDockAppSettingsPanel(panel);
 				return;
 			}
-			wfree(buf);
+			if (rc == WAPRDefault) {
+				wfree(text);
+				return;
+			}
 		} else {
 			WAppIcon *aicon = panel->editedIcon;
 
@@ -249,6 +258,7 @@ void ShowDockAppSettingsPanel(WAppIcon * aicon)
 
 	panel = wmalloc(sizeof(AppSettingsPanel));
 
+	wretain(aicon);
 	panel->editedIcon = aicon;
 
 	aicon->panel = panel;
@@ -445,6 +455,8 @@ void DestroyDockAppSettingsPanel(AppSettingsPanel * panel)
 	panel->editedIcon->panel = NULL;
 
 	panel->editedIcon->editing = 0;
+
+	wrelease(panel->editedIcon);
 
 	wfree(panel);
 }
