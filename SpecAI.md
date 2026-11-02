@@ -169,6 +169,27 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Added guards on `menu->frame`, `menu->frame->core`, `selected_entry` bounds, and `menu->cascades[i] != NULL` in `wMenuMove`, `selectEntry`, `closeBrotherCascadesOf`, `parentMenu`, `raiseMenus`, `keyboardMenu`, `saveMenuRecurs`, and `restoreMenuRecurs`.
     - In `wMenuDestroy(menu, False)`, unlinked `menu->cascades[i]->parent = NULL` to prevent dangling `parent` pointers in undestroyed submenus.
     - In `menuMouseDown()`, avoided overwriting `desc` when opening the window menu via right-click on `scr->switch_menu`, ensuring `flags.inside_handler` is properly cleared.
+59. **[`806206a5`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c#L1424-L1442) - `defaults`, `event`: Fix Use-After-Free in key-chain trie rebuild and action dispatch**:
+    - In `wKeyTreeRebuild()`, cancelled any active key-chain timeout timer (`w_global.shortcut.chain_timeout_handler`), released the keyboard grab, and reset `w_global.shortcut.curpos` to `NULL` before destroying `wKeyTreeRoot`, preventing `curpos` from becoming a dangling pointer if the key trie is rebuilt mid-keychain.
+    - In `handleKeyPress()` (`src/event.c`), snapshotted `match->actions` into a local array and retained `wwin` before invoking menu callbacks or `dispatchWKBDCommand()`, preventing Use-After-Free when an action (such as `WKBD_ROOTMENU`) rebuilds the key trie or closes the focused window mid-loop.
+60. **[`f31c0744`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c#L747-L875) - `rootmenu`, `event`: Fix Use-After-Free in dynamic root submenus and `switch_menu` replacement**:
+    - Rebuilt the key-binding trie (`wKeyTreeRebuild`) and rebound key grabs (`rebindKeygrabs`) in `constructMenu()` and `constructPLMenuFromPipe()` whenever replacing an `OPEN_MENU` / `OPEN_PLMENU` cascade changes root-menu shortcuts, preventing `wKeyTreeRoot` from retaining dangling `WMenu *` and `WMenuEntry *` pointers.
+    - Destroyed any existing standalone `scr->switch_menu` (`scr->switch_menu->parent == NULL`) in `addWindowsMenu()` before overwriting `scr->switch_menu`, preventing a mapped standalone window list menu from keeping dangling `WWindow *` pointers when windows later close.
+    - Guarded `OpenRootMenu()` and `executeButtonAction()` with `wRootMenuIsInUse()`, and preserved `added_workspace_menu` / `added_windows_menu` flags when `scr->root_menu` is not replaced.
+61. **[`3683df72`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L204-L1435) - `dock`, `appicon`, `dockedapp`, `superfluous`: Fix Use-After-Free in dock/clip/drawer timers and modal appicon dialogs**:
+    - Cancelled `auto_collapse_magic`, `auto_expand_magic`, `auto_lower_magic`, and `auto_raise_magic` timers in `wDockDestroy()` and `drawerDestroy()` before freeing the dock/drawer structure.
+    - Called `WMDeleteTimerWithClientData(aicon)` in `wAppIconDestroy()` to cancel pending `dockIconPaint` launch timers targeting a destroyed appicon.
+    - In `appicon.c:killCallback()`, captured and retained `wwin = wapp->main_window_desc` before `wMessageDialog()` instead of dereferencing `wapp` after the modal loop returns (when `wapp` may have already been destroyed).
+    - Retained `WAppIcon` across modal dialogs in `dock.c` (`killCallback`, `removeIconsCallback`, `keepIconsCallback`) and `dockedapp.c` (`ShowDockAppSettingsPanel`, `panelBtnCallback`, `DestroyDockAppSettingsPanel`), re-evaluating selected icons after confirmation dialogs return.
+    - Cleaned up the persistent bounce timer, `bouncing` flag, and `WApplication` reference in `doAppBounce()` (`src/superfluous.c`) if `data->wapp->app_icon` becomes `NULL`.
+62. **[`7520cc4b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1653-L1774) - `stacking`, `window`, `wmspec`, `balloon`, `dialog`, `winspector`, `switchpanel`, `cycling`: Fix Use-After-Free in window lifecycle, stacking, NETWM, inspector, and cycling**:
+    - Cleared dangling `wlist->stacking->child_of` pointers in `RemoveFromStackList()` (`src/stacking.c`) when an owner frame is removed from the stack list.
+    - In `wUnmanageWindow()` (`src/window.c`), cancelled `scr->autoRaiseTimer` when `scr->autoRaiseWindow` matches the unmanaged frame, and cleared `oapp->last_focused` when the unmanaged window was the application's `last_focused` window.
+    - In `wmspec.c`, removed unmanaged windows from `ndata->show_desktop` upon `WMNUnmanaged` notifications to prevent `wDeiconifyWindow()` from dereferencing freed `WWindow *` pointers when leaving `_NET_SHOWING_DESKTOP` mode; also cleaned up `scr->netdata` and its observers in `wNETWMCleanup()` and guarded `NULL` `src_image`.
+    - In `destroyInfoPanel()` (`src/dialog.c`), passed `infoPanel->win` instead of `infoPanel` to `WMUnmapWidget()` to prevent type-confusion memory corruption of `infoPanel->wwin`.
+    - In `winspector.c`, removed notification observers in `wDestroyInspectorPanels()` before unmanaging, and guarded `showIconFor()` and `applySettings()` modal `wMessageDialog()` calls with `choosingIcon`/`destroyed` checks.
+    - In `switchpanel.c` and `cycling.c`, retained `WWindow` references while the switch panel is open and verified windows remain managed before focusing or raising them during `Alt+Tab` cycling.
+    - In `balloon.c`, unconditionally cancelled `scr->balloon->timer` in `wBalloonHide()` even when the balloon is currently mapped, and guarded `NULL` `aicon->wm_instance` for GNUstep appicons.
 
 ---
 
