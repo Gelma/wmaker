@@ -21,6 +21,8 @@
 #include "wconfig.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <time.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -74,6 +76,16 @@ static int showCrashDialog(int sig)
 		return 1;
 }
 
+static volatile sig_atomic_t monitored_child_pid = 0;
+
+static void monitorSignalHandler(int sig)
+{
+	pid_t target = monitored_child_pid;
+
+	if (target > 0)
+		kill(target, sig);
+}
+
 int MonitorLoop(int argc, char **argv)
 {
 	pid_t pid, exited;
@@ -81,6 +93,18 @@ int MonitorLoop(int argc, char **argv)
 	int i, status;
 	time_t last_start;
 	Bool error = False;
+	struct sigaction sa;
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = monitorSignalHandler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sigaction(SIGHUP, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGQUIT, &sa, NULL);
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR2, &sa, NULL);
 
 	for (i = 0; i < argc; i++)
 		child_argv[i] = argv[i];
@@ -93,6 +117,13 @@ int MonitorLoop(int argc, char **argv)
 		/* Start Window Maker */
 		pid = fork();
 		if (pid == 0) {
+			/* Reset signal actions in the child process */
+			signal(SIGHUP, SIG_DFL);
+			signal(SIGTERM, SIG_DFL);
+			signal(SIGINT, SIG_DFL);
+			signal(SIGQUIT, SIG_DFL);
+			signal(SIGUSR1, SIG_DFL);
+			signal(SIGUSR2, SIG_DFL);
 			execvp(child_argv[0], child_argv);
 			werror(_("Error respawning Window Maker"));
 			exit(1);
@@ -101,14 +132,20 @@ int MonitorLoop(int argc, char **argv)
 			exit(1);
 		}
 
+		monitored_child_pid = pid;
+
 		do {
 			exited = waitpid(-1, &status, 0);
 			if (exited < 0) {
+				if (errno == EINTR)
+					continue;
 				werror(_("Error during monitoring of Window Maker process."));
 				error = True;
 				break;
 			}
 		} while (exited != pid);
+
+		monitored_child_pid = 0;
 
 		if (error)
 			break;
@@ -131,8 +168,9 @@ int MonitorLoop(int argc, char **argv)
 			}
 			wwarning(_("Window Maker exited due to a crash (signal %i) and will be restarted."),
 				 WTERMSIG(status));
-		} else
+		} else {
 			break;
+		}
 	}
 	wfree(child_argv);
 	return 0;
