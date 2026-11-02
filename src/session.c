@@ -88,7 +88,6 @@
 static WMPropList *sApplications = NULL;
 static WMPropList *sCommand;
 static WMPropList *sName;
-static WMPropList *sHost;
 static WMPropList *sWorkspace;
 static WMPropList *sShaded;
 static WMPropList *sMiniaturized;
@@ -109,7 +108,6 @@ static void make_keys(void)
 	sApplications = WMCreatePLString("Applications");
 	sCommand = WMCreatePLString("Command");
 	sName = WMCreatePLString("Name");
-	sHost = WMCreatePLString("Host");
 	sWorkspace = WMCreatePLString("Workspace");
 	sShaded = WMCreatePLString("Shaded");
 	sMiniaturized = WMCreatePLString("Miniaturized");

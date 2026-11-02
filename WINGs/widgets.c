@@ -849,6 +849,8 @@ WMScreen *WMCreateScreenWithRContext(Display * display, int screen, RContext * c
 		XColor bla;
 		Pixmap blank;
 
+		memset(&bla, 0, sizeof(XColor));
+
 		blank = XCreatePixmap(display, scrPtr->stipple, 1, 1, 1);
 		XSetForeground(display, scrPtr->monoGC, 0);
 		XFillRectangle(display, blank, scrPtr->monoGC, 0, 0, 1, 1);

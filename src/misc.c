@@ -677,6 +677,8 @@ char *ExpandOptions(WScreen *scr, const char *cmdline)
 					out = nout;
 					strcat(out, user_input);
 					optr += slen;
+					wfree(user_input);
+					user_input = NULL;
 				} else {
 					/* Not an error, but user has Canceled the dialog box.
 					 * This will make the command to not be performed. */
@@ -738,6 +740,8 @@ char *ExpandOptions(WScreen *scr, const char *cmdline)
 
  error:
 	wfree(out);
+	if (user_input)
+		wfree(user_input);
 	if (selection)
 		XFree(selection);
 	return NULL;

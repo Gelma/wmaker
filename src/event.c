@@ -2461,6 +2461,7 @@ static void handle_selection_request(XSelectionRequestEvent *event)
 	 *
 	 * We create it with the answer 'there is no selection' by default
 	 */
+	memset(&notify, 0, sizeof(notify));
 	notify.type = SelectionNotify;
 	notify.display = dpy;
 	notify.requestor = event->requestor;
@@ -2503,10 +2504,18 @@ static void handle_selection_request(XSelectionRequestEvent *event)
 		                (unsigned char *) icccm_version, wlengthof(icccm_version));
 	}
 
- not_our_selection:
-	if (notify.property == None)
+	not_our_selection:
+	if (notify.property == None) {
+		char *sel_name = XGetAtomName(dpy, event->selection);
+		char *tgt_name = XGetAtomName(dpy, event->target);
+
 		wwarning("received SelectionRequest(%s) for target=\"%s\" from requestor 0x%lX but we have no answer",
-		         XGetAtomName(dpy, event->selection), XGetAtomName(dpy, event->target), (long) event->requestor);
+		         sel_name ? sel_name : "NULL", tgt_name ? tgt_name : "NULL", (long) event->requestor);
+		if (sel_name)
+			XFree(sel_name);
+		if (tgt_name)
+			XFree(tgt_name);
+	}
 
 	/* Send the answer to the requestor */
 	XSendEvent(dpy, event->requestor, False, 0L, (XEvent *) &notify);

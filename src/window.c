@@ -615,6 +615,11 @@ static void fixLeaderProperties(WWindow *wwin)
 				classHint->res_name = wwin->wm_instance;
 				classHint->res_class = wwin->wm_class;
 				XSetClassHint(dpy, window, classHint);
+			} else {
+				if (classHint->res_name)
+					XFree(classHint->res_name);
+				if (classHint->res_class)
+					XFree(classHint->res_class);
 			}
 			hints = XGetWMHints(dpy, window);
 			if (hints) {

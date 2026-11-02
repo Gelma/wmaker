@@ -77,7 +77,7 @@ static WMPropList *dDropCommand = NULL;
 #endif
 static WMPropList *dAutoLaunch, *dLock;
 static WMPropList *dName, *dForced, *dBuggyApplication, *dYes, *dNo;
-static WMPropList *dHost, *dDock, *dClip;
+static WMPropList *dDock, *dClip;
 static WMPropList *dAutoAttractIcons;
 
 static WMPropList *dPosition, *dApplications, *dLowered, *dCollapsed;
@@ -133,19 +133,18 @@ static void make_keys(void)
 	if (dCommand != NULL)
 		return;
 
-	dCommand = WMRetainPropList(WMCreatePLString("Command"));
-	dPasteCommand = WMRetainPropList(WMCreatePLString("PasteCommand"));
+	dCommand = WMCreatePLString("Command");
+	dPasteCommand = WMCreatePLString("PasteCommand");
 #ifdef USE_DOCK_XDND
-	dDropCommand = WMRetainPropList(WMCreatePLString("DropCommand"));
+	dDropCommand = WMCreatePLString("DropCommand");
 #endif
-	dLock = WMRetainPropList(WMCreatePLString("Lock"));
-	dAutoLaunch = WMRetainPropList(WMCreatePLString("AutoLaunch"));
-	dName = WMRetainPropList(WMCreatePLString("Name"));
-	dForced = WMRetainPropList(WMCreatePLString("Forced"));
-	dBuggyApplication = WMRetainPropList(WMCreatePLString("BuggyApplication"));
-	dYes = WMRetainPropList(WMCreatePLString("Yes"));
-	dNo = WMRetainPropList(WMCreatePLString("No"));
-	dHost = WMRetainPropList(WMCreatePLString("Host"));
+	dLock = WMCreatePLString("Lock");
+	dAutoLaunch = WMCreatePLString("AutoLaunch");
+	dName = WMCreatePLString("Name");
+	dForced = WMCreatePLString("Forced");
+	dBuggyApplication = WMCreatePLString("BuggyApplication");
+	dYes = WMCreatePLString("Yes");
+	dNo = WMCreatePLString("No");
 
 	dPosition = WMCreatePLString("Position");
 	dApplications = WMCreatePLString("Applications");
