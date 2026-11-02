@@ -196,9 +196,14 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `dialog.c`, recorded the parent X11 window in `InfoPanel` and `LegalPanel` structs and destroyed them on panel closure via `XDestroyWindow(dpy, parent)` to eliminate orphaned X11 window leaks; also released the logo pixmap with `WMReleasePixmap(logo)` in `wShowCrashingDialogPanel()`.
     - In `client.c`, reset `wapp->menu = NULL` immediately after calling `wAppMenuDestroy(wapp->menu)` when handling `WM_COMMAND` property updates.
 64. **[`6e2d2065`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wmaker-opt-valgrind.desktop#L1-L7) - `wmaker-opt-valgrind.desktop`, `wmaker-valgrind-session`: Valgrind supervision environment for /opt/wmaker**:
-    - Created `wmaker-valgrind-session` wrapper script with strict Bash directives (`set -euo pipefail`), launching `/opt/wmaker/bin/wmaker` under `valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --track-origins=yes --trace-children=no --read-var-info=yes`.
+    - Created `wmaker-valgrind-session` wrapper script with strict Bash directives (`set -euo pipefail`), launching `/opt/wmaker/bin/wmaker` under Valgrind Memcheck with `--trace-children=yes` and `--trace-children-skip='/bin/*,/usr/bin/*,!/opt/wmaker/bin/wmaker'` to follow the inner child `wmaker` process while skipping dock/menu apps.
     - Automatically creates and redirects Valgrind memory diagnostic reports and stdout/stderr to `~/.local/share/wmaker/logs/valgrind-wmaker-<TIMESTAMP>-<PID>.log` and `wmaker-<TIMESTAMP>.log`.
     - Created and added `wmaker-opt-valgrind.desktop` matching `/usr/share/xsessions/wmaker-opt.desktop` with target `Exec=/opt/wmaker/bin/wmaker-valgrind-session`. Installed the runner script to `/opt/wmaker/bin/wmaker-valgrind-session`.
+65. **[`4f9838d8`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L76-L173) - `monitor`: Forward lifecycle signals to child process in `MonitorLoop`**:
+    - In `MonitorLoop()` (`src/monitor.c`), registered signal handlers for `SIGHUP`, `SIGTERM`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, and `SIGUSR2` in the parent monitor process to forward them via `kill()` to the active child `wmaker` process. Handled `EINTR` in `waitpid()`.
+    - Prevented the monitor process from crashing or leaking child argument memory upon receiving session termination signals (`SIGHUP`/`SIGTERM` from GDM/X11), allowing graceful child shutdown and `child_argv` freeing.
+66. **[`de93034c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c#L1040-L1057) - `defaults`: Release unmerged global PropList in `wDefaultsInitDomain`**:
+    - In `wDefaultsInitDomain()` (`src/defaults.c`), fixed a leak of the system global domain `shared_dict` (e.g. `PKGCONFDIR/WMRootMenu`, ~13 KB) when the user domain was already loaded as an array (not a dictionary). Added an explicit `WMReleasePropList(shared_dict)` in the unmerged branch, achieving 0 definitely lost blocks on clean exit.
 
 ---
 
