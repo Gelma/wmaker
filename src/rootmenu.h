@@ -26,5 +26,6 @@ void wRootMenuReparse(WScreen *scr);
 void wRootMenuBindShortcuts(Window window);
 void OpenRootMenu(WScreen * scr, int x, int y, int keyboard);
 WMenu *configureMenu(WScreen *scr, WMPropList *definition);
+Bool wRootMenuIsInUse(WMenu *menu);
 
 #endif /* WMROOTMENU_H */

@@ -745,8 +745,14 @@ static void constructMenu(WMenu * menu, WMenuEntry * entry)
 	}
 
 	if (submenu) {
+		WScreen *scr = menu->frame->screen_ptr;
+
 		wMenuEntryRemoveCascade(menu, entry);
 		wMenuEntrySetCascade(menu, entry, submenu);
+		if (scr->flags.root_menu_changed_shortcuts) {
+			wKeyTreeRebuild(scr);
+			rebindKeygrabs(scr);
+		}
 	}
 
  finish:
@@ -797,8 +803,14 @@ static void constructPLMenuFromPipe(WMenu * menu, WMenuEntry * entry)
 	}
 
 	if (submenu) {
+		WScreen *scr = menu->frame->screen_ptr;
+
 		wMenuEntryRemoveCascade(menu, entry);
 		wMenuEntrySetCascade(menu, entry, submenu);
+		if (scr->flags.root_menu_changed_shortcuts) {
+			wKeyTreeRebuild(scr);
+			rebindKeygrabs(scr);
+		}
 	}
 
 	i = 0;
@@ -812,8 +824,10 @@ static void constructPLMenuFromPipe(WMenu * menu, WMenuEntry * entry)
 }
 static void cleanupWorkspaceMenu(WMenu *menu)
 {
-	if (menu->frame->screen_ptr->workspace_menu == menu)
+	if (menu->frame->screen_ptr->workspace_menu == menu) {
 		menu->frame->screen_ptr->workspace_menu = NULL;
+		menu->frame->screen_ptr->flags.added_workspace_menu = 0;
+	}
 }
 
 static WMenuEntry *addWorkspaceMenu(WScreen *scr, WMenu *menu, const char *title)
@@ -842,8 +856,10 @@ static WMenuEntry *addWorkspaceMenu(WScreen *scr, WMenu *menu, const char *title
 
 static void cleanupWindowsMenu(WMenu * menu)
 {
-	if (menu->frame->screen_ptr->switch_menu == menu)
+	if (menu->frame->screen_ptr->switch_menu == menu) {
 		menu->frame->screen_ptr->switch_menu = NULL;
+		menu->frame->screen_ptr->flags.added_windows_menu = 0;
+	}
 }
 
 static WMenuEntry *addWindowsMenu(WScreen *scr, WMenu *menu, const char *title)
@@ -858,6 +874,11 @@ static WMenuEntry *addWindowsMenu(WScreen *scr, WMenu *menu, const char *title)
 		return NULL;
 	} else {
 		scr->flags.added_windows_menu = 1;
+
+		if (scr->switch_menu && scr->switch_menu->parent == NULL) {
+			wMenuDestroy(scr->switch_menu, True);
+			scr->switch_menu = NULL;
+		}
 
 		wwmenu = wMenuCreate(scr, _("Window List"), False);
 		wwmenu->on_destroy = cleanupWindowsMenu;
@@ -1620,7 +1641,7 @@ WMenu *configureMenu(WScreen *scr, WMPropList *definition)
 	return menu;
 }
 
-static Bool menuIsInUse(WMenu *menu)
+Bool wRootMenuIsInUse(WMenu *menu)
 {
 	int i;
 
@@ -1633,7 +1654,7 @@ static Bool menuIsInUse(WMenu *menu)
 		return True;
 
 	for (i = 0; i < menu->cascade_no; i++) {
-		if (menu->cascades[i] && menuIsInUse(menu->cascades[i]))
+		if (menu->cascades[i] && wRootMenuIsInUse(menu->cascades[i]))
 			return True;
 	}
 
@@ -1651,13 +1672,17 @@ void wRootMenuReparse(WScreen *scr)
 {
 	WMenu *menu = NULL;
 	WMPropList *definition;
+	unsigned int prev_ws_menu, prev_win_menu;
 
 	definition = w_global.domain.root_menu->dictionary;
 	if (!definition)
 		return;
 
-	if (scr->root_menu && menuIsInUse(scr->root_menu))
+	if (scr->root_menu && wRootMenuIsInUse(scr->root_menu))
 		return;
+
+	prev_ws_menu = scr->flags.added_workspace_menu;
+	prev_win_menu = scr->flags.added_windows_menu;
 
 	scr->flags.root_menu_changed_shortcuts = 0;
 	scr->flags.added_workspace_menu = 0;
@@ -1675,9 +1700,17 @@ void wRootMenuReparse(WScreen *scr)
 	}
 
 	if (menu) {
+		unsigned int new_ws_menu = scr->flags.added_workspace_menu;
+		unsigned int new_win_menu = scr->flags.added_windows_menu;
+
 		if (scr->root_menu)
 			wMenuDestroy(scr->root_menu, True);
 		scr->root_menu = menu;
+		scr->flags.added_workspace_menu = new_ws_menu;
+		scr->flags.added_windows_menu = new_win_menu;
+	} else {
+		scr->flags.added_workspace_menu = prev_ws_menu;
+		scr->flags.added_windows_menu = prev_win_menu;
 	}
 
 	if (scr->flags.root_menu_changed_shortcuts) {
@@ -1706,6 +1739,7 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 {
 	WMenu *menu = NULL;
 	WMPropList *definition;
+	unsigned int prev_ws_menu, prev_win_menu;
 	/*
 	   static WMPropList *domain=NULL;
 
@@ -1713,10 +1747,6 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 	   domain = WMCreatePLString("WMRootMenu");
 	   }
 	 */
-
-	scr->flags.root_menu_changed_shortcuts = 0;
-	scr->flags.added_workspace_menu = 0;
-	scr->flags.added_windows_menu = 0;
 
 	if (scr->root_menu && scr->root_menu->flags.mapped) {
 		menu = scr->root_menu;
@@ -1733,12 +1763,19 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 		return;
 	}
 
+	prev_ws_menu = scr->flags.added_workspace_menu;
+	prev_win_menu = scr->flags.added_windows_menu;
+
+	scr->flags.root_menu_changed_shortcuts = 0;
+	scr->flags.added_workspace_menu = 0;
+	scr->flags.added_windows_menu = 0;
+
 	definition = w_global.domain.root_menu->dictionary;
 
 	/*
 	   definition = PLGetDomain(domain);
 	 */
-	if (definition) {
+	if (definition && (!scr->root_menu || !wRootMenuIsInUse(scr->root_menu))) {
 		if (WMIsPLArray(definition)) {
 			if (!scr->root_menu || w_global.domain.root_menu->timestamp > scr->root_menu->timestamp) {
 				menu = configureMenu(scr, definition);
@@ -1754,6 +1791,8 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 
 	if (!menu) {
 		/* menu hasn't changed or could not be read */
+		scr->flags.added_workspace_menu = prev_ws_menu;
+		scr->flags.added_windows_menu = prev_win_menu;
 		if (!scr->root_menu) {
 			wMessageDialog(scr, _("Error"),
 				       _("The applications menu could not be loaded. "
@@ -1766,10 +1805,15 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 		menu = scr->root_menu;
 	} else {
 		/* new root menu */
+		unsigned int new_ws_menu = scr->flags.added_workspace_menu;
+		unsigned int new_win_menu = scr->flags.added_windows_menu;
+
 		if (scr->root_menu) {
 			wMenuDestroy(scr->root_menu, True);
 		}
 		scr->root_menu = menu;
+		scr->flags.added_workspace_menu = new_ws_menu;
+		scr->flags.added_windows_menu = new_win_menu;
 	}
 	if (menu) {
 		int newx, newy;
