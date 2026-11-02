@@ -236,6 +236,13 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Checked `wusergnusteppath()` and `wdefaultspathfordomain()` for `NULL` in `WINGs/userdefaults.c`.
     - Added fallback to `WMBlackColor()` if `createRGBAColor()` fails in `WMGrayColor()` and `WMDarkGrayColor()` (`WINGs/wcolor.c`).
     - Eliminated leaked fallback `WMPropList` in `renderTexture()` (`WPrefs.app/Appearance.c`), freed buffer before early exit in `util/wxcopy.c`, and guarded `rescale_image()` in `util/wmiv.c`.
+73. **[`cdec12e1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1405-L1630) - `screen`, `main`, `WINGs`, `workspace`: Complete teardown of fonts, textures, GCs, and Fontconfig on exit**:
+    - In `wScreenDestroy()` (`src/screen.c`), implemented full teardown of internal windows (`no_focus_win`, `dock_shadow`, `workspace_name`), destroyed all screen textures (`window_title_texture`, `menu_title_texture`, `resizebar_texture`, `menu_item_texture`, auxtextures, widget and icon textures), released all screen colors, released all 7 `WMFont` descriptors (`title_font`, `menu_title_font`, `menu_entry_font`, `icon_title_font`, `clip_title_font`, `info_text_font`, `workspace_name_font`), released session state, freed usable/reserved areas, freed stipple/dock pixmaps, and destroyed all screen GCs.
+    - In `src/workspace.c` and `src/workspace.h`, implemented `wWorkspaceResetName(scr)` to delete `workspace_name_timer` and release `workspace_name_data` background and text images.
+    - In `WINGs/wfont.c` and `WINGs/WINGs/WINGs.h`, provided `W_FontShutdown()` calling `FcFini()` to free all internal Fontconfig pattern caches.
+    - In `WINGs/wapplication.c`, freed `WMApplication.resourcePath` in `WMReleaseApplication()`.
+    - In `src/main.c`, called `WMReleaseApplication()` and `W_FontShutdown()` in `Exit()`.
+    - In `src/screen.c` (`createInternalWindows`), zero-initialized `XSetWindowAttributes` to avoid passing uninitialized memory to the X server.
 
 ---
 
