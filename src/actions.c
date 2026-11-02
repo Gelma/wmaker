@@ -2331,8 +2331,24 @@ void wSelectWindow(WWindow *wwin, Bool flag)
 
 void wMakeWindowVisible(WWindow *wwin)
 {
-	if (wwin->frame->workspace != wwin->screen_ptr->current_workspace)
-		wWorkspaceChange(wwin->screen_ptr, wwin->frame->workspace);
+	WScreen *scr;
+
+	if (!wwin || wwin->flags.destroyed)
+		return;
+
+	scr = wwin->screen_ptr;
+	if (!wWindowIsManaged(scr, wwin))
+		return;
+
+	if (wwin->frame->workspace != scr->current_workspace) {
+		wretain(wwin);
+		wWorkspaceChange(scr, wwin->frame->workspace);
+		if (!wWindowIsManaged(scr, wwin) || wwin->flags.destroyed) {
+			wrelease(wwin);
+			return;
+		}
+		wrelease(wwin);
+	}
 
 	if (wwin->flags.shaded)
 		wUnshadeWindow(wwin);
@@ -2344,7 +2360,13 @@ void wMakeWindowVisible(WWindow *wwin)
 		if (app) {
 			/* trick to get focus to this window */
 			app->last_focused = wwin;
+			wretain(wwin);
 			wUnhideApplication(app, False, False);
+			if (!wWindowIsManaged(scr, wwin) || wwin->flags.destroyed) {
+				wrelease(wwin);
+				return;
+			}
+			wrelease(wwin);
 		}
 	}
 	if (wwin->flags.miniaturized) {

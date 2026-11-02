@@ -390,6 +390,10 @@ static void updateWorkspaceMenu(WMenu * menu)
 		}
 
 		/* workspace shortcut labels */
+		if (entry->rtext) {
+			wfree(entry->rtext);
+			entry->rtext = NULL;
+		}
 		if (i / 10 == scr->current_workspace / 10)
 			entry->rtext = GetShortcutKey(wKeyBindings[WKBD_MOVE_WORKSPACE1 + (i % 10)]);
 		else

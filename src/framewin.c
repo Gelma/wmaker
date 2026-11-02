@@ -413,9 +413,35 @@ void wFrameWindowUpdateBorders(WFrameWindow * fwin, int flags)
 
 	checkTitleSize(fwin);
 
-	allocFrameBorderPixel(fwin, WMGetColorRGBDescription(scr->frame_border_color), &fwin->border_pixel);
-	allocFrameBorderPixel(fwin, WMGetColorRGBDescription(scr->frame_focused_border_color), &fwin->focused_border_pixel);
-	allocFrameBorderPixel(fwin, WMGetColorRGBDescription(scr->frame_selected_border_color), &fwin->selected_border_pixel);
+	if (fwin->border_pixel) {
+		wfree(fwin->border_pixel);
+		fwin->border_pixel = NULL;
+	}
+	if (fwin->focused_border_pixel) {
+		wfree(fwin->focused_border_pixel);
+		fwin->focused_border_pixel = NULL;
+	}
+	if (fwin->selected_border_pixel) {
+		wfree(fwin->selected_border_pixel);
+		fwin->selected_border_pixel = NULL;
+	}
+
+	{
+		char *bdesc = WMGetColorRGBDescription(scr->frame_border_color);
+		char *fbdesc = WMGetColorRGBDescription(scr->frame_focused_border_color);
+		char *sbdesc = WMGetColorRGBDescription(scr->frame_selected_border_color);
+
+		allocFrameBorderPixel(fwin, bdesc, &fwin->border_pixel);
+		allocFrameBorderPixel(fwin, fbdesc, &fwin->focused_border_pixel);
+		allocFrameBorderPixel(fwin, sbdesc, &fwin->selected_border_pixel);
+
+		if (bdesc)
+			wfree(bdesc);
+		if (fbdesc)
+			wfree(fbdesc);
+		if (sbdesc)
+			wfree(sbdesc);
+	}
 
 	if (flags & WFF_SELECTED) {
 		if (fwin->selected_border_pixel)
@@ -469,6 +495,19 @@ void wFrameWindowDestroy(WFrameWindow * fwin)
 #endif
 			FREE_PIXMAP(fwin->rbutton_back[i]);
 		}
+	}
+
+	if (fwin->border_pixel) {
+		wfree(fwin->border_pixel);
+		fwin->border_pixel = NULL;
+	}
+	if (fwin->focused_border_pixel) {
+		wfree(fwin->focused_border_pixel);
+		fwin->focused_border_pixel = NULL;
+	}
+	if (fwin->selected_border_pixel) {
+		wfree(fwin->selected_border_pixel);
+		fwin->selected_border_pixel = NULL;
 	}
 
 	wfree(fwin);

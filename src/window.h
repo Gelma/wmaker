@@ -339,6 +339,7 @@ typedef void* WMagicNumber;
 
 void wWindowDestroy(WWindow *wwin);
 WWindow *wWindowCreate(void);
+Bool wWindowIsManaged(WScreen *scr, WWindow *wwin);
 
 #ifdef USE_XSHAPE
 void wWindowSetShape(WWindow *wwin);

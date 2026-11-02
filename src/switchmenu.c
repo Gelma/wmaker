@@ -112,7 +112,8 @@ static void focusWindow(WMenu * menu, WMenuEntry * entry)
 	(void) menu;
 
 	wwin = (WWindow *) entry->clientdata;
-	wWindowSingleFocus(wwin);
+	if (wwin && !wwin->flags.destroyed && wWindowIsManaged(wwin->screen_ptr, wwin))
+		wWindowSingleFocus(wwin);
 }
 
 void InitializeSwitchMenu(void)

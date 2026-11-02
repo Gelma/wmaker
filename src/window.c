@@ -177,6 +177,19 @@ WWindow *wWindowCreate(void)
 	return wwin;
 }
 
+Bool wWindowIsManaged(WScreen *scr, WWindow *wwin)
+{
+	WWindow *tmp;
+
+	if (!scr || !wwin)
+		return False;
+	for (tmp = scr->focused_window; tmp != NULL; tmp = tmp->prev) {
+		if (tmp == wwin)
+			return !wwin->flags.destroyed;
+	}
+	return False;
+}
+
 void wWindowDestroy(WWindow *wwin)
 {
 	int i;
@@ -1820,11 +1833,20 @@ void wWindowSingleFocus(WWindow *wwin)
 	WScreen *scr;
 	int x, y, move = 0;
 
-	if (!wwin)
+	if (!wwin || wwin->flags.destroyed)
 		return;
 
 	scr = wwin->screen_ptr;
+	if (!wWindowIsManaged(scr, wwin))
+		return;
+
+	wretain(wwin);
 	wMakeWindowVisible(wwin);
+
+	if (!wWindowIsManaged(scr, wwin) || wwin->flags.destroyed) {
+		wrelease(wwin);
+		return;
+	}
 
 	x = wwin->frame_x;
 	y = wwin->frame_y;
@@ -1834,6 +1856,8 @@ void wWindowSingleFocus(WWindow *wwin)
 
 	if (move)
 		wWindowConfigure(wwin, x, y, wwin->client.width, wwin->client.height);
+
+	wrelease(wwin);
 }
 
 void wWindowFocusPrev(WWindow *wwin, Bool inSameWorkspace)
@@ -3293,30 +3317,46 @@ static void windowCloseDblClick(WCoreWindow *sender, void *data, XEvent *event)
 void wWindowGetLanguageLabel(int group_index, char *label)
 {
 	XkbRF_VarDefsRec vd;
+	char *rules = NULL;
+
 	/* Default to empty - will fallback to pixmap if we can't get the label */
 	label[0] = '\0';
+	memset(&vd, 0, sizeof(vd));
 
-	if (XkbRF_GetNamesProp(dpy, NULL, &vd) && vd.layout) {
-		int i;
-		char *layout_list = strdup(vd.layout);
-		char *tok = strtok(layout_list, ",");
+	if (XkbRF_GetNamesProp(dpy, &rules, &vd)) {
+		if (vd.layout) {
+			int i;
+			char *layout_list = strdup(vd.layout);
+			char *tok = strtok(layout_list, ",");
 
-		/* Iterate to the requested group index */
-		for (i = 0; i < group_index && tok != NULL; i++) {
-			tok = strtok(NULL, ",");
+			/* Iterate to the requested group index */
+			for (i = 0; i < group_index && tok != NULL; i++) {
+				tok = strtok(NULL, ",");
+			}
+
+			if (tok) {
+				/* Copy exactly the first two bytes, then format: first uppercase, second lowercase */
+				strncpy(label, tok, 2);
+				label[2] = '\0';
+				if (label[0])
+					label[0] = (char) toupper((unsigned char) label[0]);
+				if (label[1])
+					label[1] = (char) tolower((unsigned char) label[1]);
+			}
+
+			free(layout_list);
 		}
 
-		if (tok) {
-			/* Copy exactly the first two bytes, then format: first uppercase, second lowercase */
-			strncpy(label, tok, 2);
-			label[2] = '\0';
-			if (label[0])
-				label[0] = (char) toupper((unsigned char) label[0]);
-			if (label[1])
-				label[1] = (char) tolower((unsigned char) label[1]);
-		}
-
-		free(layout_list);
+		if (rules)
+			free(rules);
+		if (vd.model)
+			free(vd.model);
+		if (vd.layout)
+			free(vd.layout);
+		if (vd.variant)
+			free(vd.variant);
+		if (vd.options)
+			free(vd.options);
 	}
 }
 

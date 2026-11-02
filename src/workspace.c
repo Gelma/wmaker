@@ -812,13 +812,20 @@ void wWorkspaceMenuUpdate(WScreen * scr, WMenu * menu)
 	}
 
 	for (i = 0; i < scr->workspace_count; i++) {
+		WMenuEntry *mentry = menu->entries[i + MC_WORKSPACE1];
+
+		if (mentry->rtext) {
+			wfree(mentry->rtext);
+			mentry->rtext = NULL;
+		}
+
 		/* workspace shortcut labels */
 		if (i / 10 == scr->current_workspace / 10)
-			menu->entries[i + MC_WORKSPACE1]->rtext = GetShortcutKey(wKeyBindings[WKBD_WORKSPACE1 + (i % 10)]);
+			mentry->rtext = GetShortcutKey(wKeyBindings[WKBD_WORKSPACE1 + (i % 10)]);
 		else
-			menu->entries[i + MC_WORKSPACE1]->rtext = NULL;
+			mentry->rtext = NULL;
 
-		menu->entries[i + MC_WORKSPACE1]->flags.indicator_on = 0;
+		mentry->flags.indicator_on = 0;
 	}
 	menu->entries[scr->current_workspace + MC_WORKSPACE1]->flags.indicator_on = 1;
 	wMenuRealize(menu);
