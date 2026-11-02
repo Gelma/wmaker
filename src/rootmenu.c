@@ -1620,6 +1620,26 @@ WMenu *configureMenu(WScreen *scr, WMPropList *definition)
 	return menu;
 }
 
+static Bool menuIsInUse(WMenu *menu)
+{
+	int i;
+
+	if (!menu)
+		return False;
+
+	if (menu->flags.inside_handler || menu->flags.mapped)
+		return True;
+	if (menu->brother && (menu->brother->flags.inside_handler || menu->brother->flags.mapped))
+		return True;
+
+	for (i = 0; i < menu->cascade_no; i++) {
+		if (menu->cascades[i] && menuIsInUse(menu->cascades[i]))
+			return True;
+	}
+
+	return False;
+}
+
 /*
  *----------------------------------------------------------------------
  * wRootMenuReparse--
@@ -1634,6 +1654,9 @@ void wRootMenuReparse(WScreen *scr)
 
 	definition = w_global.domain.root_menu->dictionary;
 	if (!definition)
+		return;
+
+	if (scr->root_menu && menuIsInUse(scr->root_menu))
 		return;
 
 	scr->flags.root_menu_changed_shortcuts = 0;
@@ -1657,8 +1680,10 @@ void wRootMenuReparse(WScreen *scr)
 		scr->root_menu = menu;
 	}
 
-	if (scr->flags.root_menu_changed_shortcuts)
+	if (scr->flags.root_menu_changed_shortcuts) {
+		wKeyTreeRebuild(scr);
 		rebindKeygrabs(scr);
+	}
 }
 
 /*
@@ -1761,6 +1786,8 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 		wMenuMapAt(menu, newx, newy, keyboard);
 	}
 
-	if (scr->flags.root_menu_changed_shortcuts)
+	if (scr->flags.root_menu_changed_shortcuts) {
+		wKeyTreeRebuild(scr);
 		rebindKeygrabs(scr);
+	}
 }

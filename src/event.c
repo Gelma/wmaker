@@ -804,11 +804,16 @@ static void executeButtonAction(WScreen *scr, XEvent *event, int action)
 			WMPropList *definition;
 			menu = scr->root_menu;
 			if (scr->root_menu){
+				scr->flags.root_menu_changed_shortcuts = 0;
+				scr->flags.added_workspace_menu = 0;
+				scr->flags.added_windows_menu = 0;
 				wMenuDestroy(menu,True);
 				scr->root_menu = NULL;
 				definition = w_global.domain.root_menu->dictionary;
 				menu = configureMenu(scr, definition);
 				scr->root_menu = menu;
+				if (scr->flags.root_menu_changed_shortcuts)
+					wKeyTreeRebuild(scr);
 			}
 		}
 		break;
