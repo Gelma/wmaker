@@ -610,6 +610,16 @@ void wMenuDestroy(WMenu * menu, int recurse)
 						wMenuDestroy(menu->cascades[i], recurse);
 				}
 			}
+		} else {
+			for (i = 0; i < menu->cascade_no; i++) {
+				if (menu->cascades[i]) {
+					if (menu->cascades[i]->parent == menu)
+						menu->cascades[i]->parent = NULL;
+					if (menu->cascades[i]->brother &&
+					    menu->cascades[i]->brother->parent == menu->brother)
+						menu->cascades[i]->brother->parent = NULL;
+				}
+			}
 		}
 
 		if (menu->entries)
@@ -1038,12 +1048,13 @@ static int keyboardMenu(WMenu * menu)
 #ifdef XK_KP_Right
 			case XK_KP_Right:
 #endif
-				if (menu->selected_entry >= 0) {
+				if (menu->selected_entry >= 0 && menu->selected_entry < menu->entry_no) {
 					WMenuEntry *entry;
 					entry = menu->entries[menu->selected_entry];
 
-					if (entry->cascade >= 0 && menu->cascades
-					    && menu->cascades[entry->cascade]->entry_no > 0) {
+					if (entry->cascade >= 0 && menu->cascades &&
+					    menu->cascades[entry->cascade] &&
+					    menu->cascades[entry->cascade]->entry_no > 0) {
 
 						XUngrabKeyboard(dpy, CurrentTime);
 
@@ -1257,12 +1268,12 @@ static void selectEntry(WMenu * menu, int entry_no)
 	if (old_entry != entry_no) {
 
 		/* unselect previous entry */
-		if (old_entry >= 0) {
+		if (old_entry >= 0 && old_entry < menu->entry_no) {
 			paintEntry(menu, old_entry, False);
 			entry = menu->entries[old_entry];
 
 			/* unmap cascade */
-			if (entry->cascade >= 0 && menu->cascades) {
+			if (entry->cascade >= 0 && menu->cascades && menu->cascades[entry->cascade]) {
 				if (!menu->cascades[entry->cascade]->flags.buttoned) {
 					wMenuUnmap(menu->cascades[entry->cascade]);
 				}
@@ -1298,7 +1309,7 @@ static void selectEntry(WMenu * menu, int entry_no)
 			submenu = menu->cascades[entry->cascade];
 
 			/* map cascade */
-			if (!submenu->flags.mapped) {
+			if (submenu && !submenu->flags.mapped) {
 				int x, y;
 
 				if (!submenu->flags.realized)
@@ -1401,12 +1412,14 @@ static void closeBrotherCascadesOf(WMenu * menu)
 	int i;
 
 	for (i = 0; i < menu->cascade_no; i++) {
+		if (!menu->cascades[i])
+			continue;
 		if (menu->cascades[i]->flags.brother) {
 			tmp = menu->cascades[i];
 		} else {
 			tmp = menu->cascades[i]->brother;
 		}
-		if (tmp->flags.mapped) {
+		if (tmp && tmp->flags.mapped) {
 			selectEntry(tmp->parent, -1);
 			closeBrotherCascadesOf(tmp);
 			break;
@@ -1426,7 +1439,7 @@ static WMenu *parentMenu(WMenu * menu)
 
 	while (menu->parent && menu->parent->flags.mapped) {
 		parent = menu->parent;
-		if (parent->selected_entry < 0)
+		if (parent->selected_entry < 0 || parent->selected_entry >= parent->entry_no)
 			break;
 		entry = parent->entries[parent->selected_entry];
 		if (!entry->flags.enabled || entry->cascade < 0 || !parent->cascades ||
@@ -1458,11 +1471,11 @@ static void raiseMenus(WMenu * menu, int submenus)
 
 	wRaiseFrame(menu->frame->core);
 
-	if (submenus > 0 && menu->selected_entry >= 0) {
+	if (submenus > 0 && menu->selected_entry >= 0 && menu->selected_entry < menu->entry_no) {
 		i = menu->entries[menu->selected_entry]->cascade;
 		if (i >= 0 && menu->cascades) {
 			submenu = menu->cascades[i];
-			if (submenu->flags.mapped && !submenu->flags.buttoned)
+			if (submenu && submenu->flags.mapped && !submenu->flags.buttoned)
 				raiseMenus(submenu, submenus);
 		}
 	}
@@ -1880,7 +1893,8 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 			goto byebye;
 		}
 
-		if (entry->flags.enabled && entry->cascade >= 0 && menu->cascades) {
+		if (entry->flags.enabled && entry->cascade >= 0 && menu->cascades &&
+		    menu->cascades[entry->cascade]) {
 			WMenu *submenu = menu->cascades[entry->cascade];
 			/* map cascade */
 			if (submenu->flags.mapped && !submenu->flags.buttoned && menu->selected_entry != entry_no) {
@@ -1894,18 +1908,20 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 
 		} else if (!delayed_select) {
 			if (menu == scr->switch_menu && event->xbutton.button == Button3) {
+				WObjDescriptor *wdesc;
+
 				selectEntry(menu, entry_no);
 				OpenWindowMenu2((WWindow *)entry->clientdata,
 								event->xbutton.x_root,
 								event->xbutton.y_root, False);
 				wwin = (WWindow *)entry->clientdata;
-				desc = &wwin->screen_ptr->window_menu->menu->descriptor;
+				wdesc = &wwin->screen_ptr->window_menu->menu->descriptor;
 				event->xany.send_event = True;
-				(*desc->handle_mousedown)(desc, event);
+				(*wdesc->handle_mousedown)(wdesc, event);
 
 				XUngrabPointer(dpy, CurrentTime);
 				selectEntry(menu, -1);
-				return;
+				goto byebye;
 			} else {
 				selectEntry(menu, entry_no);
 			}
@@ -1973,13 +1989,13 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 					moved_to_submenu = False;
 					if (dx > 0	/* if moved enough to the side */
 					    /* maybe a open submenu */
-					    && menu->selected_entry >= 0
+					    && menu->selected_entry >= 0 && menu->selected_entry < menu->entry_no
 					    /* moving to the right direction */
 					    && (wPreferences.align_menus || ev.xmotion.y_root >= prevy)) {
 						int index;
 
 						index = menu->entries[menu->selected_entry]->cascade;
-						if (index >= 0) {
+						if (index >= 0 && menu->cascades && menu->cascades[index]) {
 							if (menu->cascades[index]->frame_x > menu->frame_x) {
 								if (prevx < ev.xmotion.x_root)
 									moved_to_submenu = True;
@@ -2034,7 +2050,8 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 				entry_no = getEntryAt(menu, x, y);
 				if ((entry_no >= 0) && (entry_no < menu->entry_no)) {
 					entry = menu->entries[entry_no];
-					if (entry->flags.enabled && entry->cascade >= 0 && menu->cascades) {
+					if (entry->flags.enabled && entry->cascade >= 0 && menu->cascades &&
+					    menu->cascades[entry->cascade]) {
 						WMenu *submenu = menu->cascades[entry->cascade];
 						if (submenu->flags.mapped && !submenu->flags.buttoned
 						    && menu->selected_entry != entry_no) {
@@ -2069,7 +2086,7 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 		d_data.magic = NULL;
 	}
 
-	if (menu && menu->selected_entry >= 0) {
+	if (menu && menu->selected_entry >= 0 && menu->selected_entry < menu->entry_no) {
 		entry = menu->entries[menu->selected_entry];
 		if (entry->callback != NULL && entry->flags.enabled && entry->cascade < 0) {
 			/* blink and erase menu selection */
@@ -2102,7 +2119,9 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 		} else if (entry->callback != NULL && entry->cascade < 0) {
 			selectEntry(menu, -1);
 		} else {
-			if (entry->cascade >= 0 && menu->cascades && menu->cascades[entry->cascade]->flags.brother) {
+			if (entry->cascade >= 0 && menu->cascades &&
+			    menu->cascades[entry->cascade] &&
+			    menu->cascades[entry->cascade]->flags.brother) {
 				selectEntry(menu, -1);
 			}
 		}
@@ -2136,19 +2155,19 @@ void wMenuMove(WMenu * menu, int x, int y, int submenus)
 	WMenu *submenu;
 	int i;
 
-	if (!menu)
+	if (!menu || !menu->frame || !menu->frame->core)
 		return;
 
 	menu->frame_x = x;
 	menu->frame_y = y;
 	XMoveWindow(dpy, menu->frame->core->window, x, y);
 
-	if (submenus > 0 && menu->selected_entry >= 0) {
+	if (submenus > 0 && menu->selected_entry >= 0 && menu->selected_entry < menu->entry_no) {
 		i = menu->entries[menu->selected_entry]->cascade;
 
-		if (i >= 0 && menu->cascades) {
+		if (i >= 0 && i < menu->cascade_no && menu->cascades) {
 			submenu = menu->cascades[i];
-			if (submenu->flags.mapped && !submenu->flags.buttoned) {
+			if (submenu && submenu->flags.mapped && !submenu->flags.buttoned) {
 				if (wPreferences.align_menus) {
 					wMenuMove(submenu, x + MENUW(menu), y, submenus);
 				} else {
@@ -2432,6 +2451,9 @@ static Bool saveMenuRecurs(WMPropList * menus, WScreen * scr, WMenu * menu)
 	char buffer[512];
 	Bool ok = True;
 
+	if (!menu)
+		return False;
+
 	if (menu->flags.brother)
 		menu = menu->brother;
 
@@ -2450,7 +2472,7 @@ static Bool saveMenuRecurs(WMPropList * menus, WScreen * scr, WMenu * menu)
 
 	if (ok) {
 		for (i = 0; i < menu->cascade_no; i++) {
-			if (saveMenuRecurs(menus, scr, menu->cascades[i]))
+			if (menu->cascades[i] && saveMenuRecurs(menus, scr, menu->cascades[i]))
 				save_menus = 1;
 		}
 	}
@@ -2536,6 +2558,9 @@ static int restoreMenuRecurs(WScreen *scr, WMPropList *menus, WMenu *menu, const
 	int i, x, y, res;
 	Bool lowered;
 
+	if (!menu || !menu->frame || !menu->frame->title)
+		return False;
+
 	if (strlen(path) + strlen(menu->frame->title) > 510)
 		return False;
 
@@ -2585,7 +2610,7 @@ static int restoreMenuRecurs(WScreen *scr, WMPropList *menus, WMenu *menu, const
 	WMReleasePropList(key);
 
 	for (i = 0; i < menu->cascade_no; i++) {
-		if (restoreMenuRecurs(scr, menus, menu->cascades[i], buffer) != False)
+		if (menu->cascades[i] && restoreMenuRecurs(scr, menus, menu->cascades[i], buffer) != False)
 			res = True;
 	}
 
