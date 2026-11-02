@@ -195,10 +195,14 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `window.c`, explicitly reset `normal_hints`, `wm_hints`, `wm_instance`, `wm_class`, `wm_gnustep_attr`, and `cmap_windows` to `NULL` upon freeing them in `wWindowDestroy()`, ensuring any retained references do not hold dangling member pointers.
     - In `dialog.c`, recorded the parent X11 window in `InfoPanel` and `LegalPanel` structs and destroyed them on panel closure via `XDestroyWindow(dpy, parent)` to eliminate orphaned X11 window leaks; also released the logo pixmap with `WMReleasePixmap(logo)` in `wShowCrashingDialogPanel()`.
     - In `client.c`, reset `wapp->menu = NULL` immediately after calling `wAppMenuDestroy(wapp->menu)` when handling `WM_COMMAND` property updates.
+64. **[`6e2d2065`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wmaker-opt-valgrind.desktop#L1-L7) - `wmaker-opt-valgrind.desktop`, `wmaker-valgrind-session`: Valgrind supervision environment for /opt/wmaker**:
+    - Created `wmaker-valgrind-session` wrapper script with strict Bash directives (`set -euo pipefail`), launching `/opt/wmaker/bin/wmaker` under `valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect,possible --track-origins=yes --trace-children=no --read-var-info=yes`.
+    - Automatically creates and redirects Valgrind memory diagnostic reports and stdout/stderr to `~/.local/share/wmaker/logs/valgrind-wmaker-<TIMESTAMP>-<PID>.log` and `wmaker-<TIMESTAMP>.log`.
+    - Created and added `wmaker-opt-valgrind.desktop` matching `/usr/share/xsessions/wmaker-opt.desktop` with target `Exec=/opt/wmaker/bin/wmaker-valgrind-session`. Installed the runner script to `/opt/wmaker/bin/wmaker-valgrind-session`.
 
 ---
 
 ## Verification Status
 - Build scripts and `make` commands executed successfully (exit code 0).
 - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
-- `build_and_install.sh`, `start.sh`, and `stop.sh` are operational and validated.
+- `build_and_install.sh`, `start.sh`, `stop.sh`, and `wmaker-valgrind-session` are operational and validated.
