@@ -217,10 +217,30 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Removed unused static `dHost` and `sHost` `WMPropList` keys in `make_keys()` (`src/dock.c`, `src/session.c`) that compiler optimization turned into orphaned allocations, and removed redundant `WMRetainPropList()` calls on `WMCreatePLString()`.
     - Zero-initialized stack `XSelectionEvent notify` and freed `XGetAtomName()` strings in `handle_selection_request()` (`src/event.c`).
     - Expanded `--trace-children-skip` in `wmaker-valgrind-session` to also skip external binaries in `/tmp/*`, `/home/*`, `/var/*`, `/sbin/*`, `/etc/*`, and `/lib*`.
+69. **[`05944be1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wcore.c#L46-L95) - `wmaker`, `WINGs`: Zero-initialize X11 attributes/events and enable Valgrind FD tracking**:
+    - Zero-initialized `XSetWindowAttributes attribs` in `wCoreCreateTopLevel()` and `wCoreCreate()` (`src/wcore.c`) and explicitly set `attribs.border_pixel = 0` when `CWBorderPixel` is included in `vmask`, resolving the Valgrind `Syscall param writev(vector[0]) points to uninitialised byte(s)` error during `XCreateWindow`.
+    - Zero-initialized stack `XEvent` structures with `memset(&ev, 0, sizeof(ev))` before `XSendEvent()` in `wSwitchPanelDestroy()`, `workspace_map_destroy()`, `wClientSendProtocol()`, `sendMessage()`, `notifyClient()`, `wScreenInit()`, `W_SendDnDClientMessage()`, and `notifySelection()`.
+    - Added `--track-fds=yes` to `wmaker-valgrind-session` and confirmed 0 leaked file descriptors in the live session (`PID 104468`).
+70. **[`e12b3662`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/icon.c#L259-L335) - `wmaker`: Fix `XTextProperty`, `Pixmap`, icon image, and `WMPropList` leaks**:
+    - Freed `text_prop.value` with `XFree()` after `XGetTextProperty()` in `wManageWindow()` (`src/window.c`).
+    - Initialized `Pixmap pixmap = None` in `icon_update_pixmap()` (`src/icon.c`), freed any existing `icon->pixmap` before overwriting it, and avoided creating a redundant `Pixmap` for dockapp windows in `update_icon_pixmap()`.
+    - Called `unset_icon_image(icon)` at the start of `set_icon_image_from_database()` (`src/icon.c`) to prevent leaking previous `icon->file` and `icon->file_image` when detaching dockapps.
+    - Released temporary `WMCreatePLString()` items after `WMAddToPLArray()` in `SaveHistory()` (`src/dialog.c`) and `saveMenuInfo()` (`src/menu.c`), zero-initialized `XEvent` in `wWindowSynthConfigureNotify()`, and guarded `wwin->normal_hints` in `wWindowConfigure()`.
+71. **[`d0755906`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/gradient.c#L118-L125) - `wrlib`: Fix negative left-shift UB in gradients and allocation checks**:
+    - Replaced signed left-shift of negative color deltas (`(rf - r0) << 16`) with multiplication by `65536L` in `renderHGradient()`, `renderVGradient()`, `renderMHGradient()`, `renderMVGradient()`, and `RRenderInterwovenGradient()` (`wrlib/gradient.c`), fixing `UndefinedBehaviorSanitizer` runtime errors when rendering gradients from brighter to darker colors.
+    - Clamped grayscale colormap allocation depth to 8 bits and guarded `ncolors <= 1` in `allocateGrayScale()` (`wrlib/context.c`) to prevent signed shift overflow.
+    - Checked `calloc()` return values for `contrib[i].p` in `RSmoothScaleImage()` (`wrlib/scale.c`) and cleaned up partial allocations on failure.
+72. **[`3275e04d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/dragdestination.c#L173-L195) - `WINGs`, `WPrefs`, `wmaker`, `util`: Fix null dereferences and leaks found by static analysis**:
+    - Guarded null pointers and allocation failures reported by `cppcheck`, `gcc -fanalyzer`, and `clang-tidy` across `src/`, `WINGs/`, `WPrefs.app/`, and `util/`.
+    - Checked `XDND_DEST_INFO(info)` after `sendStatusMessage()` in `suspendDropAuthorization()` (`WINGs/dragdestination.c`).
+    - Checked `wusergnusteppath()` and `wdefaultspathfordomain()` for `NULL` in `WINGs/userdefaults.c`.
+    - Added fallback to `WMBlackColor()` if `createRGBAColor()` fails in `WMGrayColor()` and `WMDarkGrayColor()` (`WINGs/wcolor.c`).
+    - Eliminated leaked fallback `WMPropList` in `renderTexture()` (`WPrefs.app/Appearance.c`), freed buffer before early exit in `util/wxcopy.c`, and guarded `rescale_image()` in `util/wmiv.c`.
 
 ---
 
 ## Verification Status
 - Build scripts and `make` commands executed successfully (exit code 0).
+- Live Valgrind `vgdb` inspection on `PID 104468`, `AddressSanitizer` + `UndefinedBehaviorSanitizer`, `cppcheck`, `gcc -fanalyzer`, `clang-tidy`, and `xrestop` all executed and verified.
 - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
 - `build_and_install.sh`, `start.sh`, `stop.sh`, and `wmaker-valgrind-session` are operational and validated.
