@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <X11/Xlib.h>
 #include <math.h>
 #include <assert.h>
@@ -45,12 +46,10 @@
  */
 RImage *RScaleImage(RImage * image, unsigned new_width, unsigned new_height)
 {
-	int ox;
 	int px, py;
-	register int x, y, t;
+	int x, y;
 	int dx, dy;
-	unsigned char *s;
-	unsigned char *d;
+	int *sx_table;
 	RImage *img;
 
 	if (image == NULL)
@@ -64,61 +63,56 @@ RImage *RScaleImage(RImage * image, unsigned new_width, unsigned new_height)
 	if (!img)
 		return NULL;
 
-	/* fixed point math idea taken from Imlib by
-	 * Carsten Haitzler (Rasterman) */
-	dx = (image->width << 16) / new_width;
-	dy = (image->height << 16) / new_height;
+	/* Precompute horizontal source sample points once */
+	sx_table = malloc(new_width * sizeof(int));
+	if (!sx_table) {
+		RReleaseImage(img);
+		return NULL;
+	}
+
+	dx = (image->width << 16) / (int)new_width;
+	dy = (image->height << 16) / (int)new_height;
+
+	px = 0;
+	for (x = 0; x < (int)new_width; x++) {
+		sx_table[x] = (px >> 16);
+		px += dx;
+	}
 
 	py = 0;
 
-	d = img->data;
-
 	if (image->format == RRGBAFormat) {
-		for (y = 0; y < new_height; y++) {
-			t = image->width * (py >> 16);
+		const uint32_t *src32 = (const uint32_t *)image->data;
+		uint32_t *dst32 = (uint32_t *)img->data;
 
-			s = image->data + (t << 2);	/* image->data+t*4 */
+		for (y = 0; y < (int)new_height; y++) {
+			int sy = py >> 16;
+			const uint32_t *s_row = src32 + sy * image->width;
+			uint32_t *d_row = dst32 + y * new_width;
 
-			ox = 0;
-			px = 0;
-			for (x = 0; x < new_width; x++) {
-				px += dx;
-
-				*(d++) = *(s);
-				*(d++) = *(s + 1);
-				*(d++) = *(s + 2);
-				*(d++) = *(s + 3);
-
-				t = (px - ox) >> 16;
-				ox += t << 16;
-
-				s += t << 2;	/* t*4 */
+			for (x = 0; x < (int)new_width; x++) {
+				d_row[x] = s_row[sx_table[x]];
 			}
 			py += dy;
 		}
 	} else {
-		for (y = 0; y < new_height; y++) {
-			t = image->width * (py >> 16);
+		for (y = 0; y < (int)new_height; y++) {
+			int sy = py >> 16;
+			const unsigned char *s_row = image->data + sy * image->width * 3;
+			unsigned char *d_row = img->data + y * new_width * 3;
 
-			s = image->data + (t << 1) + t;	/* image->data+t*3 */
-
-			ox = 0;
-			px = 0;
-			for (x = 0; x < new_width; x++) {
-				px += dx;
-
-				*(d++) = *(s);
-				*(d++) = *(s + 1);
-				*(d++) = *(s + 2);
-
-				t = (px - ox) >> 16;
-				ox += t << 16;
-
-				s += (t << 1) + t;	/* t*3 */
+			for (x = 0; x < (int)new_width; x++) {
+				int sx3 = sx_table[x] * 3;
+				d_row[0] = s_row[sx3];
+				d_row[1] = s_row[sx3 + 1];
+				d_row[2] = s_row[sx3 + 2];
+				d_row += 3;
 			}
 			py += dy;
 		}
 	}
+
+	free(sx_table);
 
 	return img;
 }
