@@ -556,10 +556,20 @@ void MoveInStackListUnder(WCoreWindow * prev, WCoreWindow * frame)
 void RemoveFromStackList(WCoreWindow * frame)
 {
 	int index = frame->stacking->window_level;
+	WCoreWindow *wlist;
+	WMBagIterator iter;
 
 	if (XDeleteContext(dpy, frame->window, w_global.context.stack) == XCNOENT) {
 		wwarning("RemoveFromStackingList(): window not in list ");
 		return;
+	}
+	/* clear any transient child_of references to this frame */
+	WM_ETARETI_BAG(frame->screen_ptr->stacking_list, wlist, iter) {
+		while (wlist) {
+			if (wlist->stacking->child_of == frame)
+				wlist->stacking->child_of = NULL;
+			wlist = wlist->stacking->under;
+		}
 	}
 	/* remove from the window stack list */
 	if (frame->stacking->under)

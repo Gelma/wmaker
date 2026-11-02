@@ -508,6 +508,8 @@ static RImage *findBestIcon(unsigned long *data, unsigned long items)
 
 	/* create a scaled down version of the icon */
 	src_image = makeRImageFromARGBData(icon);
+	if (!src_image)
+		return NULL;
 	if (src_image->width > src_image->height) {
 		f = (double)wanted / (double)src_image->width;
 		ret_image = RScaleImage(src_image, wanted, (int)(f * (double)(src_image->height)));
@@ -712,6 +714,16 @@ void wNETWMCleanup(WScreen *scr)
 
 	for (i = 0; i < wlengthof(atomNames); i++)
 		XDeleteProperty(dpy, scr->root_win, *atomNames[i].atom);
+
+	if (scr->netdata) {
+		WMRemoveNotificationObserver(scr->netdata);
+		if (scr->netdata->show_desktop)
+			wfree(scr->netdata->show_desktop);
+		if (scr->netdata->strut)
+			wfree(scr->netdata->strut);
+		wfree(scr->netdata);
+		scr->netdata = NULL;
+	}
 }
 
 void wNETWMUpdateActions(WWindow *wwin, Bool del)
@@ -1998,6 +2010,15 @@ static void observer(void *self, WMNotification *notif)
 		updateStrut(wwin->screen_ptr, wwin->client_win, True);
 		wScreenUpdateUsableArea(wwin->screen_ptr);
 	} else if (strcmp(name, WMNUnmanaged) == 0 && wwin) {
+		if (ndata && ndata->show_desktop) {
+			WWindow **src, **dst;
+
+			for (src = dst = ndata->show_desktop; *src; ++src) {
+				if (*src != wwin)
+					*dst++ = *src;
+			}
+			*dst = NULL;
+		}
 		updateClientList(wwin->screen_ptr);
 		updateClientListStacking(wwin->screen_ptr, wwin);
 		updateWorkspaceHint(wwin, False, True);

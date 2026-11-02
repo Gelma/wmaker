@@ -76,8 +76,24 @@ static short int label_height;
 #define ICON_SELECTED (1<<1)
 #define ICON_DIM (1<<2)
 
+static Bool windowStillManaged(WScreen *scr, WWindow *target)
+{
+	WWindow *w;
+
+	if (!scr || !target || target->flags.destroyed)
+		return False;
+	for (w = scr->focused_window; w != NULL; w = w->prev) {
+		if (w == target)
+			return True;
+	}
+	return False;
+}
+
 static int canReceiveFocus(WWindow *wwin)
 {
+	if (!windowStillManaged(wwin->screen_ptr, wwin))
+		return 0;
+
 	if (!wPreferences.cycle_all_workspaces && wwin->frame->workspace != wwin->screen_ptr->current_workspace)
 		return 0;
 
@@ -442,8 +458,12 @@ WSwitchPanel *wInitSwitchPanel(WScreen *scr, WWindow *curwin, Bool class_only)
 
 	panel->visibleCount = iconsThatFitCount;
 
-	if (!wPreferences.swtileImage)
+	if (!wPreferences.swtileImage) {
+		WM_ITERATE_ARRAY(panel->windows, wwin, i) {
+			wretain(wwin);
+		}
 		return panel;
+	}
 
 	height = label_height + icon_tile_size;
 
@@ -503,6 +523,7 @@ WSwitchPanel *wInitSwitchPanel(WScreen *scr, WWindow *curwin, Bool class_only)
 	WMSetFrameRelief(panel->iconBox, WRFlat);
 
 	WM_ITERATE_ARRAY(panel->windows, wwin, i) {
+		wretain(wwin);
 		addIconForWindow(panel, panel->iconBox, wwin, i * icon_tile_size, 0);
 	}
 
@@ -584,7 +605,15 @@ void wSwitchPanelDestroy(WSwitchPanel *panel)
 	if (panel->flags)
 		WMFreeArray(panel->flags);
 
-	WMFreeArray(panel->windows);
+	if (panel->windows) {
+		WWindow *wwin;
+
+		WM_ITERATE_ARRAY(panel->windows, wwin, i) {
+			if (wwin)
+				wrelease(wwin);
+		}
+		WMFreeArray(panel->windows);
+	}
 
 	if (panel->tile)
 		RReleaseImage(panel->tile);
@@ -661,13 +690,14 @@ WWindow *wSwitchPanelSelectNext(WSwitchPanel *panel, int back, int ignore_minimi
 		scrollIcons(panel, panel->current - panel->firstVisible - panel->visibleCount + 1);
 
 	if (panel->win) {
-		drawTitle(panel, panel->current, wwin->frame->title);
+		drawTitle(panel, panel->current,
+			  windowStillManaged(panel->scr, wwin) ? wwin->frame->title : NULL);
 		if (panel->current != orig)
 			changeImage(panel, orig, 0, dim, False);
 		changeImage(panel, panel->current, 1, False, False);
 	}
 
-	return wwin;
+	return windowStillManaged(panel->scr, wwin) ? wwin : NULL;
 }
 
 WWindow *wSwitchPanelSelectFirst(WSwitchPanel *panel, int back)
@@ -689,7 +719,7 @@ WWindow *wSwitchPanelSelectFirst(WSwitchPanel *panel, int back)
 	}
 
 	wwin = WMGetFromArray(panel->windows, panel->current);
-	title = wwin->frame->title;
+	title = windowStillManaged(panel->scr, wwin) ? wwin->frame->title : NULL;
 
 	if (panel->win) {
 		for (WMArrayFirst(panel->windows, &(i)); (i) != WANotFound; WMArrayNext(panel->windows, &(i)))
@@ -698,7 +728,7 @@ WWindow *wSwitchPanelSelectFirst(WSwitchPanel *panel, int back)
 		drawTitle(panel, panel->current, title);
 	}
 
-	return wwin;
+	return windowStillManaged(panel->scr, wwin) ? wwin : NULL;
 }
 
 WWindow *wSwitchPanelHandleEvent(WSwitchPanel *panel, XEvent *event)
@@ -728,6 +758,8 @@ WWindow *wSwitchPanelHandleEvent(WSwitchPanel *panel, XEvent *event)
 		panel->current = focus;
 
 		wwin = WMGetFromArray(panel->windows, focus);
+		if (!windowStillManaged(panel->scr, wwin))
+			return NULL;
 
 		drawTitle(panel, panel->current, wwin->frame->title);
 

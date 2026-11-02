@@ -1654,6 +1654,13 @@ void wUnmanageWindow(WWindow *wwin, Bool restore, Bool destroyed)
 	/* I think this only matters for autoraise */
 	if (wPreferences.raise_delay)
 		WMDeleteTimerWithClientData(wwin->frame->core);
+	if (scr->autoRaiseWindow == frame->window) {
+		scr->autoRaiseWindow = None;
+		if (scr->autoRaiseTimer) {
+			WMDeleteTimerHandler(scr->autoRaiseTimer);
+			scr->autoRaiseTimer = NULL;
+		}
+	}
 
 	XFlush(dpy);
 
@@ -1755,10 +1762,14 @@ void wUnmanageWindow(WWindow *wwin, Bool restore, Bool destroyed)
 	/* Close menu and unhighlight */
 	WApplication *oapp = wApplicationOf(wwin->main_window);
 	WApplication *napp = scr->focused_window ? wApplicationOf(scr->focused_window->main_window) : NULL;
-	if (oapp && oapp != napp) {
-		wAppMenuUnmap(oapp->menu);
-		if (wPreferences.highlight_active_app)
-			wApplicationDeactivate(oapp);
+	if (oapp) {
+		if (oapp->last_focused == wwin)
+			oapp->last_focused = NULL;
+		if (oapp != napp) {
+			wAppMenuUnmap(oapp->menu);
+			if (wPreferences.highlight_active_app)
+				wApplicationDeactivate(oapp);
+		}
 	}
 
 	wNETCleanupFrameExtents(wwin);

@@ -537,7 +537,7 @@ static void appiconBalloon(WObjDescriptor *object)
 		 * is being referred.
 		 */
 		if (strcmp(aicon->wm_class, "GNUstep") == 0)
-			display_name = aicon->wm_instance;
+			display_name = aicon->wm_instance ? aicon->wm_instance : aicon->wm_class;
 		else
 			display_name = aicon->wm_class;
 
@@ -550,14 +550,14 @@ static void appiconBalloon(WObjDescriptor *object)
 		if (app_win_cnt > 0)
 			snprintf(tmp, len, "%u %s\n(%s)", app_win_cnt, display_name, aicon->command);
 		else
-			snprintf(tmp, len, "%s\n(%s)", aicon->wm_instance, aicon->command);
+			snprintf(tmp, len, "%s\n(%s)", display_name, aicon->command);
 		scr->balloon->text = tmp;
 
 	} else if (aicon->command) {
 		scr->balloon->text = wstrdup(aicon->command);
 	} else if (aicon->wm_class) {
 		/* Check to see if it is a GNUstep App */
-		if (strcmp(aicon->wm_class, "GNUstep") == 0)
+		if (strcmp(aicon->wm_class, "GNUstep") == 0 && aicon->wm_instance)
 			scr->balloon->text = wstrdup(aicon->wm_instance);
 		else
 			scr->balloon->text = wstrdup(aicon->wm_class);
@@ -655,7 +655,8 @@ void wBalloonHide(WScreen *scr)
 		if (scr->balloon->mapped) {
 			XUnmapWindow(dpy, scr->balloon->window);
 			scr->balloon->mapped = 0;
-		} else if (scr->balloon->timer) {
+		}
+		if (scr->balloon->timer) {
 			WMDeleteTimerHandler(scr->balloon->timer);
 			scr->balloon->timer = NULL;
 		}

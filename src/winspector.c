@@ -395,6 +395,7 @@ void wDestroyInspectorPanels(void)
 	while (panelList != NULL) {
 		panel = panelList;
 		panelList = panelList->nextPtr;
+		WMRemoveNotificationObserver(panel);
 		wUnmanageWindow(panel->frame, False, False);
 		WMDestroyWidget(panel->win);
 
@@ -476,9 +477,13 @@ static int showIconFor(WMScreen *scrPtr, InspectorPanel *panel, const char *wm_i
 
 			buf = wmalloc(len);
 			snprintf(buf, len, _("Could not find icon \"%s\" specified for this window"), file);
+			panel->choosingIcon = 1;
 			wMessageDialog(panel->frame->screen_ptr, _("Error"), buf, _("OK"), NULL, NULL);
+			panel->choosingIcon = 0;
 			wfree(buf);
 			wfree(file);
+			if (panel->destroyed)
+				freeInspector(panel);
 			return -1;
 		}
 
@@ -492,9 +497,13 @@ static int showIconFor(WMScreen *scrPtr, InspectorPanel *panel, const char *wm_i
 			buf = wmalloc(len);
 			snprintf(buf, len, _("Could not open specified icon \"%s\":%s"),
 				 file, RMessageForError(RErrorCode));
+			panel->choosingIcon = 1;
 			wMessageDialog(panel->frame->screen_ptr, _("Error"), buf, _("OK"), NULL, NULL);
+			panel->choosingIcon = 0;
 			wfree(buf);
 			wfree(file);
+			if (panel->destroyed)
+				freeInspector(panel);
 			return -1;
 		}
 		wfree(file);
@@ -554,6 +563,8 @@ static void saveSettings(WMWidget *button, void *client_data)
 
 	/* Save will apply the changes and save them */
 	applySettings(panel->applyBtn, panel);
+	if (!wwin->flags.inspector_open)
+		return;
 
 	if (WMGetButtonSelected(panel->instRb) != 0) {
 		key = WMCreatePLString(wwin->wm_instance);
@@ -582,8 +593,10 @@ static void saveSettings(WMWidget *button, void *client_data)
 		}
 	}
 
-	if (showIconFor(WMWidgetScreen(button), panel, NULL, NULL, USE_TEXT_FIELD) < 0)
+	if (showIconFor(WMWidgetScreen(button), panel, NULL, NULL, USE_TEXT_FIELD) < 0) {
+		WMReleasePropList(key);
 		return;
+	}
 
 	WMPLSetCaseSensitive(True);
 
@@ -702,7 +715,9 @@ static void applySettings(WMWidget *button, void *client_data)
 	old_no_bind_keys = WFLAGP(wwin, no_bind_keys);
 	old_no_bind_mouse = WFLAGP(wwin, no_bind_mouse);
 
-	showIconFor(WMWidgetScreen(button), panel, NULL, NULL, USE_TEXT_FIELD);
+	if (showIconFor(WMWidgetScreen(button), panel, NULL, NULL, USE_TEXT_FIELD) < 0 &&
+	    !wwin->flags.inspector_open)
+		return;
 
 	/* Attributes... --> Window Attributes */
 	for (i = 0; i < wlengthof(window_attribute); i++) {
@@ -798,9 +813,15 @@ static void applySettings(WMWidget *button, void *client_data)
 
 			buf = wmalloc(len);
 			snprintf(buf, len, _("Ignore client supplied icon is set, but icon filename textbox is empty. Using client supplied icon"));
+			panel->choosingIcon = 1;
 			wMessageDialog(panel->frame->screen_ptr, _("Warning"), buf, _("OK"), NULL, NULL);
+			panel->choosingIcon = 0;
 			wfree(buf);
 			wfree(file);
+			if (panel->destroyed) {
+				freeInspector(panel);
+				return;
+			}
 
 			/* Change the flags */
 			WSETUFLAG(wwin, always_user_icon, 0);
@@ -918,7 +939,9 @@ static void revertSettings(WMWidget *button, void *client_data)
 	}
 	WMSetButtonSelected(panel->alwChk, WFLAGP(wwin, always_user_icon));
 
-	showIconFor(WMWidgetScreen(panel->alwChk), panel, wm_instance, wm_class, REVERT_TO_DEFAULT);
+	if (showIconFor(WMWidgetScreen(panel->alwChk), panel, wm_instance, wm_class, REVERT_TO_DEFAULT) < 0 &&
+	    !wwin->flags.inspector_open)
+		return;
 
 	n = wDefaultGetStartWorkspace(wwin->screen_ptr, wm_instance, wm_class);
 
