@@ -80,11 +80,11 @@ static Bool windowStillManaged(WScreen *scr, WWindow *target)
 {
 	WWindow *w;
 
-	if (!scr || !target || target->flags.destroyed)
+	if (!scr || !target)
 		return False;
 	for (w = scr->focused_window; w != NULL; w = w->prev) {
 		if (w == target)
-			return True;
+			return !target->flags.destroyed;
 	}
 	return False;
 }
@@ -116,6 +116,10 @@ static int canReceiveFocus(WWindow *wwin)
 
 static Bool sameWindowClass(WWindow *wwin, WWindow *curwin)
 {
+	/* Windows kept alive by the panel's retain may already be destroyed:
+	 * their wm_class has been XFree'd by wWindowDestroy() */
+	if (!wwin || !curwin || wwin->flags.destroyed || curwin->flags.destroyed)
+		return False;
 	if (!wwin->wm_class || !curwin->wm_class)
 		return False;
 	if (strcmp(wwin->wm_class, curwin->wm_class))

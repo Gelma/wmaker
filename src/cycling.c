@@ -59,11 +59,13 @@ static Bool isManagedWindow(WScreen *scr, WWindow *wwin)
 {
 	WWindow *tmp;
 
-	if (!scr || !wwin || wwin->flags.destroyed)
+	if (!scr || !wwin)
 		return False;
+	/* Only dereference wwin once it is known to be in the live window list:
+	 * it may point to freed memory if it was not retained by the panel. */
 	for (tmp = scr->focused_window; tmp != NULL; tmp = tmp->prev) {
 		if (tmp == wwin)
-			return True;
+			return !wwin->flags.destroyed;
 	}
 	return False;
 }

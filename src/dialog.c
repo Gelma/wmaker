@@ -1144,6 +1144,7 @@ Bool wIconChooserDialog(WScreen *scr, char **file, const char *instance, const c
 typedef struct {
 	WScreen *scr;
 	WWindow *wwin;
+	Window parent;
 	WMWindow *win;
 	WMLabel *logoL;
 	WMLabel *name1L;
@@ -1163,14 +1164,19 @@ static InfoPanel *infoPanel = NULL;
 
 static void destroyInfoPanel(WCoreWindow *foo, void *data, XEvent *event)
 {
+	Window parent;
+
 	/* Parameter not used, but tell the compiler that it is ok */
 	(void) foo;
 	(void) data;
 	(void) event;
 
+	parent = infoPanel->parent;
 	WMUnmapWidget(infoPanel->win);
 	wUnmanageWindow(infoPanel->wwin, False, False);
 	WMDestroyWidget(infoPanel->win);
+	if (parent != None)
+		XDestroyWindow(dpy, parent);
 	wfree(infoPanel);
 	infoPanel = NULL;
 }
@@ -1508,6 +1514,7 @@ void wShowInfoPanel(WScreen *scr)
 
 	wWindowMap(wwin);
 
+	panel->parent = parent;
 	panel->wwin = wwin;
 	infoPanel = panel;
 }
@@ -1521,6 +1528,7 @@ void wShowInfoPanel(WScreen *scr)
 typedef struct {
 	WScreen *scr;
 	WWindow *wwin;
+	Window parent;
 	WMWindow *win;
 	WMFrame *frame;
 	WMLabel *licenseL;
@@ -1530,14 +1538,19 @@ static LegalPanel *legalPanel = NULL;
 
 static void destroyLegalPanel(WCoreWindow * foo, void *data, XEvent * event)
 {
+	Window parent;
+
 	/* Parameter not used, but tell the compiler that it is ok */
 	(void) foo;
 	(void) data;
 	(void) event;
 
+	parent = legalPanel->parent;
 	WMUnmapWidget(legalPanel->win);
 	WMDestroyWidget(legalPanel->win);
 	wUnmanageWindow(legalPanel->wwin, False, False);
+	if (parent != None)
+		XDestroyWindow(dpy, parent);
 	wfree(legalPanel);
 	legalPanel = NULL;
 }
@@ -1607,6 +1620,7 @@ void wShowLegalPanel(WScreen *scr)
 	wFrameWindowHideButton(wwin->frame, WFF_LANGUAGE_BUTTON);
 #endif
 	wwin->frame->on_click_right = destroyLegalPanel;
+	panel->parent = parent;
 	panel->wwin = wwin;
 
 	WMMapWidget(panel->win);
@@ -1747,6 +1761,7 @@ int wShowCrashingDialogPanel(int whatSig)
 		WMMoveWidget(panel->iconL, 10, 10);
 		WMSetLabelImagePosition(panel->iconL, WIPImageOnly);
 		WMSetLabelImage(panel->iconL, logo);
+		WMReleasePixmap(logo);
 	}
 
 	panel->nameL = WMCreateLabel(panel->win);

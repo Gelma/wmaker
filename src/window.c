@@ -214,23 +214,35 @@ void wWindowDestroy(WWindow *wwin)
 		}
 	}
 
-	if (wwin->normal_hints)
+	if (wwin->normal_hints) {
 		XFree(wwin->normal_hints);
+		wwin->normal_hints = NULL;
+	}
 
-	if (wwin->wm_hints)
+	if (wwin->wm_hints) {
 		XFree(wwin->wm_hints);
+		wwin->wm_hints = NULL;
+	}
 
-	if (wwin->wm_instance)
+	if (wwin->wm_instance) {
 		XFree(wwin->wm_instance);
+		wwin->wm_instance = NULL;
+	}
 
-	if (wwin->wm_class)
+	if (wwin->wm_class) {
 		XFree(wwin->wm_class);
+		wwin->wm_class = NULL;
+	}
 
-	if (wwin->wm_gnustep_attr)
+	if (wwin->wm_gnustep_attr) {
 		wfree(wwin->wm_gnustep_attr);
+		wwin->wm_gnustep_attr = NULL;
+	}
 
-	if (wwin->cmap_windows)
+	if (wwin->cmap_windows) {
 		XFree(wwin->cmap_windows);
+		wwin->cmap_windows = NULL;
+	}
 
 	XDeleteContext(dpy, wwin->client_win, w_global.context.client_win);
 
