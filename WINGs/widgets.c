@@ -4,6 +4,10 @@
 
 #include <X11/Xft/Xft.h>
 
+#ifdef USE_PANGO
+#include <pango/pangoxft.h>
+#endif
+
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
@@ -1145,4 +1149,150 @@ unsigned int WMScreenHeight(WMScreen * scr)
 void WMRedisplayWidget(WMWidget * w)
 {
 	W_RedisplayView(W_VIEW(w));
+}
+
+void WMDestroyScreen(WMScreen *scr)
+{
+	int i;
+	W_Pixmap *pixmaps[] = {
+		scr->checkButtonImageOn, scr->checkButtonImageOff,
+		scr->radioButtonImageOn, scr->radioButtonImageOff,
+		scr->tristateButtonImageOn, scr->tristateButtonImageOff, scr->tristateButtonImageTri,
+		scr->buttonArrow, scr->pushedButtonArrow,
+		scr->scrollerDimple,
+		scr->upArrow, scr->downArrow, scr->leftArrow, scr->rightArrow,
+		scr->hiUpArrow, scr->hiDownArrow, scr->hiLeftArrow, scr->hiRightArrow,
+		scr->pullDownIndicator, scr->popUpIndicator,
+		scr->checkMark, scr->homeIcon, scr->altHomeIcon,
+		scr->trashcanIcon, scr->altTrashcanIcon,
+		scr->createDirIcon,
+		scr->applicationIconPixmap
+	};
+
+	if (!scr)
+		return;
+
+	if (scr->sharedOpenPanel) {
+		WMFreeFilePanel(scr->sharedOpenPanel);
+		scr->sharedOpenPanel = NULL;
+	}
+	if (scr->sharedSavePanel) {
+		WMFreeFilePanel(scr->sharedSavePanel);
+		scr->sharedSavePanel = NULL;
+	}
+	if (scr->sharedFontPanel) {
+		WMFreeFontPanel(scr->sharedFontPanel);
+		scr->sharedFontPanel = NULL;
+	}
+	if (scr->sharedColorPanel) {
+		WMFreeColorPanel(scr->sharedColorPanel);
+		scr->sharedColorPanel = NULL;
+	}
+
+	if (scr->balloon) {
+		W_DestroyBalloon(scr->balloon);
+		scr->balloon = NULL;
+	}
+
+	W_CleanUpIM(scr);
+
+	for (i = 0; i < (int)wlengthof(pixmaps); i++) {
+		if (pixmaps[i])
+			WMReleasePixmap(pixmaps[i]);
+	}
+	if (scr->applicationIconImage) {
+		RReleaseImage(scr->applicationIconImage);
+		scr->applicationIconImage = NULL;
+	}
+
+	if (scr->stippleGC) {
+		XFreeGC(scr->display, scr->stippleGC);
+		scr->stippleGC = NULL;
+	}
+	if (scr->drawStringGC) {
+		XFreeGC(scr->display, scr->drawStringGC);
+		scr->drawStringGC = NULL;
+	}
+	if (scr->drawImStringGC) {
+		XFreeGC(scr->display, scr->drawImStringGC);
+		scr->drawImStringGC = NULL;
+	}
+	if (scr->monoGC) {
+		XFreeGC(scr->display, scr->monoGC);
+		scr->monoGC = NULL;
+	}
+	if (scr->copyGC) {
+		XFreeGC(scr->display, scr->copyGC);
+		scr->copyGC = NULL;
+	}
+	if (scr->clipGC) {
+		XFreeGC(scr->display, scr->clipGC);
+		scr->clipGC = NULL;
+	}
+	if (scr->xorGC) {
+		XFreeGC(scr->display, scr->xorGC);
+		scr->xorGC = NULL;
+	}
+	if (scr->ixorGC) {
+		XFreeGC(scr->display, scr->ixorGC);
+		scr->ixorGC = NULL;
+	}
+
+	if (scr->stipple != None) {
+		XFreePixmap(scr->display, scr->stipple);
+		scr->stipple = None;
+	}
+
+	if (scr->boldFont && scr->boldFont != scr->normalFont) {
+		WMReleaseFont(scr->boldFont);
+		scr->boldFont = NULL;
+	}
+	if (scr->normalFont) {
+		WMReleaseFont(scr->normalFont);
+		scr->normalFont = NULL;
+	}
+
+	if (scr->fontCache) {
+		WMHashEnumerator enumerator = WMEnumerateHashTable(scr->fontCache);
+		WMFont *font;
+		while ((font = WMNextHashEnumeratorItem(&enumerator)) != NULL) {
+			font->refCount = 1;
+			WMReleaseFont(font);
+		}
+		WMFreeHashTable(scr->fontCache);
+		scr->fontCache = NULL;
+	}
+
+	if (scr->xftdraw) {
+		XftDrawDestroy(scr->xftdraw);
+		scr->xftdraw = NULL;
+	}
+
+#ifdef USE_PANGO
+	pango_xft_shutdown_display(scr->display, scr->screen);
+#endif
+
+	if (scr->white) {
+		WMReleaseColor(scr->white);
+		scr->white = NULL;
+	}
+	if (scr->black) {
+		WMReleaseColor(scr->black);
+		scr->black = NULL;
+	}
+	if (scr->gray) {
+		WMReleaseColor(scr->gray);
+		scr->gray = NULL;
+	}
+	if (scr->darkGray) {
+		WMReleaseColor(scr->darkGray);
+		scr->darkGray = NULL;
+	}
+
+	if (scr->rootView) {
+		W_DestroyView(scr->rootView);
+		scr->rootView = NULL;
+	}
+
+	free(scr);
 }

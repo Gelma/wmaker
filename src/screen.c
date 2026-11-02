@@ -1619,4 +1619,34 @@ void wScreenDestroy(WScreen *scr)
 		XFreeGC(dpy, scr->mono_gc);
 		scr->mono_gc = NULL;
 	}
+
+	while (scr->wapp_list) {
+		scr->wapp_list->refcount = 1;
+		scr->wapp_list->flags.bouncing = 0;
+		wApplicationDestroy(scr->wapp_list);
+	}
+
+	if (scr->gview) {
+		WDestroyGeometryView(scr->gview);
+		scr->gview = NULL;
+	}
+
+	if (scr->mini_screenshot_timer) {
+		WMDeleteTimerHandler(scr->mini_screenshot_timer);
+		scr->mini_screenshot_timer = NULL;
+	}
+	if (scr->mini_screenshot_timeout) {
+		XDestroyWindow(dpy, scr->mini_screenshot);
+		scr->mini_screenshot_timeout = 0;
+	}
+
+	if (scr->wmscreen) {
+		WMDestroyScreen(scr->wmscreen);
+		scr->wmscreen = NULL;
+	}
+
+	if (scr->rcontext) {
+		RDestroyContext(scr->rcontext);
+		scr->rcontext = NULL;
+	}
 }

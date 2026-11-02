@@ -667,6 +667,8 @@ WMScreen* WMCreateScreen(Display *display, int screen);
 
 WMScreen* WMCreateSimpleApplicationScreen(Display *display);
 
+void WMDestroyScreen(WMScreen *scr);
+
 _wings_noreturn void WMScreenMainLoop(WMScreen *scr);
 
 void WMBreakModalLoop(WMScreen *scr);

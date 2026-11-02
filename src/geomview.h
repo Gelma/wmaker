@@ -23,6 +23,7 @@ typedef struct W_GeometryView WGeometryView;
 
 
 WGeometryView *WCreateGeometryView(WMScreen *scr);
+void WDestroyGeometryView(WGeometryView *gview);
 
 void WSetGeometryViewShownPosition(WGeometryView *gview, int x, int y);
 

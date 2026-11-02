@@ -84,6 +84,23 @@ void W_InitIM(W_Screen * scr)
 	}
 }
 
+void W_CleanUpIM(W_Screen * scr)
+{
+	if (!scr)
+		return;
+
+	if (scr->imctx) {
+		if (scr->imctx->xim) {
+			XCloseIM(scr->imctx->xim);
+			scr->imctx->xim = NULL;
+		}
+		wfree(scr->imctx);
+		scr->imctx = NULL;
+	} else {
+		XUnregisterIMInstantiateCallback(scr->display, NULL, NULL, NULL, instantiateIM_cb, (XPointer) scr);
+	}
+}
+
 void W_CreateIC(WMView * view)
 {
 	WMScreen *scr = W_VIEW_SCREEN(view);

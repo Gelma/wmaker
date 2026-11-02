@@ -406,6 +406,8 @@ Bool W_ApplicationInitialized(void);
 
 struct W_Balloon *W_CreateBalloon(WMScreen *scr);
 
+void W_DestroyBalloon(struct W_Balloon *bPtr);
+
 void W_BalloonHandleEnterView(WMView *view);
 
 void W_BalloonHandleLeaveView(WMView *view);
@@ -478,6 +480,8 @@ W_Class W_RegisterUserWidget(void);
 /* ---[ winputmethod.c ]-------------------------------------------------- */
 
 void W_InitIM(WMScreen *scr);
+
+void W_CleanUpIM(WMScreen *scr);
 
 void W_CreateIC(WMView *view);
 

@@ -103,6 +103,7 @@ WApplication *wApplicationCreate(WWindow * wwin)
 	}
 
 	wapp = wmalloc(sizeof(WApplication));
+	memset(wapp, 0, sizeof(WApplication));
 
 	wapp->refcount = 1;
 	wapp->last_focused = NULL;
@@ -116,6 +117,11 @@ WApplication *wApplicationCreate(WWindow * wwin)
 		wfree(wapp);
 		return NULL;
 	}
+
+	wapp->next = scr->wapp_list;
+	if (scr->wapp_list)
+		scr->wapp_list->prev = wapp;
+	scr->wapp_list = wapp;
 
 	wapp->main_window_desc->fake_group = wwin->fake_group;
 	wapp->main_window_desc->net_icon_image = RRetainImage(wwin->net_icon_image);

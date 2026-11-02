@@ -450,28 +450,57 @@ static void handleEvents(XEvent * event, void *data)
 
 	switch (event->type) {
 	case DestroyNotify:
-		destroyBalloon(bPtr);
+		W_DestroyBalloon(bPtr);
 		break;
 	}
 }
 
-static void destroyBalloon(Balloon * bPtr)
+void W_DestroyBalloon(struct W_Balloon * bPtr)
 {
 	WMHashEnumerator e;
 	char *str;
 
-	e = WMEnumerateHashTable(bPtr->table);
+	if (!bPtr)
+		return;
 
-	while ((str = WMNextHashEnumeratorItem(&e))) {
-		wfree(str);
+	if (bPtr->timer) {
+		WMDeleteTimerHandler(bPtr->timer);
+		bPtr->timer = NULL;
 	}
-	WMFreeHashTable(bPtr->table);
+	if (bPtr->noDelayTimer) {
+		WMDeleteTimerHandler(bPtr->noDelayTimer);
+		bPtr->noDelayTimer = NULL;
+	}
 
-	if (bPtr->textColor)
+	if (bPtr->view) {
+		W_View *view = bPtr->view;
+		bPtr->view = NULL;
+		W_DestroyView(view);
+	}
+
+	if (bPtr->table) {
+		e = WMEnumerateHashTable(bPtr->table);
+		while ((str = WMNextHashEnumeratorItem(&e))) {
+			wfree(str);
+		}
+		WMFreeHashTable(bPtr->table);
+		bPtr->table = NULL;
+	}
+
+	if (bPtr->backColor) {
+		WMReleaseColor(bPtr->backColor);
+		bPtr->backColor = NULL;
+	}
+
+	if (bPtr->textColor) {
 		WMReleaseColor(bPtr->textColor);
+		bPtr->textColor = NULL;
+	}
 
-	if (bPtr->font)
+	if (bPtr->font) {
 		WMReleaseFont(bPtr->font);
+		bPtr->font = NULL;
+	}
 
 	wfree(bPtr);
 }

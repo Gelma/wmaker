@@ -81,6 +81,23 @@ WGeometryView *WCreateGeometryView(WMScreen * scr)
 	return gview;
 }
 
+void WDestroyGeometryView(WGeometryView *gview)
+{
+	if (!gview)
+		return;
+
+	if (gview->font)
+		WMReleaseFont(gview->font);
+	if (gview->bgColor)
+		WMReleaseColor(gview->bgColor);
+	if (gview->color)
+		WMReleaseColor(gview->color);
+	if (gview->view)
+		W_DestroyView(gview->view);
+
+	free(gview);
+}
+
 void WSetGeometryViewShownPosition(WGeometryView * gview, int x, int y)
 {
 	gview->showPosition = 1;

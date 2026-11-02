@@ -380,11 +380,13 @@ static void destroyView(W_View * view)
 	W_CallDestroyHandlers(view);
 
 	if (view->flags.realized) {
-		XDeleteContext(view->screen->display, view->window, ViewContext);
+		if (!view->flags.root) {
+			XDeleteContext(view->screen->display, view->window, ViewContext);
 
-		/* if parent is being destroyed, it will die naturaly */
-		if (!view->flags.parentDying || view->flags.topLevel)
-			XDestroyWindow(view->screen->display, view->window);
+			/* if parent is being destroyed, it will die naturaly */
+			if (!view->flags.parentDying || view->flags.topLevel)
+				XDestroyWindow(view->screen->display, view->window);
+		}
 	}
 
 	/* remove self from parent's children list */

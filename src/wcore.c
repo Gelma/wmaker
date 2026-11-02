@@ -39,10 +39,11 @@
 WCoreWindow *wCoreCreateTopLevel(WScreen *screen, int x, int y, int width, int height, int bwidth, int depth, Visual *visual, Colormap colormap, WMPixel border_pixel)
 {
 	WCoreWindow *core;
-	int vmask;
+	unsigned long vmask;
 	XSetWindowAttributes attribs;
 
 	core = wmalloc(sizeof(WCoreWindow));
+	memset(core, 0, sizeof(WCoreWindow));
 
 	memset(&attribs, 0, sizeof(attribs));
 	vmask = CWBorderPixel | CWCursor | CWEventMask | CWOverrideRedirect | CWColormap;
@@ -92,10 +93,11 @@ WCoreWindow *wCoreCreateTopLevel(WScreen *screen, int x, int y, int width, int h
 WCoreWindow *wCoreCreate(WCoreWindow *parent, int x, int y, int width, int height)
 {
 	WCoreWindow *core;
-	int vmask;
+	unsigned long vmask;
 	XSetWindowAttributes attribs;
 
 	core = wmalloc(sizeof(WCoreWindow));
+	memset(core, 0, sizeof(WCoreWindow));
 
 	memset(&attribs, 0, sizeof(attribs));
 	vmask = CWBorderPixel | CWCursor | CWEventMask | CWColormap;
