@@ -26,6 +26,20 @@
 #include <string.h>
 #include <X11/Xlib.h>
 
+#ifdef __linux__
+#include <sys/mman.h>
+#include <unistd.h>
+#ifndef MADV_MERGEABLE
+#define MADV_MERGEABLE 12
+#endif
+#ifndef MADV_HUGEPAGE
+#define MADV_HUGEPAGE 14
+#endif
+#ifndef MAP_HUGETLB
+#define MAP_HUGETLB 0x40000
+#endif
+#endif
+
 #include "wraster.h"
 #include "wr_i18n.h"
 
@@ -44,6 +58,7 @@ int RErrorCode = RERR_NONE;
 RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 {
 	RImage *image = NULL;
+	size_t size;
 
 	assert(width > 0 && height > 0);
 
@@ -67,7 +82,57 @@ RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 	/* the +4 is to give extra bytes at the end of the buffer,
 	 * so that we can optimize image conversion for MMX(tm).. see convert.c
 	 */
-	image->data = malloc(width * height * (alpha ? 4 : 3) + 4);
+	size = (size_t)width * height * (alpha ? 4 : 3) + 4;
+
+#ifdef __linux__
+	{
+		static const size_t HUGEPAGE_SIZE = 2 * 1024 * 1024;
+
+		if (size >= HUGEPAGE_SIZE) {
+			size_t map_size = (size + HUGEPAGE_SIZE - 1) & ~(HUGEPAGE_SIZE - 1);
+			/* c) Try direct huge pages if available */
+			void *data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
+			                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+
+			if (data != MAP_FAILED) {
+				image->data = data;
+				image->allocSize = map_size;
+				image->is_mmap = 1;
+				/* a) Enable KSM deduplication */
+				madvise(data, map_size, MADV_MERGEABLE);
+			} else {
+				/* Fall back to standard anonymous mmap */
+				data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
+				            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+				if (data != MAP_FAILED) {
+					image->data = data;
+					image->allocSize = map_size;
+					image->is_mmap = 1;
+					/* b) Enable Transparent Huge Pages */
+					madvise(data, map_size, MADV_HUGEPAGE);
+					/* a) Enable KSM deduplication */
+					madvise(data, map_size, MADV_MERGEABLE);
+				}
+			}
+		} else if (size >= 4096) {
+			void *aligned_ptr = NULL;
+			if (posix_memalign(&aligned_ptr, 4096, size) == 0) {
+				image->data = aligned_ptr;
+				image->allocSize = size;
+				image->is_mmap = 0;
+				/* a) Enable KSM deduplication */
+				madvise(aligned_ptr, size, MADV_MERGEABLE);
+			}
+		}
+	}
+#endif
+
+	if (!image->data) {
+		image->data = malloc(size);
+		image->allocSize = size;
+		image->is_mmap = 0;
+	}
+
 	if (!image->data) {
 		RErrorCode = RERR_NOMEMORY;
 		free(image);
@@ -75,7 +140,6 @@ RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 	}
 
 	return image;
-
 }
 
 RImage *RRetainImage(RImage * image)
@@ -93,7 +157,15 @@ void RReleaseImage(RImage * image)
 	image->refCount--;
 
 	if (image->refCount < 1) {
-		free(image->data);
+		if (image->is_mmap) {
+#ifdef __linux__
+			munmap(image->data, image->allocSize);
+#else
+			free(image->data);
+#endif
+		} else {
+			free(image->data);
+		}
 		free(image);
 	}
 }

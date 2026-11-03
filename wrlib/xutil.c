@@ -30,6 +30,17 @@
 
 #include <assert.h>
 
+#ifdef __linux__
+#include <sys/mman.h>
+#include <unistd.h>
+#ifndef MADV_MERGEABLE
+#define MADV_MERGEABLE 12
+#endif
+#ifndef MADV_HUGEPAGE
+#define MADV_HUGEPAGE 14
+#endif
+#endif
+
 #ifdef USE_XSHM
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -74,7 +85,22 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		RErrorCode = RERR_XERROR;
 		return NULL;
 	}
-	rximg->image->data = malloc(rximg->image->bytes_per_line * height);
+	{
+		size_t xsize = (size_t)rximg->image->bytes_per_line * height;
+#ifdef __linux__
+		void *xdata = NULL;
+		if (xsize >= 4096 && posix_memalign(&xdata, 4096, xsize) == 0) {
+			rximg->image->data = xdata;
+			if (xsize >= 2 * 1024 * 1024)
+				madvise(xdata, xsize, MADV_HUGEPAGE);
+			madvise(xdata, xsize, MADV_MERGEABLE);
+		} else {
+			rximg->image->data = malloc(xsize);
+		}
+#else
+		rximg->image->data = malloc(xsize);
+#endif
+	}
 	if (!rximg->image->data) {
 		XDestroyImage(rximg->image);
 		free(rximg);
@@ -93,7 +119,22 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 			RErrorCode = RERR_XERROR;
 			return NULL;
 		}
-		rximg->image->data = malloc(rximg->image->bytes_per_line * height);
+		{
+			size_t xsize = (size_t)rximg->image->bytes_per_line * height;
+#ifdef __linux__
+			void *xdata = NULL;
+			if (xsize >= 4096 && posix_memalign(&xdata, 4096, xsize) == 0) {
+				rximg->image->data = xdata;
+				if (xsize >= 2 * 1024 * 1024)
+					madvise(xdata, xsize, MADV_HUGEPAGE);
+				madvise(xdata, xsize, MADV_MERGEABLE);
+			} else {
+				rximg->image->data = malloc(xsize);
+			}
+#else
+			rximg->image->data = malloc(xsize);
+#endif
+		}
 		if (!rximg->image->data) {
 			XDestroyImage(rximg->image);
 			free(rximg);

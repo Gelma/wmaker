@@ -249,6 +249,8 @@ typedef struct RImage {
     enum RImageFormat format;
     RColor background;	   /* background color */
     int refCount;
+    size_t allocSize;          /* size of data buffer */
+    int is_mmap;               /* 1 if allocated via mmap, 0 if malloc */
 } RImage;
 
 
