@@ -42,6 +42,7 @@
 #include "appmenu.h"
 #include "wmspec.h"
 #include "misc.h"
+#include "telemetry.h"
 
 
 /*
@@ -285,7 +286,8 @@ void wClientSendProtocol(WWindow * wwin, Atom protocol, Time time)
 	event.xclient.data.l[2] = 0;
 	event.xclient.data.l[3] = 0;
 	XSendEvent(dpy, wwin->client_win, False, NoEventMask, &event);
-	XSync(dpy, False);
+	XFlush(dpy);
+	wTelemetry.xsync_eliminated++;
 }
 
 void wClientKill(WWindow * wwin)

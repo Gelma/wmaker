@@ -49,6 +49,7 @@
 #include "placement.h"
 #include "misc.h"
 #include "event.h"
+#include "telemetry.h"
 
 
 #ifndef HAVE_FLOAT_MATHFUNC
@@ -188,7 +189,7 @@ void wSetFocusTo(WScreen *scr, WWindow *wwin)
 		if (wwin->protocols.TAKE_FOCUS)
 			wClientSendProtocol(wwin, w_global.atom.wm.take_focus, timestamp);
 
-		XSync(dpy, False);
+		wTelemetry.xsync_eliminated++;
 	} else {
 		XSetInputFocus(dpy, scr->no_focus_win, RevertToParent, CurrentTime);
 	}
@@ -1379,7 +1380,8 @@ static void flushExpose(void)
 
 	while (XCheckTypedEvent(dpy, Expose, &tmpev))
 		WMHandleEvent(&tmpev);
-	XSync(dpy, 0);
+	XFlush(dpy);
+	wTelemetry.xsync_eliminated++;
 }
 
 static void unmapTransientsFor(WWindow *wwin)
@@ -1522,8 +1524,8 @@ void wIconifyWindow(WWindow *wwin)
 		wwin->icon = icon_create_for_wwindow(wwin);
 		wwin->icon->mapped = 1;
 
-		/* extract the window screenshot every time, as the option can be enable anytime */
-		if (wwin->client_win && wwin->flags.mapped) {
+		/* Only extract the window screenshot when mini-preview balloons are actually enabled */
+		if (wPreferences.miniwin_preview_balloon && wwin->client_win && wwin->flags.mapped) {
 			RImage *mini_preview;
 			XImage *pimg;
 			unsigned int w, h;
@@ -1563,6 +1565,8 @@ void wIconifyWindow(WWindow *wwin)
 					wwarning(_("creation of mini-preview failed for window \"%s\""), title);
 				}
 			}
+		} else {
+			wTelemetry.mini_preview_bypassed++;
 		}
 	}
 
@@ -1580,7 +1584,8 @@ void wIconifyWindow(WWindow *wwin)
 		wWindowUnmap(wwin);
 		/* let all Expose events arrive so that we can repaint
 		 * something before the animation starts (and the server is grabbed) */
-		XSync(dpy, 0);
+		XFlush(dpy);
+		wTelemetry.xsync_eliminated++;
 
 		if (wPreferences.disable_miniwindows || wwin->flags.net_handle_icon)
 			wClientSetState(wwin, IconicState, None);
