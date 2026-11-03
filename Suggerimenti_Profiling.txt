@@ -1,0 +1,67 @@
+  [GelmaRulla] Per profilare un Window Manager per diversi giorni durante il normale utilizzo quotidiano, la scelta dello strumento fa
+  una differenza enorme:
+  ──────
+  ### ⚠ Importante su Valgrind (Callgrind / Massif)
+
+  Valgrind non è un profiler statistico: emula la CPU attraverso un compilatore JIT interno.
+  • Impatto: introduce un rallentamento da 10x a 50x e consuma molta più memoria RAM.
+  • Per giorni interi: trascinare finestre, digitare o visualizzare video per giorni interi con Valgrind attivo risulterebbe frustrante e
+  poco realistico rispetto al comportamento reale della CPU.
+  • Quando usarlo: Valgrind è ideale per sessioni mirate da 15-30 minuti (vedi sotto per come farlo senza rallentare l'avvio).
+  ──────
+  ### 🚀 Metodo Raccomandato per più giorni: Linux perf
+  perf sfrutta i contatori hardware della CPU ed esegue un campionamento statistico (es. 49 volte al secondo):
+
+  • Overhead: < 0.5% CPU (velocità nativa al 100%, zero lag).
+  • Non serve riavviare la sessione: puoi agganciarlo direttamente al processo wmaker già attivo in questo momento!
+  • Dettaglio: registra esattamente le funzioni, le librerie, i cicli CPU spesi e le chiamate di sistema più frequenti.
+
+  #### 1. Avviare la profilazione in background
+
+  Per iniziare a registrare la sessione in corso:
+    # Trova il PID di Window Maker e avvia perf a 49Hz con callgraph
+    /usr/lib/linux-tools-6.8.0-57/perf record -F 49 -p "$(pidof -s wmaker)" --call-graph fp -o ~/wmaker_perf.data &
+
+  (Puoi lasciarlo attivo per ore o giorni mentre usi normalmente il computer).
+
+  #### 2. Fermare la profilazione
+
+  Quando decidi di terminare la raccolta dati:
+    killall -INT perf
+
+  #### 3. Generare il report da esaminare
+
+  Puoi estrarre un report testuale dettagliato con:
+    /usr/lib/linux-tools-6.8.0-57/perf report -i ~/wmaker_perf.data --stdio > ~/wmaker_perf_report.txt
+
+  (Oppure navigarlo graficamente nel terminale con /usr/lib/linux-tools-6.8.0-57/perf report -i ~/wmaker_perf.data).
+
+  Mi basterà leggere il file ~/wmaker_perf_report.txt per identificare con precisione chirurgica le funzioni che consumano più cicli CPU
+  nella tua routine quotidiana.
+  ──────
+  ### 🔬 Alternativa 2: Google CPU Profiler (libprofiler)
+
+  Sulla tua macchina è già installato libgoogle-perftools (/usr/lib/x86_64-linux-gnu/libprofiler.so.0).
+  È un campionatore leggerissimo (1-2% di overhead) che genera un log binario compatto:
+
+  1. Nel file wmaker-session, prima di exec, aggiungi:
+    export CPUPROFILE="$HOME/wmaker_gperf.prof"
+    export LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libprofiler.so.0"
+
+  2. Al termine della sessione o all'uscita, verrà scritto il file ~/wmaker_gperf.prof.
+  ──────
+  ### ⏱ Se desideri comunque usare Valgrind (Callgrind mirato)
+
+  Se vuoi misurare il conteggio esatto delle istruzioni con Callgrind evitando di rallentare tutto il sistema fin dall'avvio:
+
+  1. Avvia Window Maker con la profilazione inizialmente disattivata (--instr-atstart=no):
+    valgrind --tool=callgrind --instr-atstart=no /opt/wmaker/bin/wmaker
+
+  2. Quando desideri registrare un'attività intensa (es. ridimensionamento massivo, apertura di decine di workspace o app):
+    callgrind_control -i on
+
+  3. Appena terminata l'attività:
+    callgrind_control -i off
+    callgrind_control -d
+  Verrà generato un file callgrind.out.<pid> pronto per l'analisi.
+
