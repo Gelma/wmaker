@@ -399,6 +399,7 @@ void wScreenSetKeyGrabs(WScreen *scr);
 void wScreenUngrabKeys(WScreen *scr);
 void wWindowSetKeyGrabs(WWindow *wwin);
 void wWindowSetKeyGrabsOnWindow(Window win);
+void wScreenSetKeyGrabsSuspended(WScreen *scr, Bool suspended);
 
 void wWindowResetMouseGrabs(WWindow *wwin);
 

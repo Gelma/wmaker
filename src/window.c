@@ -789,7 +789,6 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 
 	/* mutex. */
 	XGrabServer(dpy);
-	wTelemetry.xsync_eliminated++;
 
 	/* make sure the window is still there */
 	if (!XGetWindowAttributes(dpy, window, &wattribs)) {
@@ -1968,17 +1967,7 @@ void wWindowFocus(WWindow *wwin, WWindow *owin)
 	wwin->flags.focused = 1;
 
 	/* If client opts out of WM shortcuts, suspend root key grabs; otherwise ensure active */
-	if (WFLAGP(wwin, no_bind_keys)) {
-		if (!wwin->screen_ptr->flags.key_grabs_suspended) {
-			wScreenUngrabKeys(wwin->screen_ptr);
-			wwin->screen_ptr->flags.key_grabs_suspended = 1;
-		}
-	} else {
-		if (wwin->screen_ptr->flags.key_grabs_suspended) {
-			wScreenSetKeyGrabs(wwin->screen_ptr);
-			wwin->screen_ptr->flags.key_grabs_suspended = 0;
-		}
-	}
+	wScreenSetKeyGrabsSuspended(wwin->screen_ptr, WFLAGP(wwin, no_bind_keys));
 
 	wWindowResetMouseGrabs(wwin);
 
@@ -2856,18 +2845,17 @@ static WCompiledKeyGrab *compiledKeyGrabs = NULL;
 static int compiledKeyGrabsCount = 0;
 static int compiledKeyGrabsCapacity = 0;
 static Bool keyGrabsDirty = True;
-static uint8_t grab_seen[256][32];
 
 static void addSingleKeyGrab(KeyCode keycode, unsigned int mod)
 {
-	unsigned int m = mod & 0xFF;
+	int i;
 
-	if (grab_seen[keycode][m >> 3] & (1U << (m & 7))) {
-		wTelemetry.key_grabs_deduplicated++;
-		return; /* Deduplicated in O(1) via direct bitset */
+	for (i = 0; i < compiledKeyGrabsCount; i++) {
+		if (compiledKeyGrabs[i].keycode == keycode && compiledKeyGrabs[i].modifier == mod) {
+			wTelemetry.key_grabs_deduplicated++;
+			return;
+		}
 	}
-
-	grab_seen[keycode][m >> 3] |= (1U << (m & 7));
 
 	if (compiledKeyGrabsCount >= compiledKeyGrabsCapacity) {
 		compiledKeyGrabsCapacity = (compiledKeyGrabsCapacity == 0) ? 64 : compiledKeyGrabsCapacity * 2;
@@ -2931,7 +2919,6 @@ static void recompileKeyGrabs(void)
 	int i;
 
 	compiledKeyGrabsCount = 0;
-	memset(grab_seen, 0, sizeof(grab_seen));
 
 	for (i = 0; i < WKBD_LAST; i++) {
 		WShortKey *key = &wKeyBindings[i];
@@ -2977,6 +2964,24 @@ void wScreenUngrabKeys(WScreen *scr)
 		return;
 
 	XUngrabKey(dpy, AnyKey, AnyModifier, scr->root_win);
+}
+
+void wScreenSetKeyGrabsSuspended(WScreen *scr, Bool suspended)
+{
+	if (!scr)
+		return;
+
+	if (suspended) {
+		if (!scr->flags.key_grabs_suspended) {
+			wScreenUngrabKeys(scr);
+			scr->flags.key_grabs_suspended = 1;
+		}
+	} else {
+		if (scr->flags.key_grabs_suspended) {
+			wScreenSetKeyGrabs(scr);
+			scr->flags.key_grabs_suspended = 0;
+		}
+	}
 }
 
 void wWindowSetKeyGrabs(WWindow *wwin)

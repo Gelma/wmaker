@@ -55,28 +55,13 @@ static void raiseWindow(WSwitchPanel * swpanel, WWindow * wwin)
 	}
 }
 
-static Bool isManagedWindow(WScreen *scr, WWindow *wwin)
-{
-	WWindow *tmp;
-
-	if (!scr || !wwin)
-		return False;
-	/* Only dereference wwin once it is known to be in the live window list:
-	 * it may point to freed memory if it was not retained by the panel. */
-	for (tmp = scr->focused_window; tmp != NULL; tmp = tmp->prev) {
-		if (tmp == wwin)
-			return !wwin->flags.destroyed;
-	}
-	return False;
-}
-
 static WWindow *change_focus_and_raise(WWindow *newFocused, WWindow *oldFocused,
 				       WSwitchPanel *swpanel, WScreen *scr, Bool esc_cancel)
 {
-	if (!isManagedWindow(scr, newFocused))
-		return isManagedWindow(scr, oldFocused) ? oldFocused : scr->focused_window;
+	if (!wWindowIsManaged(scr, newFocused))
+		return wWindowIsManaged(scr, oldFocused) ? oldFocused : scr->focused_window;
 
-	if (!isManagedWindow(scr, oldFocused))
+	if (!wWindowIsManaged(scr, oldFocused))
 		oldFocused = scr->focused_window;
 
 	/* allow the focused window to float on top of a fullscreen window */
@@ -263,7 +248,7 @@ void StartWindozeCycle(WWindow *wwin, XEvent *event, Bool next, Bool class_only)
 	if (swpanel)
 		wSwitchPanelDestroy(swpanel);
 
-	if (newFocused && newFocused->frame && isManagedWindow(scr, newFocused) && !esc_cancel) {
+	if (newFocused && newFocused->frame && wWindowIsManaged(scr, newFocused) && !esc_cancel) {
 		wRaiseFrame(newFocused->frame->core);
 		CommitStacking(scr);
 		if (!newFocused->flags.mapped)

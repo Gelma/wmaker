@@ -767,19 +767,8 @@ static void applySettings(WMWidget *button, void *client_data)
 	}
 
 	if (WFLAGP(wwin, no_bind_keys) != old_no_bind_keys) {
-		if (wwin->flags.focused) {
-			if (WFLAGP(wwin, no_bind_keys)) {
-				if (!wwin->screen_ptr->flags.key_grabs_suspended) {
-					wScreenUngrabKeys(wwin->screen_ptr);
-					wwin->screen_ptr->flags.key_grabs_suspended = 1;
-				}
-			} else {
-				if (wwin->screen_ptr->flags.key_grabs_suspended) {
-					wScreenSetKeyGrabs(wwin->screen_ptr);
-					wwin->screen_ptr->flags.key_grabs_suspended = 0;
-				}
-			}
-		}
+		if (wwin->flags.focused)
+			wScreenSetKeyGrabsSuspended(wwin->screen_ptr, WFLAGP(wwin, no_bind_keys));
 	}
 
 	if (WFLAGP(wwin, no_bind_mouse) != old_no_bind_mouse)
