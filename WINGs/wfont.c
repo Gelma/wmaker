@@ -1,5 +1,7 @@
 
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "wconfig.h"
 
@@ -17,6 +19,50 @@
 #include <pango/pangofc-fontmap.h>
 #include <pango/pangoxft.h>
 #endif
+
+#define FONT_WIDTH_CACHE_SIZE 65536
+#define FONT_WIDTH_CACHE_MASK (FONT_WIDTH_CACHE_SIZE - 1)
+#define FONT_INLINE_STR_LEN 64
+
+typedef struct WFontWidthCacheEntry {
+	WMFont *font;
+	uint32_t hash;
+	int length;
+	int width;
+	char text[FONT_INLINE_STR_LEN];
+	char *dyn_text;
+} WFontWidthCacheEntry;
+
+static WFontWidthCacheEntry width_cache[FONT_WIDTH_CACHE_SIZE];
+
+#ifdef USE_PANGO
+#define FONT_LAYOUT_CACHE_SIZE 2048
+#define FONT_LAYOUT_CACHE_MASK (FONT_LAYOUT_CACHE_SIZE - 1)
+
+typedef struct WFontLayoutCacheEntry {
+	WMFont *font;
+	uint32_t hash;
+	int length;
+	char text[FONT_INLINE_STR_LEN];
+	char *dyn_text;
+	PangoLayout *layout;
+} WFontLayoutCacheEntry;
+
+static WFontLayoutCacheEntry layout_cache[FONT_LAYOUT_CACHE_SIZE];
+#endif
+
+static inline uint32_t font_str_hash(const WMFont *font, const char *text, int len)
+{
+	uint32_t h = (uint32_t)(uintptr_t)font;
+	int i;
+
+	h ^= (h >> 16);
+	h = h * 0x85ebca6b + (uint32_t)len;
+	for (i = 0; i < len; i++) {
+		h = (h * 31) ^ (unsigned char)text[i];
+	}
+	return h;
+}
 
 #define DEFAULT_FONT "sans serif:pixelsize=12"
 
@@ -113,6 +159,7 @@ WMFont *WMCreateFont(WMScreen * scrPtr, const char *fontName)
 	Display *display = scrPtr->display;
 	WMFont *font;
 	char *fname;
+	int i;
 #ifdef USE_PANGO
 	PangoFontMap *fontmap;
 	PangoContext *context;
@@ -152,6 +199,9 @@ WMFont *WMCreateFont(WMScreen * scrPtr, const char *fontName)
 
 	font->height = font->font->ascent + font->font->descent;
 	font->y = font->font->ascent;
+
+	for (i = 0; i < 256; i++)
+		font->ascii_widths[i] = -1;
 
 	font->refCount = 1;
 
@@ -196,10 +246,36 @@ WMFont *WMRetainFont(WMFont * font)
 
 void WMReleaseFont(WMFont * font)
 {
+	int i;
+
 	wassertr(font != NULL);
 
 	font->refCount--;
 	if (font->refCount < 1) {
+		for (i = 0; i < FONT_WIDTH_CACHE_SIZE; i++) {
+			if (width_cache[i].font == font) {
+				if (width_cache[i].dyn_text) {
+					wfree(width_cache[i].dyn_text);
+					width_cache[i].dyn_text = NULL;
+				}
+				width_cache[i].font = NULL;
+			}
+		}
+#ifdef USE_PANGO
+		for (i = 0; i < FONT_LAYOUT_CACHE_SIZE; i++) {
+			if (layout_cache[i].font == font) {
+				if (layout_cache[i].layout) {
+					g_object_unref(layout_cache[i].layout);
+					layout_cache[i].layout = NULL;
+				}
+				if (layout_cache[i].dyn_text) {
+					wfree(layout_cache[i].dyn_text);
+					layout_cache[i].dyn_text = NULL;
+				}
+				layout_cache[i].font = NULL;
+			}
+		}
+#endif
 		XftFontClose(font->screen->display, font->font);
 #ifdef USE_PANGO
 		if (font->layout) {
@@ -297,52 +373,146 @@ WMFont *WMBoldSystemFontOfSize(WMScreen * scrPtr, int size)
 	return font;
 }
 
+#ifdef USE_PANGO
+static PangoLayout *get_or_create_cached_layout(WMFont *font, const char *text, int length)
+{
+	uint32_t h;
+	uint32_t idx;
+	WFontLayoutCacheEntry *entry;
+
+	h = font_str_hash(font, text, length);
+	idx = h & FONT_LAYOUT_CACHE_MASK;
+	entry = &layout_cache[idx];
+
+	if (entry->font == font && entry->hash == h && entry->length == length) {
+		const char *cached = entry->dyn_text ? entry->dyn_text : entry->text;
+		if (memcmp(cached, text, length) == 0) {
+			return entry->layout;
+		}
+	}
+
+	/* Evict old entry if present */
+	if (entry->layout) {
+		g_object_unref(entry->layout);
+		entry->layout = NULL;
+	}
+	if (entry->dyn_text) {
+		wfree(entry->dyn_text);
+		entry->dyn_text = NULL;
+	}
+
+	entry->font = font;
+	entry->hash = h;
+	entry->length = length;
+	if (length < FONT_INLINE_STR_LEN) {
+		memcpy(entry->text, text, length);
+		entry->text[length] = '\0';
+	} else {
+		entry->dyn_text = wmalloc(length + 1);
+		memcpy(entry->dyn_text, text, length);
+		entry->dyn_text[length] = '\0';
+	}
+
+	entry->layout = pango_layout_copy(font->layout);
+	pango_layout_set_text(entry->layout, text, length);
+
+	return entry->layout;
+}
+#endif
+
 int WMWidthOfString(WMFont * font, const char *text, int length)
 {
 #ifdef USE_PANGO
 	const char *previous_text;
-	int width;
 #else
 	XGlyphInfo extents;
 #endif
+	int width;
+	uint32_t h, idx;
+	WFontWidthCacheEntry *entry;
 
 	wassertrv(font != NULL && text != NULL, 0);
+
+	if (length <= 0)
+		return 0;
+
+	/* Tier 1: Single ASCII character fast path */
+	if (length == 1) {
+		unsigned char c = (unsigned char)text[0];
+		if (font->ascii_widths[c] >= 0)
+			return font->ascii_widths[c];
+	}
+
+	/* Tier 2: Hash cache lookup for strings */
+	h = font_str_hash(font, text, length);
+	idx = h & FONT_WIDTH_CACHE_MASK;
+	entry = &width_cache[idx];
+
+	if (entry->font == font && entry->hash == h && entry->length == length) {
+		const char *cached = entry->dyn_text ? entry->dyn_text : entry->text;
+		if (memcmp(cached, text, length) == 0)
+			return entry->width;
+	}
+
+	/* Cache miss: compute width via layout/Xft */
 #ifdef USE_PANGO
 	previous_text = pango_layout_get_text(font->layout);
 	if ((previous_text == NULL) || (strncmp(text, previous_text, length) != 0) || previous_text[length] != '\0')
 		pango_layout_set_text(font->layout, text, length);
 	pango_layout_get_pixel_size(font->layout, &width, NULL);
-
-	return width;
 #else
 	XftTextExtentsUtf8(font->screen->display, font->font, (XftChar8 *) text, length, &extents);
-
-	return extents.xOff;	/* don't ask :P */
+	width = extents.xOff;
 #endif
+
+	/* If single char, populate Tier 1 */
+	if (length == 1) {
+		unsigned char c = (unsigned char)text[0];
+		font->ascii_widths[c] = (short)width;
+	}
+
+	/* Populate Tier 2 cache slot */
+	if (entry->dyn_text) {
+		wfree(entry->dyn_text);
+		entry->dyn_text = NULL;
+	}
+	entry->font = font;
+	entry->hash = h;
+	entry->length = length;
+	entry->width = width;
+	if (length < FONT_INLINE_STR_LEN) {
+		memcpy(entry->text, text, length);
+		entry->text[length] = '\0';
+	} else {
+		entry->dyn_text = wmalloc(length + 1);
+		memcpy(entry->dyn_text, text, length);
+		entry->dyn_text[length] = '\0';
+	}
+
+	return width;
 }
 
 void WMDrawString(WMScreen * scr, Drawable d, WMColor * color, WMFont * font, int x, int y, const char *text, int length)
 {
 	XftColor xftcolor;
-#ifdef USE_PANGO
-	const char *previous_text;
-#endif
 
-	wassertr(font != NULL);
+	wassertr(font != NULL && text != NULL);
+	if (length <= 0)
+		return;
 
 	xftcolor.color.red = color->color.red;
 	xftcolor.color.green = color->color.green;
 	xftcolor.color.blue = color->color.blue;
-	xftcolor.color.alpha = color->alpha;;
+	xftcolor.color.alpha = color->alpha;
 	xftcolor.pixel = W_PIXEL(color);
 
 	XftDrawChange(scr->xftdraw, d);
 
 #ifdef USE_PANGO
-	previous_text = pango_layout_get_text(font->layout);
-	if ((previous_text == NULL) || (strncmp(text, previous_text, length) != 0) || previous_text[length] != '\0')
-		pango_layout_set_text(font->layout, text, length);
-	pango_xft_render_layout(scr->xftdraw, &xftcolor, font->layout, x * PANGO_SCALE, y * PANGO_SCALE);
+	{
+		PangoLayout *layout = get_or_create_cached_layout(font, text, length);
+		pango_xft_render_layout(scr->xftdraw, &xftcolor, layout, x * PANGO_SCALE, y * PANGO_SCALE);
+	}
 #else
 	XftDrawStringUtf8(scr->xftdraw, &xftcolor, font->font, x, y + font->y, (XftChar8 *) text, length);
 #endif
@@ -354,22 +524,21 @@ WMDrawImageString(WMScreen * scr, Drawable d, WMColor * color, WMColor * backgro
 {
 	XftColor textColor;
 	XftColor bgColor;
-#ifdef USE_PANGO
-	const char *previous_text;
-#endif
 
-	wassertr(font != NULL);
+	wassertr(font != NULL && text != NULL);
+	if (length <= 0)
+		return;
 
 	textColor.color.red = color->color.red;
 	textColor.color.green = color->color.green;
 	textColor.color.blue = color->color.blue;
-	textColor.color.alpha = color->alpha;;
+	textColor.color.alpha = color->alpha;
 	textColor.pixel = W_PIXEL(color);
 
 	bgColor.color.red = background->color.red;
 	bgColor.color.green = background->color.green;
 	bgColor.color.blue = background->color.blue;
-	bgColor.color.alpha = background->alpha;;
+	bgColor.color.alpha = background->alpha;
 	bgColor.pixel = W_PIXEL(background);
 
 	XftDrawChange(scr->xftdraw, d);
@@ -377,10 +546,10 @@ WMDrawImageString(WMScreen * scr, Drawable d, WMColor * color, WMColor * backgro
 	XftDrawRect(scr->xftdraw, &bgColor, x, y, WMWidthOfString(font, text, length), font->height);
 
 #ifdef USE_PANGO
-	previous_text = pango_layout_get_text(font->layout);
-	if ((previous_text == NULL) || (strncmp(text, previous_text, length) != 0) || previous_text[length] != '\0')
-		pango_layout_set_text(font->layout, text, length);
-	pango_xft_render_layout(scr->xftdraw, &textColor, font->layout, x * PANGO_SCALE, y * PANGO_SCALE);
+	{
+		PangoLayout *layout = get_or_create_cached_layout(font, text, length);
+		pango_xft_render_layout(scr->xftdraw, &textColor, layout, x * PANGO_SCALE, y * PANGO_SCALE);
+	}
 #else
 	XftDrawStringUtf8(scr->xftdraw, &textColor, font->font, x, y + font->y, (XftChar8 *) text, length);
 #endif
@@ -432,5 +601,27 @@ WMFont *WMCopyFontWithStyle(WMScreen * scrPtr, WMFont * font, WMFontStyle style)
 
 void W_FontShutdown(void)
 {
+	int i;
+
+	for (i = 0; i < FONT_WIDTH_CACHE_SIZE; i++) {
+		if (width_cache[i].dyn_text) {
+			wfree(width_cache[i].dyn_text);
+			width_cache[i].dyn_text = NULL;
+		}
+		width_cache[i].font = NULL;
+	}
+#ifdef USE_PANGO
+	for (i = 0; i < FONT_LAYOUT_CACHE_SIZE; i++) {
+		if (layout_cache[i].layout) {
+			g_object_unref(layout_cache[i].layout);
+			layout_cache[i].layout = NULL;
+		}
+		if (layout_cache[i].dyn_text) {
+			wfree(layout_cache[i].dyn_text);
+			layout_cache[i].dyn_text = NULL;
+		}
+		layout_cache[i].font = NULL;
+	}
+#endif
 	FcFini();
 }

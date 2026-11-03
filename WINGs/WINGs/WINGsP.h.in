@@ -457,6 +457,8 @@ typedef struct W_Font {
     short refCount;
     char *name;
 
+    short ascii_widths[256];
+
 @USE_PANGO@    PangoLayout *layout;
 } W_Font;
 
