@@ -179,7 +179,11 @@ void wTelemetryDump(void)
 		fprintf(fjson, "    \"colormap_queries_bypassed\": %" PRIu64 ",\n", wTelemetry.colormap_queries_bypassed);
 		fprintf(fjson, "    \"key_grabs_set\": %" PRIu64 ",\n", wTelemetry.key_grabs_set);
 		fprintf(fjson, "    \"key_grabs_deduplicated\": %" PRIu64 ",\n", wTelemetry.key_grabs_deduplicated);
-		fprintf(fjson, "    \"xsync_eliminated\": %" PRIu64 "\n", wTelemetry.xsync_eliminated);
+		fprintf(fjson, "    \"xsync_eliminated\": %" PRIu64 ",\n", wTelemetry.xsync_eliminated);
+		fprintf(fjson, "    \"motion_events_compressed\": %" PRIu64 ",\n", wTelemetry.motion_events_compressed);
+		fprintf(fjson, "    \"mini_preview_bypassed\": %" PRIu64 ",\n", wTelemetry.mini_preview_bypassed);
+		fprintf(fjson, "    \"wwindow_cache_hits\": %" PRIu64 ",\n", wTelemetry.wwindow_cache_hits);
+		fprintf(fjson, "    \"wwindow_cache_misses\": %" PRIu64 "\n", wTelemetry.wwindow_cache_misses);
 		fprintf(fjson, "  },\n");
 		fprintf(fjson, "  \"events\": {\n");
 		for (i = 0; i < TELEMETRY_MAX_EVENTS; i++) {
@@ -219,6 +223,12 @@ void wTelemetryDump(void)
 		fprintf(flog, "  - Key Grabs Installed / Precompiled:            %" PRIu64 "\n", wTelemetry.key_grabs_set);
 		fprintf(flog, "  - Key Grabs Deduplicated:                       %" PRIu64 "\n", wTelemetry.key_grabs_deduplicated);
 		fprintf(flog, "  - Event Loop XSync Round-Trips Eliminated:      %" PRIu64 "\n", wTelemetry.xsync_eliminated);
+		fprintf(flog, "  - Motion Events Compressed:                     %" PRIu64 "\n", wTelemetry.motion_events_compressed);
+		fprintf(flog, "  - Mini-Preview Screenshot Captures Bypassed:    %" PRIu64 "\n", wTelemetry.mini_preview_bypassed);
+		uint64_t total_cache = wTelemetry.wwindow_cache_hits + wTelemetry.wwindow_cache_misses;
+		double hit_rate = total_cache > 0 ? (double)wTelemetry.wwindow_cache_hits / (double)total_cache * 100.0 : 0.0;
+		fprintf(flog, "  - WWindow L1 Cache: %" PRIu64 " hits, %" PRIu64 " misses (%.1f%% hit rate)\n",
+		        wTelemetry.wwindow_cache_hits, wTelemetry.wwindow_cache_misses, hit_rate);
 		fprintf(flog, "--------------------------------------------------------------------------------\n");
 		fprintf(flog, "%-22s %10s %14s %12s %12s\n", "Event Type", "Count", "Total (ms)", "Avg (ms)", "Max (ms)");
 		fprintf(flog, "--------------------------------------------------------------------------------\n");

@@ -32,6 +32,10 @@ typedef struct WTelemetryStats {
 	uint64_t key_grabs_set;
 	uint64_t key_grabs_deduplicated;
 	uint64_t xsync_eliminated;
+	uint64_t motion_events_compressed;
+	uint64_t mini_preview_bypassed;
+	uint64_t wwindow_cache_hits;
+	uint64_t wwindow_cache_misses;
 
 	/* Event loop iterations */
 	uint64_t poll_iterations;
