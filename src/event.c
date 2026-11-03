@@ -463,7 +463,8 @@ void ProcessPendingEvents(void)
 	XEvent event;
 	int count;
 
-	XSync(dpy, False);
+	XFlush(dpy);
+	wTelemetry.xsync_eliminated++;
 
 	/* Take a snapshot of the event count in the queue */
 	count = XPending(dpy);
@@ -902,8 +903,6 @@ static void handleButtonPress(XEvent * event)
 	}
 
 	if (desc->parent_type == WCLASS_WINDOW) {
-		XSync(dpy, 0);
-
 		if (event->xbutton.state & ( MOD_MASK | ControlMask )) {
 			XAllowEvents(dpy, AsyncPointer, CurrentTime);
 		} else {
@@ -914,13 +913,12 @@ static void handleButtonPress(XEvent * event)
 			XAllowEvents(dpy, ReplayPointer, CurrentTime);
 			/*      } */
 		}
-		XSync(dpy, 0);
+		wTelemetry.xsync_eliminated += 2;
 	} else if (desc->parent_type == WCLASS_APPICON
 		   || desc->parent_type == WCLASS_MINIWINDOW || desc->parent_type == WCLASS_DOCK_ICON) {
 		if (event->xbutton.state & MOD_MASK) {
-			XSync(dpy, 0);
 			XAllowEvents(dpy, AsyncPointer, CurrentTime);
-			XSync(dpy, 0);
+			wTelemetry.xsync_eliminated += 2;
 		}
 	}
 
@@ -2378,6 +2376,11 @@ static void hotCornerDelay(void *data)
 
 static void handleMotionNotify(XEvent *event)
 {
+	/* Compress motion events: drain any subsequent MotionNotify events for this window */
+	while (XCheckTypedWindowEvent(dpy, event->xmotion.window, MotionNotify, event)) {
+		wTelemetry.motion_events_compressed++;
+	}
+
 	if (wPreferences.scrollable_menus || wPreferences.hot_corners) {
 		WScreen *scr = wScreenForRootWindow(event->xmotion.root);
 		WMPoint p = wmkpoint(event->xmotion.x_root, event->xmotion.y_root);

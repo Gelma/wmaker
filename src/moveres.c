@@ -533,7 +533,6 @@ static void flushMotion(void)
 {
 	XEvent ev;
 
-	XSync(dpy, False);
 	while (XCheckMaskEvent(dpy, ButtonMotionMask, &ev)) ;
 }
 
@@ -2411,6 +2410,7 @@ void wSelectWindows(WScreen * scr, XEvent * ev)
 
 		switch (event.type) {
 		case MotionNotify:
+			while (XCheckMaskEvent(dpy, PointerMotionMask, &event)) ;
 			XDrawRectangle(dpy, root, gc, x, y, w, h);
 			x = event.xmotion.x_root;
 			if (x < xp) {
@@ -2505,6 +2505,7 @@ void InteractivePlaceWindow(WWindow * wwin, int *x_ret, int *y_ret, unsigned wid
 			break;
 
 		case MotionNotify:
+			while (XCheckMaskEvent(dpy, PointerMotionMask, &event)) ;
 			drawTransparentFrame(wwin, x - width / 2, y - h / 2, width, height);
 
 			x = event.xmotion.x_root;
