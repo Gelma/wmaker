@@ -33,6 +33,7 @@
 #include <math.h>
 #include <time.h>
 #include <errno.h>
+#include <poll.h>
 
 #include <X11/XKBlib.h>
 
@@ -396,11 +397,6 @@ char *FindImage(const char *paths, const char *file)
 	return path;
 }
 
-static void timeoutHandler(void *data)
-{
-	*(int *)data = 1;
-}
-
 static char *getTextSelection(WScreen * screen, Atom selection)
 {
 	int buffer = -1;
@@ -443,7 +439,7 @@ static char *getTextSelection(WScreen * screen, Atom selection)
 		int bits;
 		Atom rtype;
 		unsigned long len, bytes;
-		WMHandlerID timer;
+		struct timespec start_t, cur_t;
 		int timeout = 0;
 		XEvent ev;
 		static Atom clipboard = 0;
@@ -454,14 +450,31 @@ static char *getTextSelection(WScreen * screen, Atom selection)
 		XDeleteProperty(dpy, screen->info_window, clipboard);
 
 		XConvertSelection(dpy, selection, XA_STRING, clipboard, screen->info_window, CurrentTime);
+		XFlush(dpy);
 
-		timer = WMAddTimerHandler(1000, timeoutHandler, &timeout);
+		clock_gettime(CLOCK_MONOTONIC, &start_t);
+		while (!XCheckTypedWindowEvent(dpy, screen->info_window, SelectionNotify, &ev)) {
+			struct pollfd pfd;
+			long elapsed_ms;
+			int wait_ms;
 
-		while (!XCheckTypedWindowEvent(dpy, screen->info_window, SelectionNotify, &ev) && !timeout) ;
+			clock_gettime(CLOCK_MONOTONIC, &cur_t);
+			elapsed_ms = (cur_t.tv_sec - start_t.tv_sec) * 1000 + (cur_t.tv_nsec - start_t.tv_nsec) / 1000000;
+			if (elapsed_ms >= 1000) {
+				timeout = 1;
+				break;
+			}
+			wait_ms = 1000 - (int)elapsed_ms;
+			if (wait_ms > 25)
+				wait_ms = 25;
 
-		if (!timeout) {
-			WMDeleteTimerHandler(timer);
-		} else {
+			pfd.fd = ConnectionNumber(dpy);
+			pfd.events = POLLIN;
+			pfd.revents = 0;
+			poll(&pfd, 1, wait_ms);
+		}
+
+		if (timeout) {
 			wwarning("selection retrieval timed out");
 			return NULL;
 		}

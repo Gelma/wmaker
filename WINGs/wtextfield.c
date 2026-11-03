@@ -210,10 +210,19 @@ static WMData *requestHandler(WMView * view, Atom selection, Atom target, void *
 	TextField *tPtr = view->self;
 	int count;
 	Display *dpy = tPtr->view->screen->display;
-	Atom XA_TARGETS;
-	Atom XA_TEXT = XInternAtom(dpy, "TEXT", False);
-	Atom XA_COMPOUND_TEXT = XInternAtom(dpy, "COMPOUND_TEXT", False);
+	static Atom XA_TARGETS = None;
+	static Atom XA_TEXT = None;
+	static Atom XA_COMPOUND_TEXT = None;
 	WMData *data;
+
+	if (XA_TEXT == None) {
+		char *names[3] = { "TARGETS", "TEXT", "COMPOUND_TEXT" };
+		Atom atoms[3];
+		XInternAtoms(dpy, names, 3, False, atoms);
+		XA_TARGETS = atoms[0];
+		XA_TEXT = atoms[1];
+		XA_COMPOUND_TEXT = atoms[2];
+	}
 
 	/* Parameter not used, but tell the compiler that it is ok */
 	(void) selection;
@@ -231,7 +240,6 @@ static WMData *requestHandler(WMView * view, Atom selection, Atom target, void *
 		return data;
 	}
 
-	XA_TARGETS = XInternAtom(dpy, "TARGETS", False);
 	if (target == XA_TARGETS) {
 		Atom supported_type[4];
 
