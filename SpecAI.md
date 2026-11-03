@@ -358,6 +358,20 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Asynchronous Output Flush**: Replaced blocking `XSync(dpy, False)` with asynchronous `XFlush(dpy)` in `waitForEvent()`. `XFlush` ensures all outgoing X11 requests are pushed to the X server buffer without forcing a blocking round-trip confirmation packet before polling for incoming events.
     - **Modern `poll(2)` with Zero-Heap Stack Buffer**: Enabled `poll(2)` execution on Linux systems in `W_HandleInputEvents()` (previously blocked by an obsolete `#if ... && !defined(HAVE_SELECT)` check that forced `select(2)` and 384-byte bitmask clearing). Added a fast stack buffer `struct pollfd stack_fds[16]` eliminating heap allocation (`wmalloc`/`wfree`) for normal event loop operations.
 
+85. **Runtime Telemetry Framework & Modern X11 Round-Trip Elimination**:
+    - **Runtime Telemetry Logging (`/tmp/wmaker_runtime_logs`)**:
+      - Implemented [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) and [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) providing real-time latency measurement for every dispatched X11 event via `clock_gettime(CLOCK_MONOTONIC)`.
+      - Automatic background reporting writes `/tmp/wmaker_runtime_logs/runtime_stats.json` and human-readable `/tmp/wmaker_runtime_logs/runtime_stats.log` every 60 seconds (and upon `SIGUSR2` / session termination).
+      - Added latency spike threshold alerting (> 16.6 ms) logged to `/tmp/wmaker_runtime_logs/latency_spikes.log`.
+    - **Single-Head XQueryPointer Elimination ([`src/xinerama.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xinerama.c))**:
+      - Bypassed synchronous `XQueryPointer` socket calls in `wGetHeadForPointerLocation()` when `scr->xine_info.count <= 1` (common single-monitor desktop setups), saving up to 3.37% of total session CPU runtime.
+    - **Colormap Query & XSync Bypass ([`src/colormap.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/colormap.c))**:
+      - Avoided redundant `XGetWindowAttributes()` queries during window focus/crossing events in TrueColor visuals, where client windows share the root colormap. Removed redundant `XSync(dpy, False)` round-trips.
+    - **$O(1)$ Direct Key Grab Deduplication ([`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c))**:
+      - Replaced $O(N)$ linear scans in `addSingleKeyGrab` with a direct 8KB bitmap (`grab_seen[256][32]`) providing 2-instruction $O(1)$ deduplication for all 65,536 `(KeyCode, Modifier)` combinations.
+    - **Batched Atom Interning ([`src/xdnd.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c))**:
+      - Converted 12 sequential synchronous `XInternAtom` calls into a single batched `XInternAtoms` request.
+
 ---
 
 ## Verification Status

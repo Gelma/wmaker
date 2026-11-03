@@ -28,6 +28,7 @@
 #include "framewin.h"
 #include "placement.h"
 #include "dock.h"
+#include "telemetry.h"
 
 #ifdef USE_XINERAMA
 # ifdef SOLARIS_XINERAMA	/* sucks */
@@ -326,8 +327,10 @@ int wGetHeadForPointerLocation(WScreen * scr)
 	int ble;
 	unsigned int blo;
 
-	if (!scr->xine_info.count)
+	if (scr->xine_info.count <= 1) {
+		wTelemetry.xquery_pointer_bypassed++;
 		return scr->xine_info.primary_head;
+	}
 
 	if (!XQueryPointer(dpy, scr->root_win, &bla, &bla, &point.x, &point.y, &ble, &ble, &blo))
 		return scr->xine_info.primary_head;

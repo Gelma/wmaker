@@ -48,6 +48,7 @@
 #include <X11/Xlocale.h>
 
 #define MAINFILE
+#include "telemetry.h"
 
 #include "WindowMaker.h"
 #include "window.h"
@@ -204,6 +205,8 @@ static int initWVisualID(const char *user_str)
 
 noreturn void Exit(int status)
 {
+	wTelemetryShutdown();
+
 	wWindowFreeKeyGrabs();
 
 	WMReleaseApplication();

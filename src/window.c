@@ -47,6 +47,7 @@
 
 /* For getting mouse wheel mappings from WINGs */
 #include <WINGs/WINGs.h>
+#include "telemetry.h"
 
 #include "WindowMaker.h"
 #include "GNUstep.h"
@@ -2803,16 +2804,18 @@ static WCompiledKeyGrab *compiledKeyGrabs = NULL;
 static int compiledKeyGrabsCount = 0;
 static int compiledKeyGrabsCapacity = 0;
 static Bool keyGrabsDirty = True;
+static uint8_t grab_seen[256][32];
 
 static void addSingleKeyGrab(KeyCode keycode, unsigned int mod)
 {
-	int i;
+	unsigned int m = mod & 0xFF;
 
-	for (i = 0; i < compiledKeyGrabsCount; i++) {
-		if (compiledKeyGrabs[i].keycode == keycode &&
-		    compiledKeyGrabs[i].modifier == mod)
-			return; /* Deduplicated */
+	if (grab_seen[keycode][m >> 3] & (1U << (m & 7))) {
+		wTelemetry.key_grabs_deduplicated++;
+		return; /* Deduplicated in O(1) via direct bitset */
 	}
+
+	grab_seen[keycode][m >> 3] |= (1U << (m & 7));
 
 	if (compiledKeyGrabsCount >= compiledKeyGrabsCapacity) {
 		compiledKeyGrabsCapacity = (compiledKeyGrabsCapacity == 0) ? 64 : compiledKeyGrabsCapacity * 2;
@@ -2876,6 +2879,7 @@ static void recompileKeyGrabs(void)
 	int i;
 
 	compiledKeyGrabsCount = 0;
+	memset(grab_seen, 0, sizeof(grab_seen));
 
 	for (i = 0; i < WKBD_LAST; i++) {
 		WShortKey *key = &wKeyBindings[i];
@@ -2897,6 +2901,8 @@ void wWindowSetKeyGrabsOnWindow(Window win)
 
 	if (keyGrabsDirty || compiledKeyGrabs == NULL)
 		recompileKeyGrabs();
+
+	wTelemetry.key_grabs_set += compiledKeyGrabsCount;
 
 	for (i = 0; i < compiledKeyGrabsCount; i++) {
 		XGrabKey(dpy, compiledKeyGrabs[i].keycode, compiledKeyGrabs[i].modifier,

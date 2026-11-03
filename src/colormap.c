@@ -30,6 +30,7 @@
 #include "window.h"
 #include "framewin.h"
 #include "colormap.h"
+#include "telemetry.h"
 
 
 void wColormapInstallForWindow(WScreen * scr, WWindow * wwin)
@@ -79,19 +80,32 @@ void wColormapInstallForWindow(WScreen * scr, WWindow * wwin)
 	}
 
 	if (!done) {
-		attributes.colormap = None;
-		if (xwin != None)
-			XGetWindowAttributes(dpy, xwin, &attributes);
-		if (attributes.colormap == None)
+		/*
+		 * In modern TrueColor visuals, individual window colormaps do not exist;
+		 * the colormap is always the default screen colormap. Avoid the synchronous
+		 * XGetWindowAttributes round-trip completely.
+		 */
+		if (scr->w_visual->class == TrueColor) {
 			attributes.colormap = scr->colormap;
+			wTelemetry.colormap_queries_bypassed++;
+		} else {
+			attributes.colormap = None;
+			if (xwin != None)
+				XGetWindowAttributes(dpy, xwin, &attributes);
+			if (attributes.colormap == None)
+				attributes.colormap = scr->colormap;
+		}
 
 		if (scr->current_colormap != attributes.colormap) {
 			scr->current_colormap = attributes.colormap;
-			if (!scr->flags.colormap_stuff_blocked)
+			if (!scr->flags.colormap_stuff_blocked) {
 				XInstallColormap(dpy, attributes.colormap);
+				XFlush(dpy);
+			}
 		}
 	}
-	XSync(dpy, False);
+	/* XSync eliminated - asynchronous X11 queue is sufficient */
+	wTelemetry.xsync_eliminated++;
 }
 
 void wColormapAllowClientInstallation(WScreen * scr, Bool starting)

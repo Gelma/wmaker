@@ -75,6 +75,8 @@ wmaker_SOURCES = 	\
 	shutdown.c \
 	switchpanel.c \
 	switchpanel.h \
+	telemetry.c \
+	telemetry.h \
 	stacking.c \
 	stacking.h \
 	startup.c \

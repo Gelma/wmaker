@@ -51,19 +51,27 @@ static Atom selected_typelist;
 
 void wXDNDInitializeAtoms(void)
 {
-	_XA_XdndAware = XInternAtom(dpy, "XdndAware", False);
-	_XA_XdndEnter = XInternAtom(dpy, "XdndEnter", False);
-	_XA_XdndLeave = XInternAtom(dpy, "XdndLeave", False);
-	_XA_XdndDrop = XInternAtom(dpy, "XdndDrop", False);
-	_XA_XdndPosition = XInternAtom(dpy, "XdndPosition", False);
-	_XA_XdndStatus = XInternAtom(dpy, "XdndStatus", False);
-	_XA_XdndActionCopy = XInternAtom(dpy, "XdndActionCopy", False);
-	_XA_XdndSelection = XInternAtom(dpy, "XdndSelection", False);
-	_XA_XdndFinished = XInternAtom(dpy, "XdndFinished", False);
-	_XA_XdndTypeList = XInternAtom(dpy, "XdndTypeList", False);
-	_XA_WINDOWMAKER_XDNDEXCHANGE = XInternAtom(dpy, "_WINDOWMAKER_XDNDEXCHANGE", False);
+	static char *names[] = {
+		(char *)"XdndAware", (char *)"XdndEnter", (char *)"XdndLeave", (char *)"XdndDrop",
+		(char *)"XdndPosition", (char *)"XdndStatus", (char *)"XdndActionCopy", (char *)"XdndSelection",
+		(char *)"XdndFinished", (char *)"XdndTypeList", (char *)"_WINDOWMAKER_XDNDEXCHANGE", (char *)"text/uri-list"
+	};
+	Atom atoms[wlengthof(names)];
 
-	supported_typelist = XInternAtom(dpy, "text/uri-list", False);
+	XInternAtoms(dpy, names, wlengthof(names), False, atoms);
+
+	_XA_XdndAware = atoms[0];
+	_XA_XdndEnter = atoms[1];
+	_XA_XdndLeave = atoms[2];
+	_XA_XdndDrop = atoms[3];
+	_XA_XdndPosition = atoms[4];
+	_XA_XdndStatus = atoms[5];
+	_XA_XdndActionCopy = atoms[6];
+	_XA_XdndSelection = atoms[7];
+	_XA_XdndFinished = atoms[8];
+	_XA_XdndTypeList = atoms[9];
+	_XA_WINDOWMAKER_XDNDEXCHANGE = atoms[10];
+	supported_typelist = atoms[11];
 }
 
 void wXDNDMakeAwareness(Window window)

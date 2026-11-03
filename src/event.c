@@ -58,6 +58,7 @@
 #include "cycling.h"
 #include "keybind.h"
 #include "application.h"
+#include "telemetry.h"
 #include "stacking.h"
 #include "defaults.h"
 #include "workspace.h"
@@ -198,6 +199,9 @@ void DispatchEvent(XEvent * event)
 	if (!event)
 		return;
 
+	struct timespec tstart;
+	wTelemetryRecordEventStart(&tstart);
+
 	saveTimestamp(event);
 	switch (event->type) {
 	case MapRequest:
@@ -284,6 +288,8 @@ void DispatchEvent(XEvent * event)
 		handleExtensions(event);
 		break;
 	}
+
+	wTelemetryRecordEventEnd(event->type, &tstart, event->xany.window);
 }
 
 #ifdef HAVE_INOTIFY
