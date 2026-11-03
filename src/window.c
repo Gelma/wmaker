@@ -2338,11 +2338,6 @@ void wWindowConfigure(WWindow *wwin, int req_x, int req_y, int req_width, int re
 		if (req_height < MIN_WINDOW_SIZE)
 			req_height = MIN_WINDOW_SIZE;
 
-#ifdef USE_XSYNC
-		if (wwin->protocols.NET_WM_SYNC_REQUEST && wwin->sync_request.counter)
-			wNETWMSendSyncRequest(wwin);
-#endif
-
 		/* If growing, resize inner part before frame,
 		 * if shrinking, resize frame before.
 		 * This will prevent the frame (that can have a different color)

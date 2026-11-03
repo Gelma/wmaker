@@ -71,6 +71,11 @@
     - **Finding 17 (.gitignore Updates)**: Added wildcards for generated menu files (`appearance.menu*`, `menu*`, `plmenu*`), man pages (`doc/*.1`), and `wmlib/wmlib.pc`.
     - **Finding 19 (MapRequest Defensive Guard)**: Added defensive screen resolution check in `handleMapRequest()` (`src/event.c`) preventing NULL dereferences when processing events on unknown root windows.
 
+97. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/wmspec.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.h), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/properties.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
+    - **De-advertisement**: Removed `_NET_WM_SYNC_REQUEST` and `_NET_WM_SYNC_REQUEST_COUNTER` from the `_NET_SUPPORTED` atom array on root windows, informing clients (GTK, Qt, Chrome) that Window Maker does not implement synchronous frame acknowledgment.
+    - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
+    - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
+
 ---
 
 ## Objectives and Completed Activities
@@ -501,6 +506,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Finding 16 (TSAN-Clean wm_stress)**: Upgraded thread counters to C11 `_Atomic`, zero-initialized `XSizeHints` via `memset()`, and clamped window spawn coordinates against divide-by-zero on small screens.
     - **Finding 17 (.gitignore Updates)**: Added wildcards for generated menu files (`appearance.menu*`, `menu*`, `plmenu*`), man pages (`doc/*.1`), and `wmlib/wmlib.pc`.
     - **Finding 19 (MapRequest Defensive Guard)**: Added defensive screen resolution check in `handleMapRequest()` (`src/event.c`) preventing NULL dereferences when processing events on unknown root windows.
+
+97. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/wmspec.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.h), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/properties.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
+    - **De-advertisement**: Removed `_NET_WM_SYNC_REQUEST` and `_NET_WM_SYNC_REQUEST_COUNTER` from the `_NET_SUPPORTED` atom array on root windows, informing clients (GTK, Qt, Chrome) that Window Maker does not implement synchronous frame acknowledgment.
+    - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
+    - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
 
 ---
 

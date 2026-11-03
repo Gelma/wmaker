@@ -86,8 +86,6 @@ void PropGetProtocols(Window window, WProtocols * prots)
 			prots->SAVE_YOURSELF = 1;
 		else if (protocols[i] == w_global.atom.gnustep.wm_miniaturize_window)
 			prots->MINIATURIZE_WINDOW = 1;
-		else if (protocols[i] == w_global.atom.net.wm_sync_request)
-			prots->NET_WM_SYNC_REQUEST = 1;
 	}
 	XFree(protocols);
 }
