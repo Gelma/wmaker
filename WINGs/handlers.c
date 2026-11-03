@@ -15,6 +15,12 @@
 # include <sys/select.h>
 #endif
 
+#ifdef HAVE_POLL_H
+# include <poll.h>
+#elif defined(HAVE_SYS_POLL_H)
+# include <sys/poll.h>
+#endif
+
 #include <time.h>
 
 #ifndef X_GETTIMEOFDAY
@@ -371,10 +377,11 @@ void W_CheckTimerHandlers(void)
  */
 Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 {
-#if defined(HAVE_POLL) && defined(HAVE_POLL_H) && !defined(HAVE_SELECT)
-	struct poll fd *fds;
+#if defined(HAVE_POLL)
+	struct pollfd stack_fds[16];
+	struct pollfd *fds;
 	InputHandler *handler;
-	int count, timeout, nfds, i, extrafd;
+	int count, timeout, nfds, i, extrafd, total_fds;
 
 	extrafd = (inputfd < 0) ? 0 : 1;
 
@@ -388,7 +395,13 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 		return False;
 	}
 
-	fds = wmalloc((nfds + extrafd) * sizeof(struct pollfd));
+	total_fds = nfds + extrafd;
+	if (total_fds <= 16) {
+		fds = stack_fds;
+	} else {
+		fds = wmalloc(total_fds * sizeof(struct pollfd));
+	}
+
 	if (extrafd) {
 		/* put this to the end of array to avoid using ranges from 1 to nfds+1 */
 		fds[nfds].fd = inputfd;
@@ -426,7 +439,7 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 		timeout = -1;
 	}
 
-	count = poll(fds, nfds + extrafd, timeout);
+	count = poll(fds, total_fds, timeout);
 
 	if (count > 0 && nfds > 0) {
 		WMArray *handlerCopy = WMDuplicateArray(inputHandler);
@@ -459,7 +472,8 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 		WMFreeArray(handlerCopy);
 	}
 
-	wfree(fds);
+	if (fds != stack_fds)
+		wfree(fds);
 
 	W_FlushASAPNotificationQueue();
 

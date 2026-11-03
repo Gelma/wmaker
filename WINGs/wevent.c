@@ -349,7 +349,7 @@ int WMIsDoubleClick(XEvent * event)
  */
 static Bool waitForEvent(Display * dpy, unsigned long xeventmask, Bool waitForInput)
 {
-	XSync(dpy, False);
+	XFlush(dpy);
 	if (xeventmask == 0) {
 		if (XPending(dpy))
 			return True;

@@ -353,6 +353,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Configurability**: Supported specifying the target tool either via environment variable `VALGRIND_TOOL=<tool>` or via command-line flags (`--tool=<tool>` or `--<tool>`).
     - **Deployment**: Updated both the in-repo script and `/opt/wmaker/bin/wmaker-valgrind-session`.
 
+84. **[`WINGs/wevent.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wevent.c), [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) - Eliminate Blocking `XSync` and Modernize Event Polling**:
+    - **Bottleneck Analysis**: Perf profiling revealed `XSync()` in `waitForEvent()` consuming 18.89% CPU, forcing synchronous round-trip socket stalls (`_XReply` at 29.46% and `xcb_wait_for_reply64` at 9.90%) on every single iteration of the main event loop (`WMNextEvent`).
+    - **Asynchronous Output Flush**: Replaced blocking `XSync(dpy, False)` with asynchronous `XFlush(dpy)` in `waitForEvent()`. `XFlush` ensures all outgoing X11 requests are pushed to the X server buffer without forcing a blocking round-trip confirmation packet before polling for incoming events.
+    - **Modern `poll(2)` with Zero-Heap Stack Buffer**: Enabled `poll(2)` execution on Linux systems in `W_HandleInputEvents()` (previously blocked by an obsolete `#if ... && !defined(HAVE_SELECT)` check that forced `select(2)` and 384-byte bitmask clearing). Added a fast stack buffer `struct pollfd stack_fds[16]` eliminating heap allocation (`wmalloc`/`wfree`) for normal event loop operations.
+
 ---
 
 ## Verification Status
