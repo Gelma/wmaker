@@ -59,6 +59,12 @@ elif [[ "${TOOL}" == "massif" ]]; then
     VALGRIND_OPTS=(
         --tool=massif
         --massif-out-file="${LOG_DIR}/massif-wmaker-${TIMESTAMP}-%p.out"
+        --alloc-fn=wmalloc
+        --alloc-fn=wrealloc
+        --alloc-fn=wstrdup
+        --depth=16
+        --threshold=0.5
+        --pages-as-heap=yes
         --trace-children=yes
         --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
     )
