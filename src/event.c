@@ -660,6 +660,10 @@ static void handleMapRequest(XEvent * ev)
 	}
 
 	scr = wScreenForRootWindow(ev->xmaprequest.parent);
+	if (!scr) {
+		wwarning("handleMapRequest: screen not found for root window 0x%lx", (unsigned long)ev->xmaprequest.parent);
+		return;
+	}
 
 	wwin = wManageWindow(scr, window);
 
