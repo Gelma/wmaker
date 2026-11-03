@@ -934,10 +934,15 @@ Bool wNETWMGetUsableArea(WScreen *scr, int head, WArea *area)
 static void updateClientList(WScreen *scr)
 {
 	WWindow *wwin;
+	Window stack_list[64];
 	Window *windows;
-	int count;
+	int count, total;
 
-	windows = (Window *) wmalloc(sizeof(Window) * (scr->window_count + 1));
+	total = scr->window_count + 1;
+	if (total <= 64)
+		windows = stack_list;
+	else
+		windows = (Window *) wmalloc(sizeof(Window) * total);
 
 	count = 0;
 	wwin = scr->focused_window;
@@ -948,22 +953,25 @@ static void updateClientList(WScreen *scr)
 	XChangeProperty(dpy, scr->root_win, net_client_list, XA_WINDOW, 32,
 			PropModeReplace, (unsigned char *)windows, count);
 
-	wfree(windows);
+	if (windows != stack_list)
+		wfree(windows);
 	XFlush(dpy);
 }
 
 static void updateClientListStacking(WScreen *scr, WWindow *wwin_excl)
 {
 	WWindow *wwin;
-	Window *client_list, *client_list_reverse;
-	int client_count, i;
+	Window stack_list[64];
+	Window *client_list;
+	int client_count, i, total;
 	WCoreWindow *tmp;
 	WMBagIterator iter;
 
-	/* update client list */
-	i = scr->window_count + 1;
-	client_list = (Window *) wmalloc(sizeof(Window) * i);
-	client_list_reverse = (Window *) wmalloc(sizeof(Window) * i);
+	total = scr->window_count + 1;
+	if (total <= 64)
+		client_list = stack_list;
+	else
+		client_list = (Window *) wmalloc(sizeof(Window) * total);
 
 	client_count = 0;
 	WM_ETARETI_BAG(scr->stacking_list, tmp, iter) {
@@ -977,16 +985,18 @@ static void updateClientListStacking(WScreen *scr, WWindow *wwin_excl)
 		}
 	}
 
-	for (i = 0; i < client_count; i++) {
-		Window w = client_list[client_count - i - 1];
-		client_list_reverse[i] = w;
+	/* In-place reverse client_list without allocating a secondary heap buffer */
+	for (i = 0; i < client_count / 2; i++) {
+		Window w = client_list[i];
+		client_list[i] = client_list[client_count - i - 1];
+		client_list[client_count - i - 1] = w;
 	}
 
 	XChangeProperty(dpy, scr->root_win, net_client_list_stacking, XA_WINDOW, 32,
-			PropModeReplace, (unsigned char *)client_list_reverse, client_count);
+			PropModeReplace, (unsigned char *)client_list, client_count);
 
-	wfree(client_list);
-	wfree(client_list_reverse);
+	if (client_list != stack_list)
+		wfree(client_list);
 
 	XFlush(dpy);
 }

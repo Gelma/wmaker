@@ -6,6 +6,10 @@
 - **Custom Installation Directory**: `/opt/wmaker`.
 - **Language Convention**: Always write all documentation (`SpecAI.md`) and user responses in English.
 
+86. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
+    - **Stack Allocation**: In `updateClientList()` and `updateClientListStacking()`, replaced heap allocations (`wmalloc`/`wfree`) on every window map, unmap, or stacking order change with a 64-window stack buffer (`Window stack_list[64]`), avoiding dynamic heap memory churn for normal desktop sessions ($\le 64$ managed windows).
+    - **In-Place Reversal**: Eliminated the secondary reverse heap buffer `client_list_reverse` entirely in `updateClientListStacking()`, swapping array elements in-place ($O(N/2)$ operations, 0 additional memory).
+
 ---
 
 ## Objectives and Completed Activities
@@ -371,6 +375,10 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Replaced $O(N)$ linear scans in `addSingleKeyGrab` with a direct 8KB bitmap (`grab_seen[256][32]`) providing 2-instruction $O(1)$ deduplication for all 65,536 `(KeyCode, Modifier)` combinations.
     - **Batched Atom Interning ([`src/xdnd.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c))**:
       - Converted 12 sequential synchronous `XInternAtom` calls into a single batched `XInternAtoms` request.
+
+86. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
+    - **Stack Allocation**: In `updateClientList()` and `updateClientListStacking()`, replaced heap allocations (`wmalloc`/`wfree`) on every window map, unmap, or stacking order change with a 64-window stack buffer (`Window stack_list[64]`), avoiding dynamic heap memory churn for normal desktop sessions ($\le 64$ managed windows).
+    - **In-Place Reversal**: Eliminated the secondary reverse heap buffer `client_list_reverse` entirely in `updateClientListStacking()`, swapping array elements in-place ($O(N/2)$ operations, 0 additional memory).
 
 ---
 
