@@ -25,6 +25,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/sysinfo.h>
+#include <stdatomic.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -41,11 +42,11 @@ typedef struct {
 	int num_windows;
 	int screen_width;
 	int screen_height;
-	unsigned long created_count;
-	unsigned long destroyed_count;
-	unsigned long property_count;
-	unsigned long moveresize_count;
-	unsigned long draw_count;
+	_Atomic unsigned long created_count;
+	_Atomic unsigned long destroyed_count;
+	_Atomic unsigned long property_count;
+	_Atomic unsigned long moveresize_count;
+	_Atomic unsigned long draw_count;
 } WorkerArg;
 
 static void sigint_handler(int sig)
@@ -116,8 +117,10 @@ static void *worker_thread_func(void *param)
 			if (sw->win == None) {
 				sw->w = 120 + (fast_rand(&seed) % 300);
 				sw->h = 80 + (fast_rand(&seed) % 240);
-				sw->x = (fast_rand(&seed) % (arg->screen_width - sw->w - 20)) + 10;
-				sw->y = (fast_rand(&seed) % (arg->screen_height - sw->h - 40)) + 30;
+				int max_x = arg->screen_width - sw->w - 20;
+				int max_y = arg->screen_height - sw->h - 40;
+				sw->x = (max_x > 0) ? (fast_rand(&seed) % max_x) + 10 : 10;
+				sw->y = (max_y > 0) ? (fast_rand(&seed) % max_y) + 30 : 30;
 				sw->dx = (fast_rand(&seed) % 15) - 7;
 				sw->dy = (fast_rand(&seed) % 15) - 7;
 				if (sw->dx == 0) sw->dx = 3;
@@ -158,6 +161,7 @@ static void *worker_thread_func(void *param)
 
 					/* Set standard size hints */
 					XSizeHints hints;
+					memset(&hints, 0, sizeof(hints));
 					hints.flags = PPosition | PSize | PMinSize;
 					hints.x = sw->x;
 					hints.y = sw->y;
