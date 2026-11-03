@@ -204,6 +204,8 @@ static int initWVisualID(const char *user_str)
 
 noreturn void Exit(int status)
 {
+	wWindowFreeKeyGrabs();
+
 	WMReleaseApplication();
 
 	if (dpy)

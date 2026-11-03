@@ -2860,6 +2860,17 @@ void wWindowInvalidateKeyGrabs(void)
 	keyGrabsDirty = True;
 }
 
+void wWindowFreeKeyGrabs(void)
+{
+	if (compiledKeyGrabs) {
+		wfree(compiledKeyGrabs);
+		compiledKeyGrabs = NULL;
+	}
+	compiledKeyGrabsCount = 0;
+	compiledKeyGrabsCapacity = 0;
+	keyGrabsDirty = True;
+}
+
 static void recompileKeyGrabs(void)
 {
 	int i;
