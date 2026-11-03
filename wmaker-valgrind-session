@@ -18,20 +18,73 @@ WM_STDOUT_LOG="${LOG_DIR}/wmaker-${TIMESTAMP}.log"
 # - tracciamento errori di memoria e leak
 # - segui i processi figli con --trace-children=yes ma salta i programmi esterni (/bin, /usr)
 #   cosicché sia il processo monitor che il processo wmaker effettivo (--for-real) vengano analizzati
-VALGRIND_OPTS=(
-    --tool=memcheck
-    --leak-check=full
-    --show-leak-kinds=definite,indirect,possible
-    --track-origins=yes
-    --track-fds=yes
-    --trace-children=yes
-    --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
-    --read-var-info=yes
-    --num-callers=30
-    --log-file="${VALGRIND_LOG}"
-)
+#TOOL="${VALGRIND_TOOL:-memcheck}"
+#TOOL="${VALGRIND_TOOL:-callgrind}"
+TOOL="${VALGRIND_TOOL:-massif}"
 
-echo "Starting Window Maker under Valgrind supervision..." >> "${WM_STDOUT_LOG}"
+# Supporta anche il passaggio del tool tramite argomento CLI (es. --callgrind o --tool=callgrind)
+if [[ "${1:-}" =~ ^--tool=(.*)$ ]]; then
+    TOOL="${BASH_REMATCH[1]}"
+    shift
+elif [[ "${1:-}" =~ ^--(callgrind|massif|dhat|memcheck|cachegrind|helgrind)$ ]]; then
+    TOOL="${BASH_REMATCH[1]}"
+    shift
+fi
+
+if [[ "${TOOL}" == "callgrind" ]]; then
+    VALGRIND_OPTS=(
+        --tool=callgrind
+        --callgrind-out-file="${LOG_DIR}/callgrind-wmaker-${TIMESTAMP}-%p.out"
+        --collect-jumps=yes
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --log-file="${VALGRIND_LOG}"
+    )
+elif [[ "${TOOL}" == "cachegrind" ]]; then
+    VALGRIND_OPTS=(
+        --tool=cachegrind
+        --cachegrind-out-file="${LOG_DIR}/cachegrind-wmaker-${TIMESTAMP}-%p.out"
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --log-file="${VALGRIND_LOG}"
+    )
+elif [[ "${TOOL}" == "helgrind" ]]; then
+    VALGRIND_OPTS=(
+        --tool=helgrind
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --log-file="${VALGRIND_LOG}"
+    )
+elif [[ "${TOOL}" == "massif" ]]; then
+    VALGRIND_OPTS=(
+        --tool=massif
+        --massif-out-file="${LOG_DIR}/massif-wmaker-${TIMESTAMP}-%p.out"
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+    )
+elif [[ "${TOOL}" == "dhat" ]]; then
+    VALGRIND_OPTS=(
+        --tool=dhat
+        --dhat-out-file="${LOG_DIR}/dhat-wmaker-${TIMESTAMP}-%p.out"
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+    )
+else
+    VALGRIND_OPTS=(
+        --tool=memcheck
+        --leak-check=full
+        --show-leak-kinds=all
+        --track-origins=yes
+        --track-fds=yes
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --read-var-info=yes
+        --num-callers=30
+        --log-file="${VALGRIND_LOG}"
+    )
+fi
+
+echo "Starting Window Maker under Valgrind (${TOOL}) supervision..." >> "${WM_STDOUT_LOG}"
 echo "Valgrind log target: ${VALGRIND_LOG}" >> "${WM_STDOUT_LOG}"
 date >> "${WM_STDOUT_LOG}"
 

@@ -348,6 +348,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **LLVM Integration**: Automatically detects `clang-23` (or generic `clang`) and `lld-23` (or generic `lld`), passing `-march=native -O2 -g -Wall -Wno-unknown-warning-option` and `-fuse-ld=lld`.
     - **Verification**: Built and verified clean compilation and linking with Ubuntu Clang 23.1.5 and LLD 23.1.5, verified embedded ELF compiler sections, and confirmed clean installation into `/opt/wmaker`.
 
+83. **[`wmaker-valgrind-session`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wmaker-valgrind-session) - Multi-Tool Profiling Support (`callgrind`, `massif`, `dhat`, `cachegrind`, `helgrind`, `memcheck`)**:
+    - **Tool Dispatching**: Added dedicated profiles for `callgrind` (with `--collect-jumps=yes`), `cachegrind`, `helgrind`, `massif`, `dhat`, and `memcheck`.
+    - **Configurability**: Supported specifying the target tool either via environment variable `VALGRIND_TOOL=<tool>` or via command-line flags (`--tool=<tool>` or `--<tool>`).
+    - **Deployment**: Updated both the in-repo script and `/opt/wmaker/bin/wmaker-valgrind-session`.
+
 ---
 
 ## Verification Status
