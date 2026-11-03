@@ -32,6 +32,10 @@
 91. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - Enhanced Runtime Performance Metrics**:
     - Extended telemetry to track `motion_events_compressed`, `mini_preview_bypassed`, and `wwindow_cache_hits`/`wwindow_cache_misses` with automatic hit rate percentage reporting in both `/tmp/wmaker_runtime_logs/runtime_stats.json` and `runtime_stats.log`.
 
+92. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/screen.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.h), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
+    - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
+    - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
+
 ---
 
 ## Objectives and Completed Activities
@@ -423,6 +427,10 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 
 91. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - Enhanced Runtime Performance Metrics**:
     - Extended telemetry to track `motion_events_compressed`, `mini_preview_bypassed`, and `wwindow_cache_hits`/`wwindow_cache_misses` with automatic hit rate percentage reporting in both `/tmp/wmaker_runtime_logs/runtime_stats.json` and `runtime_stats.log`.
+
+92. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/screen.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.h), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
+    - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
+    - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
 
 ---
 
