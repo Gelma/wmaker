@@ -337,8 +337,9 @@ static void destroyView(W_View * view)
 		view->prevFocusChain->nextFocusChain = view->nextFocusChain;
 
 	/* Do not leave focus in a inexisting control */
-	if (W_FocusedViewOfToplevel(W_TopLevelOfView(view)) == view)
-		W_SetFocusOfTopLevel(W_TopLevelOfView(view), NULL);
+	W_View *toplevel = W_TopLevelOfView(view);
+	if (toplevel && W_FocusedViewOfToplevel(toplevel) == view)
+		W_SetFocusOfTopLevel(toplevel, NULL);
 
 	if (view->flags.topLevel) {
 		W_FocusInfo *info = view->screen->focusInfo;
@@ -368,7 +369,6 @@ static void destroyView(W_View * view)
 	while (view->childrenList != NULL) {
 		ptr = view->childrenList;
 		view->childrenList = ptr->nextSister;
-		ptr->parent = NULL;
 		ptr->flags.parentDying = 1;
 		W_DestroyView(ptr);
 	}
@@ -524,8 +524,13 @@ void W_SetViewCursor(W_View * view, Cursor cursor)
 
 W_View *W_FocusedViewOfToplevel(W_View * view)
 {
-	WMScreen *scr = view->screen;
+	WMScreen *scr;
 	W_FocusInfo *info;
+
+	if (!view)
+		return NULL;
+
+	scr = view->screen;
 
 	for (info = scr->focusInfo; info != NULL; info = info->next)
 		if (view == info->toplevel)
@@ -539,9 +544,14 @@ W_View *W_FocusedViewOfToplevel(W_View * view)
 
 void W_SetFocusOfTopLevel(W_View * toplevel, W_View * view)
 {
-	WMScreen *scr = toplevel->screen;
+	WMScreen *scr;
 	XEvent event;
 	W_FocusInfo *info;
+
+	if (!toplevel)
+		return;
+
+	scr = toplevel->screen;
 
 	for (info = scr->focusInfo; info != NULL; info = info->next)
 		if (toplevel == info->toplevel)
