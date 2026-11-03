@@ -31,13 +31,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-#ifdef __linux__
-#include <sys/prctl.h>
-#ifndef PR_SET_MEMORY_MERGE
-#define PR_SET_MEMORY_MERGE 67
-#endif
-#endif
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -640,11 +633,6 @@ static int real_main(int argc, char **argv)
 	int i;
 	char *pos;
 	int d, s;
-
-#ifdef __linux__
-	/* Enable Kernel Samepage Merging (KSM) for anonymous memory across the process */
-	prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0);
-#endif
 
 	setlocale(LC_ALL, "");
 	wsetabort(wAbort);

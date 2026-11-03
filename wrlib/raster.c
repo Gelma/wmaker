@@ -35,9 +35,6 @@
 #ifndef MADV_HUGEPAGE
 #define MADV_HUGEPAGE 14
 #endif
-#ifndef MAP_HUGETLB
-#define MAP_HUGETLB 0x40000
-#endif
 #endif
 
 #include "wraster.h"
@@ -90,29 +87,17 @@ RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 
 		if (size >= HUGEPAGE_SIZE) {
 			size_t map_size = (size + HUGEPAGE_SIZE - 1) & ~(HUGEPAGE_SIZE - 1);
-			/* c) Try direct huge pages if available */
 			void *data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
-			                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+			                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 			if (data != MAP_FAILED) {
 				image->data = data;
 				image->allocSize = map_size;
 				image->is_mmap = 1;
-				/* a) Enable KSM deduplication */
+				/* Enable Transparent Huge Pages */
+				madvise(data, map_size, MADV_HUGEPAGE);
+				/* Enable KSM deduplication */
 				madvise(data, map_size, MADV_MERGEABLE);
-			} else {
-				/* Fall back to standard anonymous mmap */
-				data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
-				            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-				if (data != MAP_FAILED) {
-					image->data = data;
-					image->allocSize = map_size;
-					image->is_mmap = 1;
-					/* b) Enable Transparent Huge Pages */
-					madvise(data, map_size, MADV_HUGEPAGE);
-					/* a) Enable KSM deduplication */
-					madvise(data, map_size, MADV_MERGEABLE);
-				}
 			}
 		} else if (size >= 4096) {
 			void *aligned_ptr = NULL;

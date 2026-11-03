@@ -76,6 +76,11 @@
     - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
     - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
 
+98. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c), [`src/main.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c), [`WINGs/wapplication.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
+    - **Single Process-Wide KSM Invocation**: Eliminated the redundant `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` call in `src/main.c`. Process-wide KSM is now cleanly established exactly once per process inside `WMInitializeApplication()` (`WINGs/wapplication.c`), ensuring all WINGs applications and Window Maker itself run with anonymous memory deduplication active by default.
+    - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
+    - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
+
 ---
 
 ## Objectives and Completed Activities
@@ -347,15 +352,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **`src/event.c`, `src/WindowMaker.h`, `src/main.c`, `src/shutdown.c` Event Loop Syscall Elimination (`4e711d6c`)**: Registered the `inotify` queue file descriptor with WINGs input handlers via `WMAddInputHandler(..., WIReadMask, ...)`. Completely eliminated the redundant zero-timeout `select()` system call executed on every single X event in `EventLoop()`, eliminating thousands of unnecessary system calls per second during mouse motion and window interaction.
 77. **[`8465210e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c#L44-L125) - Kernel Memory Advising: KSM Deduplication, Transparent Huge Pages, and Direct Huge Pages**:
     - **Kernel Samepage Merging (KSM / UKSM)**:
-      - Activated process-wide KSM deduplication on Linux 6.4+ via `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` in `src/main.c` (Window Maker core) and `WINGs/wapplication.c` (WINGs apps/tools).
+      - Activated process-wide KSM deduplication on Linux 6.4+ via `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` in `WINGs/wapplication.c` (WINGs apps, tools, and Window Maker core).
       - Applied `madvise(addr, size, MADV_MERGEABLE)` on all page-aligned allocations (`posix_memalign` and `mmap`) in `wrlib/raster.c`, `wrlib/xutil.c`, and `WINGs/memory.c`. Identical background patterns, desktop wallpapers, menu gradients, and theme textures are deduplicated into single Copy-On-Write pages by the kernel.
     - **Transparent Huge Pages (THP)**:
-      - For large allocations ($ \ge 2\text{ MB} $, e.g. 1080p and 4K wallpapers and large textures), applied `madvise(addr, size, MADV_HUGEPAGE)` in `RCreateImage`, `RCreateXImage`, `wmalloc`, and `wrealloc`.
+      - For large allocations ($ \ge 2\text{ MB} $, e.g. 1080p and 4K wallpapers and large textures), allocated via anonymous `mmap` and applied `madvise(addr, size, MADV_HUGEPAGE)` in `RCreateImage`, `RCreateXImage`, `wmalloc`, and `wrealloc`.
       - Allows the Linux kernel (which operates with THP in `madvise` mode) to collapse 512 4KB pages into a single 2MB huge page, drastically cutting CPU TLB cache misses and accelerating graphics rendering.
-    - **Direct Huge Pages (`MAP_HUGETLB`)**:
-      - In `RCreateImage()`, allocations $ \ge 2\text{ MB} $ attempt direct allocation from the kernel's HugeTLB pool via `mmap(..., MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)`.
-      - If static hugepages are reserved by the system, direct huge pages are utilized immediately.
-      - If direct huge pages are unavailable (`MAP_HUGETLB` returns `MAP_FAILED`), gracefully falls back to anonymous `mmap` with `MADV_HUGEPAGE` (THP) and `MADV_MERGEABLE` (KSM).
       - Tracks allocation metadata in `RImage` (`allocSize`, `is_mmap`) to ensure clean deallocation with `munmap()` or `free()`.
 
 78. **[`c7190761`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1620-L1645), [`b9fce07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L150-L168) & [`75f7e16d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wview.c#L524-L555) - Fix Session Exit Crash Loop & Process Monitor Restart**:
@@ -511,6 +512,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **De-advertisement**: Removed `_NET_WM_SYNC_REQUEST` and `_NET_WM_SYNC_REQUEST_COUNTER` from the `_NET_SUPPORTED` atom array on root windows, informing clients (GTK, Qt, Chrome) that Window Maker does not implement synchronous frame acknowledgment.
     - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
     - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
+
+98. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c), [`src/main.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c), [`WINGs/wapplication.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
+    - **Single Process-Wide KSM Invocation**: Eliminated the redundant `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` call in `src/main.c`. Process-wide KSM is now cleanly established exactly once per process inside `WMInitializeApplication()` (`WINGs/wapplication.c`), ensuring all WINGs applications and Window Maker itself run with anonymous memory deduplication active by default.
+    - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
+    - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
 
 ---
 
