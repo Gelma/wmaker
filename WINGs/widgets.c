@@ -1256,10 +1256,16 @@ void WMDestroyScreen(WMScreen *scr)
 	if (scr->fontCache) {
 		WMHashEnumerator enumerator = WMEnumerateHashTable(scr->fontCache);
 		WMFont *font;
+		WMArray *fonts = WMCreateArrayWithDestructor(32, NULL);
+
 		while ((font = WMNextHashEnumeratorItem(&enumerator)) != NULL) {
+			WMAddToArray(fonts, font);
+		}
+		while ((font = WMPopFromArray(fonts)) != NULL) {
 			font->refCount = 1;
 			WMReleaseFont(font);
 		}
+		WMFreeArray(fonts);
 		WMFreeHashTable(scr->fontCache);
 		scr->fontCache = NULL;
 	}
