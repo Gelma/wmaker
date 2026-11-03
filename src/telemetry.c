@@ -94,13 +94,21 @@ static void timer_callback(void *data)
 	wTelemetryDump();
 }
 
+static const char *get_telemetry_dir(void)
+{
+	const char *env = getenv("WM_RUNTIME_LOG_DIR");
+	if (env && env[0] != '\0')
+		return env;
+	return TELEMETRY_DIR;
+}
+
 void wTelemetryInit(void)
 {
 	memset(&wTelemetry, 0, sizeof(wTelemetry));
 	clock_gettime(CLOCK_MONOTONIC, &wTelemetry.start_time);
 	wTelemetry.last_dump_time = wTelemetry.start_time;
 
-	mkdir(TELEMETRY_DIR, 0755);
+	mkdir(get_telemetry_dir(), 0755);
 
 	/* Dump stats every 60 seconds (60,000 ms) */
 	telemetry_timer_id = WMAddPersistentTimerHandler(60000, timer_callback, NULL);
@@ -139,7 +147,9 @@ void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart, Win
 
 	/* Latency spike detection: alert if an event takes longer than 16.6 ms (one 60fps frame) */
 	if (elapsed_ns > 16666667ULL) {
-		FILE *fspike = fopen(TELEMETRY_SPIKES_FILE, "a");
+		char path[512];
+		snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
+		FILE *fspike = fopen(path, "a");
 		if (fspike) {
 			time_t now = time(NULL);
 			char timestr[64];
@@ -172,7 +182,11 @@ void wTelemetryDump(void)
 	char *dup_locale = saved_locale ? wstrdup(saved_locale) : NULL;
 	setlocale(LC_NUMERIC, "C");
 
-	fjson = fopen(TELEMETRY_STATS_FILE, "w");
+	char path_json[512], path_log[512];
+	snprintf(path_json, sizeof(path_json), "%s/runtime_stats.json", get_telemetry_dir());
+	snprintf(path_log, sizeof(path_log), "%s/runtime_stats.log", get_telemetry_dir());
+
+	fjson = fopen(path_json, "w");
 	if (fjson) {
 		fprintf(fjson, "{\n");
 		fprintf(fjson, "  \"uptime_seconds\": %.2f,\n", uptime_sec);
@@ -215,7 +229,7 @@ void wTelemetryDump(void)
 	}
 
 	/* 2. Write Human-Readable Log */
-	flog = fopen(TELEMETRY_LOG_FILE, "w");
+	flog = fopen(path_log, "w");
 	if (flog) {
 		time_t cal_now = time(NULL);
 		char timestr[64];

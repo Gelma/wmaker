@@ -1532,8 +1532,7 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 	}
 	wWindowResetMouseGrabs(wwin);
 
-	if (!WFLAGP(wwin, no_bind_keys))
-		wWindowSetKeyGrabs(wwin);
+	/* Key grabs are active globally on scr->root_win; no per-window XGrabKey round-trips needed here */
 
 	WMPostNotificationName(WMNManaged, wwin, NULL);
 	wColormapInstallForWindow(scr, scr->cmap_window);
@@ -1967,6 +1966,19 @@ void wWindowFocus(WWindow *wwin, WWindow *owin)
 		wFrameWindowChangeState(wwin->frame, WS_FOCUSED);
 
 	wwin->flags.focused = 1;
+
+	/* If client opts out of WM shortcuts, suspend root key grabs; otherwise ensure active */
+	if (WFLAGP(wwin, no_bind_keys)) {
+		if (!wwin->screen_ptr->flags.key_grabs_suspended) {
+			wScreenUngrabKeys(wwin->screen_ptr);
+			wwin->screen_ptr->flags.key_grabs_suspended = 1;
+		}
+	} else {
+		if (wwin->screen_ptr->flags.key_grabs_suspended) {
+			wScreenSetKeyGrabs(wwin->screen_ptr);
+			wwin->screen_ptr->flags.key_grabs_suspended = 0;
+		}
+	}
 
 	wWindowResetMouseGrabs(wwin);
 
@@ -2946,13 +2958,34 @@ void wWindowSetKeyGrabsOnWindow(Window win)
 
 	for (i = 0; i < compiledKeyGrabsCount; i++) {
 		XGrabKey(dpy, compiledKeyGrabs[i].keycode, compiledKeyGrabs[i].modifier,
-			 win, True, GrabModeAsync, GrabModeAsync);
+			 win, False, GrabModeAsync, GrabModeAsync);
 	}
 }
 
-void wWindowSetKeyGrabs(WWindow * wwin)
+void wScreenSetKeyGrabs(WScreen *scr)
 {
-	wWindowSetKeyGrabsOnWindow(wwin->frame->core->window);
+	if (!scr || scr->root_win == None)
+		return;
+
+	XUngrabKey(dpy, AnyKey, AnyModifier, scr->root_win);
+	wWindowSetKeyGrabsOnWindow(scr->root_win);
+}
+
+void wScreenUngrabKeys(WScreen *scr)
+{
+	if (!scr || scr->root_win == None)
+		return;
+
+	XUngrabKey(dpy, AnyKey, AnyModifier, scr->root_win);
+}
+
+void wWindowSetKeyGrabs(WWindow *wwin)
+{
+	if (!wwin || !wwin->screen_ptr)
+		return;
+
+	if (wwin->flags.focused && !wwin->screen_ptr->flags.key_grabs_suspended)
+		wScreenSetKeyGrabs(wwin->screen_ptr);
 }
 
 void wWindowResetMouseGrabs(WWindow * wwin)

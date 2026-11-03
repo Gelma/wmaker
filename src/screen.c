@@ -1412,6 +1412,8 @@ void wScreenDestroy(WScreen *scr)
 {
 	int i;
 
+	wScreenUngrabKeys(scr);
+
 #ifdef USE_RANDR
 	wRandRTeardown(scr);
 #endif

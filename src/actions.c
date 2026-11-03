@@ -144,6 +144,10 @@ void wSetFocusTo(WScreen *scr, WWindow *wwin)
 
 	if (wwin == NULL) {
 		XSetInputFocus(dpy, scr->no_focus_win, RevertToParent, CurrentTime);
+		if (scr->flags.key_grabs_suspended) {
+			wScreenSetKeyGrabs(scr);
+			scr->flags.key_grabs_suspended = 0;
+		}
 		if (old_focused)
 			wWindowUnfocus(old_focused);
 

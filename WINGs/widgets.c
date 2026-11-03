@@ -1190,8 +1190,9 @@ void WMDestroyScreen(WMScreen *scr)
 	}
 
 	if (scr->balloon) {
-		W_DestroyBalloon(scr->balloon);
+		struct W_Balloon *balloon = scr->balloon;
 		scr->balloon = NULL;
+		W_DestroyBalloon(balloon);
 	}
 
 	W_CleanUpIM(scr);

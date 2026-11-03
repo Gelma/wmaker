@@ -475,6 +475,7 @@ void W_DestroyBalloon(struct W_Balloon * bPtr)
 	if (bPtr->view) {
 		W_View *view = bPtr->view;
 		bPtr->view = NULL;
+		WMDeleteEventHandler(view, StructureNotifyMask, handleEvents, bPtr);
 		W_DestroyView(view);
 	}
 

@@ -340,6 +340,7 @@ typedef struct _WScreen {
         unsigned int ignore_focus_events:1;
         unsigned int in_hot_corner:3;
         unsigned int mark_capture_mode:3;  /* one of WMarkCaptureMode */
+        unsigned int key_grabs_suspended:1;
 
     } flags;
 } WScreen;

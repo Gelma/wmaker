@@ -1432,9 +1432,6 @@ void wKeyTreeRebuild(WScreen *scr)
 	/* Invalidate precompiled key grab table */
 	wWindowInvalidateKeyGrabs();
 
-	/* Parameter not used */
-	(void)scr;
-
 	if (w_global.shortcut.chain_timeout_handler != NULL) {
 		WMDeleteTimerHandler(w_global.shortcut.chain_timeout_handler);
 		w_global.shortcut.chain_timeout_handler = NULL;
@@ -1485,6 +1482,16 @@ void wKeyTreeRebuild(WScreen *scr)
 
 	/* Insert root-menu shortcuts */
 	wRootMenuInsertIntoTree();
+
+	if (scr && !scr->flags.key_grabs_suspended) {
+		wScreenSetKeyGrabs(scr);
+	} else if (!scr) {
+		for (i = 0; i < w_global.screen_count; i++) {
+			WScreen *s = wScreenWithNumber(i);
+			if (s && !s->flags.key_grabs_suspended)
+				wScreenSetKeyGrabs(s);
+		}
+	}
 }
 
 /* --------------------------- Local ----------------------- */
@@ -3450,7 +3457,6 @@ static int setMenuTextBack(WScreen * scr, WDefaultEntry * entry, void *tdata, vo
 static int setKeyGrab(WScreen * scr, WDefaultEntry * entry, void *tdata, void *extra_data)
 {
 	WShortKey *shortcut = tdata;
-	WWindow *wwin;
 	long widx = (long) extra_data;
 
 	/* Parameter not used, but tell the compiler that it is ok */
@@ -3478,15 +3484,15 @@ static int setKeyGrab(WScreen * scr, WDefaultEntry * entry, void *tdata, void *e
 
 	wWindowInvalidateKeyGrabs();
 
-	wwin = scr->focused_window;
-
-	while (wwin != NULL) {
-		XUngrabKey(dpy, AnyKey, AnyModifier, wwin->frame->core->window);
-
-		if (!WFLAGP(wwin, no_bind_keys)) {
-			wWindowSetKeyGrabs(wwin);
+	if (scr && !scr->flags.key_grabs_suspended) {
+		wScreenSetKeyGrabs(scr);
+	} else if (!scr) {
+		int i;
+		for (i = 0; i < w_global.screen_count; i++) {
+			WScreen *s = wScreenWithNumber(i);
+			if (s && !s->flags.key_grabs_suspended)
+				wScreenSetKeyGrabs(s);
 		}
-		wwin = wwin->prev;
 	}
 
 	/* do we need to update window menus? */

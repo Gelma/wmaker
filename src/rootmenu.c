@@ -381,19 +381,9 @@ void wRootMenuBindShortcuts(Window window)
 
 static void rebindKeygrabs(WScreen * scr)
 {
-	WWindow *wwin;
-
 	wWindowInvalidateKeyGrabs();
-	wwin = scr->focused_window;
-
-	while (wwin != NULL) {
-		XUngrabKey(dpy, AnyKey, AnyModifier, wwin->frame->core->window);
-
-		if (!WFLAGP(wwin, no_bind_keys)) {
-			wWindowSetKeyGrabs(wwin);
-		}
-		wwin = wwin->prev;
-	}
+	if (scr && !scr->flags.key_grabs_suspended)
+		wScreenSetKeyGrabs(scr);
 }
 
 static void freeShortcut(Shortcut *s)

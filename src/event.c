@@ -192,6 +192,7 @@ void DispatchEvent(XEvent * event)
 	} else if (WCHECK_STATE(WSTATE_NEED_REREAD)) {
 		WCHANGE_STATE(WSTATE_NORMAL);
 		wDefaultsCheckDomains(NULL);
+		wTelemetryDump();
 	}
 
 	/* for the case that all that is wanted to be dispatched is

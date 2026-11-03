@@ -150,8 +150,6 @@ static RETSIGTYPE handleExitSig(int sig)
 		wwarning("got signal %i - restarting", sig);
 		SIG_WCHANGE_STATE(WSTATE_NEED_RESTART);
 	} else if (sig == SIGUSR2) {
-		wwarning("got signal %i - rereading defaults and dumping telemetry", sig);
-		wTelemetryDump();
 		SIG_WCHANGE_STATE(WSTATE_NEED_REREAD);
 	} else if (sig == SIGTERM || sig == SIGINT || sig == SIGHUP) {
 		wwarning("got signal %i - exiting...", sig);
@@ -669,6 +667,9 @@ void StartUp(Bool defaultScreenOnly)
 		}
 	}
 
+	/* Initialize runtime telemetry and performance logger */
+	wTelemetryInit();
+
 	/* manage the screens */
 	for (j = 0; j < max; j++) {
 		if (defaultScreenOnly || max == 1) {
@@ -757,9 +758,6 @@ void StartUp(Bool defaultScreenOnly)
 	if (!wPreferences.flags.noupdates)
 		WMAddTimerHandler(3000, wDefaultsCheckDomains, NULL);
 #endif
-
-	/* Initialize runtime telemetry and performance logger */
-	wTelemetryInit();
 }
 
 static Bool windowInList(Window window, Window * list, int count)
