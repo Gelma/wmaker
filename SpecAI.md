@@ -488,3 +488,38 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 - Extended EWMH Sync protocol (`_NET_WM_SYNC_REQUEST`) and Compositor Bypass hint (`_NET_WM_BYPASS_COMPOSITOR`) fully implemented, tested, and verified.
 - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
 - Active user session preserved without interruption or restart.
+
+---
+
+## Review Backlog — 2026-11-03
+
+Full independent review of `d958afd..0c496c09` (149 commits, 133 files) is in
+[Migliorie.md](Migliorie.md): 19 findings with evidence, reparation cost and a suggested priority
+order. The statements above that need qualification:
+
+- **`_NET_WM_SYNC_REQUEST`**: advertised and the `XSyncAlarm` is armed, but
+  `wwin->sync_request.is_waiting` is written and never read — the WM does not wait for the client
+  acknowledgement (Migliorie.md #2: implement or de-advertise).
+- **Signal safety**: `handleExitSig()` still calls `DispatchEvent(NULL)`, which now runs
+  `wTelemetryDump()` and (for `WSTATE_NEED_EXIT`) `Shutdown()`; the dump is therefore still
+  executed in signal context (#1).
+- **"0 remaining defects"**: the normal build emits 10 warnings with the project warning set, 4 of
+  them introduced by this batch (`wrlib/gradient.c:47`, `WINGs/wballoon.c:42`,
+  `src/xmodifier.c:87`, `src/xmodifier.hack_nf.c:87`); the `scan-build` claim is about a different
+  tool and does not replace a `-Werror` gate (#13).
+- **Dead code contradicted by earlier entries**: `W_FontShutdown()` is defined but never called
+  (see §73/§318 vs §357), `wRootMenuBindShortcuts()` and `wWindowSetKeyGrabs()` have no callers,
+  and `rebindKeygrabs()` re-installs grabs that `wKeyTreeRebuild()` already installed (#5, #14).
+- **Telemetry semantics**: `key_grabs_deduplicated` is always 0 on real data, `xsync_eliminated`
+  is dominated by the `XGrabServer()` increment in `wManageWindow()`, `key_grabs_set` counts
+  planned grabs rather than successful ones (#4, #6).
+- **Key grabs are installed once per screen**: keyboard/NumLock remaps (`MappingNotify`) are not
+  picked up; `XGrabKey` requests are not "round-trips" (no reply is awaited), so §95's wording
+  should say *requests*.
+
+Measured baseline for future comparisons (Xvfb, clang-23, this machine):
+12,841-window churn under Valgrind with 0 invalid reads/writes/frees and a clean `SIGTERM` exit
+(0 definitely-lost bytes); `./test/wm_stress -t 4 -d 10` = 69,150 ops in 10.09 s (6,853 ops/s) with
+the WM alive afterwards; `wWindowFor` L1 cache hit rate 4.3 % (3,023 hits / 67,641 misses) under
+that load; root-window key grabs verified functional (F12 opens the root menu while a client has
+focus).
