@@ -494,12 +494,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 ## Review Backlog — 2026-11-03
 
 Full independent review of `d958afd..0c496c09` (149 commits, 133 files) is in
-[Migliorie.md](Migliorie.md): 19 findings with evidence, reparation cost and a suggested priority
+[DeepSeekCheck.md](DeepSeekCheck.md): 19 findings with evidence, reparation cost and a suggested priority
 order. The statements above that need qualification:
 
 - **`_NET_WM_SYNC_REQUEST`**: advertised and the `XSyncAlarm` is armed, but
   `wwin->sync_request.is_waiting` is written and never read — the WM does not wait for the client
-  acknowledgement (Migliorie.md #2: implement or de-advertise).
+  acknowledgement (DeepSeekCheck.md #2: implement or de-advertise).
 - **Signal safety**: `handleExitSig()` still calls `DispatchEvent(NULL)`, which now runs
   `wTelemetryDump()` and (for `WSTATE_NEED_EXIT`) `Shutdown()`; the dump is therefore still
   executed in signal context (#1).
