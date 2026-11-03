@@ -343,6 +343,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Redrawing window titlebars, desktop icons, workspace indicators, and menus completely bypasses HarfBuzz shaping, directly rendering pre-shaped glyph lines to X11.
       - Fully integrates font destruction invalidation in `WMReleaseFont()` and application shutdown cleanup in `W_FontShutdown()`, guaranteeing 0 memory leaks.
 
+82. **[`build_and_install.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/build_and_install.sh) - LLVM/Clang Toolchain Support (`clang-23` + `lld-23`)**:
+    - **Dual Toolchain Selection**: Enhanced `build_and_install.sh` to accept `--clang` and `--gcc` CLI flags, or the `USE_CLANG=1` environment variable.
+    - **LLVM Integration**: Automatically detects `clang-23` (or generic `clang`) and `lld-23` (or generic `lld`), passing `-march=native -O2 -g -Wall -Wno-unknown-warning-option` and `-fuse-ld=lld`.
+    - **Verification**: Built and verified clean compilation and linking with Ubuntu Clang 23.1.5 and LLD 23.1.5, verified embedded ELF compiler sections, and confirmed clean installation into `/opt/wmaker`.
+
 ---
 
 ## Verification Status

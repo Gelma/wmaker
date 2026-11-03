@@ -26,9 +26,34 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SRC_DIR}"
 NPROCS="$(nproc)"
 
+USE_CLANG="${USE_CLANG:-0}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --clang)
+            USE_CLANG=1
+            shift
+            ;;
+        --gcc)
+            USE_CLANG=0
+            shift
+            ;;
+        --help|-h)
+            echo "Uso: $0 [--clang|--gcc]"
+            echo "  --clang: Compila con Clang e LLD (clang-23 e lld-23 se disponibili)"
+            echo "  --gcc:   Compila con GCC standard (default)"
+            exit 0
+            ;;
+        *)
+            log_warn "Argomento sconosciuto: $1"
+            shift
+            ;;
+    esac
+done
+
 log_info "Verifica dei prerequisiti di compilazione per Window Maker..."
 
-readonly REQUIRED_PKGS=(
+REQUIRED_PKGS=(
     build-essential
     autoconf
     automake
@@ -50,6 +75,15 @@ readonly REQUIRED_PKGS=(
     libexif-dev
     libarchive-dev
 )
+
+if [[ "${USE_CLANG}" -eq 1 ]]; then
+    if ! which clang-23 &>/dev/null && ! which clang &>/dev/null; then
+        REQUIRED_PKGS+=(clang-23)
+    fi
+    if ! which lld-23 &>/dev/null && ! which lld &>/dev/null; then
+        REQUIRED_PKGS+=(lld-23)
+    fi
+fi
 
 MISSING_PKGS=()
 for pkg in "${REQUIRED_PKGS[@]}"; do
@@ -83,8 +117,31 @@ if [[ ! -f "configure" ]]; then
     ./autogen.sh
 fi
 
+CONF_TOOLCHAIN_ARGS=()
+if [[ "${USE_CLANG}" -eq 1 ]]; then
+    CLANG_BIN="$(which clang-23 2>/dev/null || which clang 2>/dev/null || true)"
+    LLD_BIN="$(which lld-23 2>/dev/null || which lld 2>/dev/null || true)"
+    if [[ -z "${CLANG_BIN}" ]]; then
+        log_err "Compilatore Clang non trovato."
+        exit 1
+    fi
+    log_info "Selezione toolchain LLVM/Clang: ${CLANG_BIN}"
+    CONF_TOOLCHAIN_ARGS+=(
+        "CC=${CLANG_BIN}"
+        "CFLAGS=-march=native -O2 -g -Wall -Wno-unknown-warning-option"
+    )
+    if [[ -n "${LLD_BIN}" ]]; then
+        log_info "Selezione linker rapido LLD: ${LLD_BIN}"
+        CONF_TOOLCHAIN_ARGS+=("LDFLAGS=-fuse-ld=lld")
+    fi
+else
+    log_info "Selezione toolchain GNU GCC standard..."
+    CONF_TOOLCHAIN_ARGS+=(
+        "CFLAGS=-march=native -O2 -g -Wall"
+    )
+fi
+
 log_info "Configurazione sorgenti per prefisso ${PREFIX}..."
-# Includiamo ottimizzazioni e debug simboli
 ./configure \
     --prefix="${PREFIX}" \
     --sysconfdir="${PREFIX}/etc" \
@@ -94,7 +151,7 @@ log_info "Configurazione sorgenti per prefisso ${PREFIX}..."
     --enable-xinerama \
     --enable-randr \
     --enable-usermenu \
-    CFLAGS="-march=native -O2 -g -Wall"
+    "${CONF_TOOLCHAIN_ARGS[@]}"
 
 log_info "Compilazione con ${NPROCS} processi paralleli..."
 make -j"${NPROCS}"

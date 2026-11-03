@@ -44,6 +44,7 @@ README.i18n
 *.a
 
 # These are compilation results
+*.hack_nf.c
 src/wmaker
 test/wtest
 
