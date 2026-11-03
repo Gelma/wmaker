@@ -288,11 +288,21 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - If direct huge pages are unavailable (`MAP_HUGETLB` returns `MAP_FAILED`), gracefully falls back to anonymous `mmap` with `MADV_HUGEPAGE` (THP) and `MADV_MERGEABLE` (KSM).
       - Tracks allocation metadata in `RImage` (`allocSize`, `is_mmap`) to ensure clean deallocation with `munmap()` or `free()`.
 
-78. **[`c7190761`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1620-L1645) & [`b9fce07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L150-L168) - Fix Session Exit Crash Loop & Process Monitor Restart**:
+78. **[`c7190761`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1620-L1645), [`b9fce07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L150-L168) & [`75f7e16d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wview.c#L524-L555) - Fix Session Exit Crash Loop & Process Monitor Restart**:
     - **Diagnosed Exit Loop Issue**: When selecting `Session -> Exit` from the root menu, Window Maker crashed with signal 11 (SIGSEGV) instead of cleanly terminating. In `src/monitor.c`, `MonitorLoop()` caught the SIGSEGV crash, assumed Window Maker crashed unexpectedly, and automatically respawned a new session instead of returning to GDM3.
-    - **Root Cause 1 (`src/screen.c` & `src/appicon.c`)**: In `wScreenDestroy()`, remaining applications in `scr->wapp_list` were being torn down using `wApplicationDestroy()`. Because `wScreenDestroy()` freed fonts, textures, GCs, and destroyed `scr->dock_dots` earlier in the teardown, `wApplicationDestroy()` triggered `removeAppIconFor() -> wAppIconPaint()`, which attempted to draw using `scr->copy_gc` and dereferenced `scr->dock_dots->mask` (NULL pointer), causing an instant SIGSEGV. Replaced `wApplicationDestroy()` with direct, clean deallocation of `WApplication` structures and X contexts without triggering UI redraws or unmanaging restored desktop windows.
-    - **Root Cause 2 (`WINGs/wview.c`)**: In `destroyView()`, unparented child views before invoking `W_DestroyView()` recursively, fixing a use-after-free where `ptr` was dereferenced (`ptr->nextSister`) after being freed.
-    - **Root Cause 3 (`src/main.c`)**: In `Exit()`, removed premature `W_FontShutdown()` (`FcFini()`) call before `XCloseDisplay(dpy)`. Calling `FcFini()` destroyed internal Fontconfig pattern caches while Xft and Xlib display connections were still open, causing invalid memory accesses when `XCloseDisplay()` flushed display font resources.
+    - **Valgrind Stack Trace Root Cause (`WINGs/wview.c`)**: Inspection of `/home/gelma/.local/share/wmaker/logs/wmaker-20261103_044240.log` revealed the exact point of crash:
+      ```
+      Process terminating with default action of signal 11 (SIGSEGV)
+       Access not within mapped region at address 0x0
+         at W_FocusedViewOfToplevel (wview.c:526)
+         by destroyView.part.0 (wview.c:340)
+         by WMDestroyAlertPanel (wpanel.c:83)
+         by wExitDialog (dialog.c:164)
+         by ExecuteExitCommand (misc.c:771)
+      ```
+      When `wExitDialog()` completed and called `WMDestroyAlertPanel(panel)`, `destroyView()` destroyed the panel's subviews. When evaluating child views, `W_TopLevelOfView(view)` returned `NULL`, and `W_FocusedViewOfToplevel(NULL)` dereferenced `view->screen` at address 0x0. Added NULL checks in `W_FocusedViewOfToplevel()` and `W_SetFocusOfTopLevel()`, guarded `W_TopLevelOfView()` before calling focus handlers in `destroyView()`, and preserved `ptr->parent` during recursive child destruction.
+    - **Shutdown Teardown Root Cause (`src/screen.c` & `src/appicon.c`)**: In `wScreenDestroy()`, remaining applications in `scr->wapp_list` were being torn down using `wApplicationDestroy()`. Because `wScreenDestroy()` freed fonts, textures, GCs, and destroyed `scr->dock_dots` earlier in the teardown, `wApplicationDestroy()` triggered `removeAppIconFor() -> wAppIconPaint()`, which attempted to draw using `scr->copy_gc` and dereferenced `scr->dock_dots->mask` (NULL pointer), causing a secondary SIGSEGV. Replaced `wApplicationDestroy()` with direct, clean deallocation of `WApplication` structures and X contexts without triggering UI redraws or unmanaging restored desktop windows.
+    - **Fontconfig / Display Exit Sequence (`src/main.c`)**: In `Exit()`, removed premature `W_FontShutdown()` (`FcFini()`) call before `XCloseDisplay(dpy)`. Calling `FcFini()` destroyed internal Fontconfig pattern caches while Xft and Xlib display connections were still open, causing invalid memory accesses when `XCloseDisplay()` flushed display font resources.
     - **Monitor Defense (`src/shutdown.c` & `src/monitor.c`)**: In `Shutdown()` (`WSExitMode`, `WSLogoutMode`, `WSKillMode`), created an intentional exit sentinel file (`/tmp/.wmaker-exit-<pid>`). In `MonitorLoop()`, if the sentinel file is present upon child process termination, it removes the sentinel and breaks out of the loop cleanly (exiting with code 0) rather than restarting the window manager.
 
 ---
