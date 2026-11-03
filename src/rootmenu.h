@@ -23,7 +23,6 @@
 
 void wRootMenuInsertIntoTree(void);
 void wRootMenuReparse(WScreen *scr);
-void wRootMenuBindShortcuts(Window window);
 void wRootMenuForEachShortcut(void (*callback)(KeyCode keycode, unsigned int modifier, void *data), void *data);
 void OpenRootMenu(WScreen * scr, int x, int y, int keyboard);
 WMenu *configureMenu(WScreen *scr, WMPropList *definition);

@@ -374,18 +374,6 @@ void wRootMenuForEachShortcut(void (*callback)(KeyCode keycode, unsigned int mod
 	}
 }
 
-void wRootMenuBindShortcuts(Window window)
-{
-	wWindowSetKeyGrabsOnWindow(window);
-}
-
-static void rebindKeygrabs(WScreen * scr)
-{
-	wWindowInvalidateKeyGrabs();
-	if (scr && !scr->flags.key_grabs_suspended)
-		wScreenSetKeyGrabs(scr);
-}
-
 static void freeShortcut(Shortcut *s)
 {
 	if (!s)
@@ -741,7 +729,6 @@ static void constructMenu(WMenu * menu, WMenuEntry * entry)
 		wMenuEntrySetCascade(menu, entry, submenu);
 		if (scr->flags.root_menu_changed_shortcuts) {
 			wKeyTreeRebuild(scr);
-			rebindKeygrabs(scr);
 		}
 	}
 
@@ -799,7 +786,6 @@ static void constructPLMenuFromPipe(WMenu * menu, WMenuEntry * entry)
 		wMenuEntrySetCascade(menu, entry, submenu);
 		if (scr->flags.root_menu_changed_shortcuts) {
 			wKeyTreeRebuild(scr);
-			rebindKeygrabs(scr);
 		}
 	}
 
@@ -1705,7 +1691,6 @@ void wRootMenuReparse(WScreen *scr)
 
 	if (scr->flags.root_menu_changed_shortcuts) {
 		wKeyTreeRebuild(scr);
-		rebindKeygrabs(scr);
 	}
 }
 
@@ -1822,6 +1807,5 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 
 	if (scr->flags.root_menu_changed_shortcuts) {
 		wKeyTreeRebuild(scr);
-		rebindKeygrabs(scr);
 	}
 }
