@@ -503,7 +503,6 @@ Also worth recording in `SpecAI.md`: the measured baseline numbers from this rev
    spec gets honest and the per-configure overhead drops.
 3. **Finding 3** (screenshot filename overflow) — small, user-triggerable, stack corruption.
 4. **Findings 4, 5, 6, 7** — cheap code fixes, they make the grab/telemetry metrics trustworthy.
-5. **Finding 8** — `/tmp` handling, easy to do right.
 6. **Findings 9, 10, 11, 12** — review with the maintainer: they are policy/design choices.
 7. **Findings 13–18** — cleanup pass, ideally in the same commit series as the next feature.
 8. **Finding 19** — build the soak test; it either reproduces or rules out a state leak.
