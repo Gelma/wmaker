@@ -2,6 +2,13 @@
 #include <unistd.h>
 #include <X11/Xlocale.h>
 
+#ifdef __linux__
+#include <sys/prctl.h>
+#ifndef PR_SET_MEMORY_MERGE
+#define PR_SET_MEMORY_MERGE 67
+#endif
+#endif
+
 #include "WINGsP.h"
 #include "wconfig.h"
 #include "userdefaults.h"
@@ -19,6 +26,11 @@ Bool W_ApplicationInitialized(void)
 void WMInitializeApplication(const char *applicationName, int *argc, char **argv)
 {
 	int i;
+
+#ifdef __linux__
+	/* Enable Kernel Samepage Merging (KSM) for anonymous memory across the process */
+	prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0);
+#endif
 
 	assert(argc != NULL);
 	assert(argv != NULL);

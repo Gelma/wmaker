@@ -21,12 +21,23 @@
 #include "WUtil.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <signal.h>
+
+#ifdef __linux__
+#include <sys/mman.h>
+#ifndef MADV_MERGEABLE
+#define MADV_MERGEABLE 12
+#endif
+#ifndef MADV_HUGEPAGE
+#define MADV_HUGEPAGE 14
+#endif
+#endif
 
 #ifdef HAVE_STDNORETURN
 #include <stdnoreturn.h>
@@ -84,7 +95,26 @@ void *wmalloc(size_t size)
 #ifdef USE_BOEHM_GC
 	tmp = GC_MALLOC(size);
 #else
+#ifdef __linux__
+	if (size >= 2 * 1024 * 1024) {
+		if (posix_memalign(&tmp, 2 * 1024 * 1024, size) == 0) {
+			madvise(tmp, size, MADV_HUGEPAGE);
+			madvise(tmp, size, MADV_MERGEABLE);
+		} else {
+			tmp = malloc(size);
+		}
+	} else if (size >= 64 * 1024) {
+		if (posix_memalign(&tmp, 4096, size) == 0) {
+			madvise(tmp, size, MADV_MERGEABLE);
+		} else {
+			tmp = malloc(size);
+		}
+	} else {
+		tmp = malloc(size);
+	}
+#else
 	tmp = malloc(size);
+#endif
 #endif
 	if (tmp == NULL) {
 		wwarning("malloc() failed. Retrying after 2s.");
@@ -145,6 +175,14 @@ void *wrealloc(void *ptr, size_t newsize)
 			}
 		}
 	}
+#if defined(__linux__) && !defined(USE_BOEHM_GC)
+	if (nptr) {
+		if (newsize >= 2 * 1024 * 1024 && ((uintptr_t)nptr & (2 * 1024 * 1024 - 1)) == 0)
+			madvise(nptr, newsize, MADV_HUGEPAGE);
+		if (newsize >= 64 * 1024 && ((uintptr_t)nptr & 4095) == 0)
+			madvise(nptr, newsize, MADV_MERGEABLE);
+	}
+#endif
 	return nptr;
 }
 
