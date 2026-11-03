@@ -381,6 +381,7 @@ void wWindowSnapToHead(WWindow *wwin);
 void wWindowSynthConfigureNotify(WWindow *wwin);
 
 WWindow *wWindowFor(Window window);
+void wWindowCacheInvalidate(WWindow *wwin);
 
 
 void wWindowConfigureBorders(WWindow *wwin);

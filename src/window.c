@@ -141,26 +141,64 @@ static void appearanceObserver(void *self, WMNotification * notif)
 }
 
 
+#define WWINDOW_CACHE_SIZE 128
+#define WWINDOW_CACHE_MASK (WWINDOW_CACHE_SIZE - 1)
+
+typedef struct {
+	Window window;
+	WWindow *wwin;
+} WWindowCacheEntry;
+
+static WWindowCacheEntry wwindow_cache[WWINDOW_CACHE_SIZE];
+
+void wWindowCacheInvalidate(WWindow *wwin)
+{
+	int i;
+
+	for (i = 0; i < WWINDOW_CACHE_SIZE; i++) {
+		if (wwindow_cache[i].wwin == wwin) {
+			wwindow_cache[i].window = None;
+			wwindow_cache[i].wwin = NULL;
+		}
+	}
+}
+
 /* Return the WWindow associated with a given (Xlib) Window. */
 WWindow *wWindowFor(Window window)
 {
 	WObjDescriptor *desc;
+	WWindow *result = NULL;
+	unsigned int hash;
 
 	if (window == None)
 		return NULL;
+
+	/* Ultra-fast L1 direct-mapped cache lookup */
+	hash = (unsigned int)((window ^ (window >> 6)) & WWINDOW_CACHE_MASK);
+	if (wwindow_cache[hash].window == window) {
+		wTelemetry.wwindow_cache_hits++;
+		return wwindow_cache[hash].wwin;
+	}
+
+	wTelemetry.wwindow_cache_misses++;
 
 	if (XFindContext(dpy, window, w_global.context.client_win, (XPointer *) & desc) == XCNOENT)
 		return NULL;
 
 	if (desc->parent_type == WCLASS_WINDOW)
-		return desc->parent;
+		result = (WWindow *)desc->parent;
 	else if (desc->parent_type == WCLASS_FRAME) {
 		WFrameWindow *frame = (WFrameWindow *) desc->parent;
 		if (frame->flags.is_client_window_frame)
-			return frame->child;
+			result = frame->child;
 	}
 
-	return NULL;
+	if (result) {
+		wwindow_cache[hash].window = window;
+		wwindow_cache[hash].wwin = result;
+	}
+
+	return result;
 }
 
 WWindow *wWindowCreate(void)
@@ -194,6 +232,8 @@ Bool wWindowIsManaged(WScreen *scr, WWindow *wwin)
 void wWindowDestroy(WWindow *wwin)
 {
 	int i;
+
+	wWindowCacheInvalidate(wwin);
 
 	if (wwin->screen_ptr->cmap_window == wwin)
 		wwin->screen_ptr->cmap_window = NULL;
@@ -749,7 +789,7 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 
 	/* mutex. */
 	XGrabServer(dpy);
-	XSync(dpy, False);
+	wTelemetry.xsync_eliminated++;
 
 	/* make sure the window is still there */
 	if (!XGetWindowAttributes(dpy, window, &wattribs)) {

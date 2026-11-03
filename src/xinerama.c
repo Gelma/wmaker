@@ -310,6 +310,9 @@ int wGetHeadForPoint(WScreen * scr, WMPoint point)
 {
 	int i;
 
+	if (scr->xine_info.count <= 1)
+		return scr->xine_info.primary_head;
+
 	for (i = 0; i < scr->xine_info.count; i++) {
 		WMRect *rect = &scr->xine_info.screens[i];
 
