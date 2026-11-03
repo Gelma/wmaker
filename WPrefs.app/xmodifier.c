@@ -84,7 +84,7 @@ Perpetrator: Sudish Joseph <sj@eng.mindspring.net>, Sept. 1997. */
  use a pop-up-window instead.)
  */
 
-static int MetaIndex, HyperIndex, SuperIndex, AltIndex, ModeIndex;
+static int MetaIndex, HyperIndex, SuperIndex, AltIndex;
 
 static const char *index_to_name(int indice)
 {
@@ -270,7 +270,7 @@ static void x_reset_modifier_mapping(Display * display)
 	HyperIndex = hyper_bit;
 	SuperIndex = super_bit;
 	AltIndex = alt_bit;
-	ModeIndex = mode_bit;
+	(void)mode_bit;
 
 	XFreeModifiermap(x_modifier_keymap);
 }

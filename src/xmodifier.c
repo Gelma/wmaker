@@ -84,7 +84,7 @@ Perpetrator: Sudish Joseph <sj@eng.mindspring.net>, Sept. 1997. */
  use a pop-up-window instead.)
  */
 
-static int MetaMask, HyperMask, SuperMask, AltMask, ModeMask;
+static int MetaMask, HyperMask, SuperMask, AltMask;
 
 static const char *index_to_name(int indice)
 {
@@ -270,7 +270,7 @@ static void x_reset_modifier_mapping(Display * display)
 	HyperMask = (hyper_bit ? (1 << hyper_bit) : 0);
 	SuperMask = (super_bit ? (1 << super_bit) : 0);
 	AltMask = (alt_bit ? (1 << alt_bit) : 0);
-	ModeMask = (mode_bit ? (1 << mode_bit) : 0);	/* unused */
+	(void)mode_bit;
 
 	XFreeModifiermap(x_modifier_keymap);
 

@@ -39,8 +39,6 @@ typedef struct W_Balloon {
 
 #define NO_DELAY_DELAY		150
 
-static void destroyBalloon(Balloon * bPtr);
-
 static void handleEvents(XEvent * event, void *data);
 
 static void showText(Balloon * bPtr, int x, int y, int w, int h, const char *text);

@@ -531,7 +531,7 @@ RImage *RRenderGradient(unsigned width, unsigned height, const RColor *from,
 
 RImage *RRenderMultiGradient(unsigned width, unsigned height, RColor **colors,
                              RGradientStyle style)
-	__wrlib_nonalias __wrlib_useresult __wrlib_nonnull(3);
+	__wrlib_nonalias __wrlib_useresult;
 
 
 RImage *RRenderInterwovenGradient(unsigned width, unsigned height,
