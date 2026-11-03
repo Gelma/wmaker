@@ -150,3 +150,9 @@ configure-documentation:
 		--ignore-prg 'with-x # no use, it would not work without X'
 
 .PHONY: configure-documentation
+
+stress:
+	$(MAKE) -C test wm_stress
+	./test/wm_stress
+
+.PHONY: stress

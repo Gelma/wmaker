@@ -47,6 +47,8 @@ README.i18n
 *.hack_nf.c
 src/wmaker
 test/wtest
+test/wm_fsm_test
+test/wm_stress
 
 util/convertfonts
 util/geticonset
