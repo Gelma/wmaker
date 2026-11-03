@@ -37,4 +37,6 @@ void wHackedGrabKey(int keycode, unsigned int modifiers,
 		    int keyboard_mode);
 #endif
 
+void wCleanupSignalPipe(void);
+
 #endif /* WMSTARTUP_H */

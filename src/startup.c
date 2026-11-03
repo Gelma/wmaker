@@ -26,6 +26,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #ifdef __FreeBSD__
 #include <sys/signal.h>
@@ -133,31 +134,62 @@ static int handleXIO(Display * xio_dpy)
 	return 0;
 }
 
+static int sig_pipe[2] = { -1, -1 };
+static WMHandlerID sig_handler_id = NULL;
+
+static void sig_pipe_input_proc(int fd, int mask, void *clientData)
+{
+	unsigned char sig;
+	(void)mask;
+	(void)clientData;
+
+	while (read(fd, &sig, 1) > 0) {
+		if (sig == SIGUSR1) {
+			wwarning("got signal %i - restarting", (int)sig);
+			WCHANGE_STATE(WSTATE_NEED_RESTART);
+		} else if (sig == SIGUSR2) {
+			WCHANGE_STATE(WSTATE_NEED_REREAD);
+		} else if (sig == SIGTERM || sig == SIGINT || sig == SIGHUP) {
+			wwarning("got signal %i - exiting...", (int)sig);
+			WCHANGE_STATE(WSTATE_NEED_EXIT);
+		}
+	}
+	DispatchEvent(NULL);
+}
+
+void wCleanupSignalPipe(void)
+{
+	if (sig_handler_id) {
+		WMDeleteInputHandler(sig_handler_id);
+		sig_handler_id = NULL;
+	}
+	if (sig_pipe[0] >= 0) {
+		close(sig_pipe[0]);
+		sig_pipe[0] = -1;
+	}
+	if (sig_pipe[1] >= 0) {
+		close(sig_pipe[1]);
+		sig_pipe[1] = -1;
+	}
+}
+
 /*
  *----------------------------------------------------------------------
  * handleExitSig--
  * 	User generated exit signal handler.
+ * 	Async-signal-safe: only writes the signal byte to the self-pipe.
  *----------------------------------------------------------------------
  */
 static RETSIGTYPE handleExitSig(int sig)
 {
-	sigset_t sigs;
+	int saved_errno = errno;
 
-	sigfillset(&sigs);
-	sigprocmask(SIG_BLOCK, &sigs, NULL);
-
-	if (sig == SIGUSR1) {
-		wwarning("got signal %i - restarting", sig);
-		SIG_WCHANGE_STATE(WSTATE_NEED_RESTART);
-	} else if (sig == SIGUSR2) {
-		SIG_WCHANGE_STATE(WSTATE_NEED_REREAD);
-	} else if (sig == SIGTERM || sig == SIGINT || sig == SIGHUP) {
-		wwarning("got signal %i - exiting...", sig);
-		SIG_WCHANGE_STATE(WSTATE_NEED_EXIT);
+	if (sig_pipe[1] >= 0) {
+		unsigned char b = (unsigned char)sig;
+		while (write(sig_pipe[1], &b, 1) < 0 && errno == EINTR)
+			;
 	}
-
-	sigprocmask(SIG_UNBLOCK, &sigs, NULL);
-	DispatchEvent(NULL);	/* Dispatch events immediately. */
+	errno = saved_errno;
 }
 
 /* Dummy signal handler */
@@ -526,6 +558,17 @@ void StartUp(Bool defaultScreenOnly)
 	 sigaction(SIGFPE, &sig_action, NULL);
 	 sigaction(SIGABRT, &sig_action, NULL);
 	 */
+
+	if (pipe(sig_pipe) == 0) {
+		fcntl(sig_pipe[0], F_SETFD, FD_CLOEXEC);
+		fcntl(sig_pipe[1], F_SETFD, FD_CLOEXEC);
+		fcntl(sig_pipe[0], F_SETFL, fcntl(sig_pipe[0], F_GETFL) | O_NONBLOCK);
+		fcntl(sig_pipe[1], F_SETFL, fcntl(sig_pipe[1], F_GETFL) | O_NONBLOCK);
+		sig_handler_id = WMAddInputHandler(sig_pipe[0], WIReadMask, sig_pipe_input_proc, NULL);
+	} else {
+		wfatal("could not create signal self-pipe");
+		Exit(1);
+	}
 
 	sig_action.sa_handler = handleExitSig;
 

@@ -38,6 +38,7 @@
 #include "wmspec.h"
 #include "colormap.h"
 #include "screen.h"
+#include "startup.h"
 #include "shutdown.h"
 
 
@@ -99,6 +100,7 @@ void Shutdown(WShutdownMode mode)
 				wScreenDestroy(scr);
 			}
 		}
+		wCleanupSignalPipe();
 		ExecExitScript();
 		Exit(0);
 		break;
@@ -126,6 +128,7 @@ void Shutdown(WShutdownMode mode)
 				wScreenDestroy(scr);
 			}
 		}
+		wCleanupSignalPipe();
 		break;
 	}
 }
