@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <inttypes.h>
+#include <locale.h>
 
 #include <WINGs/WUtil.h>
 
@@ -166,7 +167,11 @@ void wTelemetryDump(void)
 
 	get_process_memory(&vm_size_kb, &vm_rss_kb);
 
-	/* 1. Write JSON telemetry dump */
+	/* 1. Write JSON telemetry dump (enforcing standard C locale for JSON compliance) */
+	char *saved_locale = setlocale(LC_NUMERIC, NULL);
+	char *dup_locale = saved_locale ? wstrdup(saved_locale) : NULL;
+	setlocale(LC_NUMERIC, "C");
+
 	fjson = fopen(TELEMETRY_STATS_FILE, "w");
 	if (fjson) {
 		fprintf(fjson, "{\n");
@@ -202,6 +207,11 @@ void wTelemetryDump(void)
 		fprintf(fjson, "\n  }\n");
 		fprintf(fjson, "}\n");
 		fclose(fjson);
+	}
+
+	if (dup_locale) {
+		setlocale(LC_NUMERIC, dup_locale);
+		wfree(dup_locale);
 	}
 
 	/* 2. Write Human-Readable Log */
