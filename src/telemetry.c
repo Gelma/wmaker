@@ -211,11 +211,17 @@ void wTelemetryDump(void)
 				double max_ms = (double)wTelemetry.event_max_time_ns[i] / 1e6;
 				double total_ms = (double)wTelemetry.event_time_ns[i] / 1e6;
 
+				char ev_name_buf[64];
+				if (i <= 35)
+					snprintf(ev_name_buf, sizeof(ev_name_buf), "%s", get_event_name(i));
+				else
+					snprintf(ev_name_buf, sizeof(ev_name_buf), "ExtensionOrOther_%d", i);
+
 				if (!first)
 					fprintf(fjson, ",\n");
 				first = 0;
 				fprintf(fjson, "    \"%s\": {\"type\": %d, \"count\": %" PRIu64 ", \"total_ms\": %.2f, \"avg_ms\": %.4f, \"max_ms\": %.2f}",
-				        get_event_name(i), i, wTelemetry.event_counts[i], total_ms, avg_ms, max_ms);
+				        ev_name_buf, i, wTelemetry.event_counts[i], total_ms, avg_ms, max_ms);
 			}
 		}
 		fprintf(fjson, "\n  }\n");
@@ -262,8 +268,14 @@ void wTelemetryDump(void)
 				double max_ms = (double)wTelemetry.event_max_time_ns[i] / 1e6;
 				double total_ms = (double)wTelemetry.event_time_ns[i] / 1e6;
 
+				char ev_name_buf[64];
+				if (i <= 35)
+					snprintf(ev_name_buf, sizeof(ev_name_buf), "%s", get_event_name(i));
+				else
+					snprintf(ev_name_buf, sizeof(ev_name_buf), "ExtensionOrOther_%d", i);
+
 				fprintf(flog, "%-22s %10" PRIu64 " %14.2f %12.4f %12.2f\n",
-				        get_event_name(i), wTelemetry.event_counts[i], total_ms, avg_ms, max_ms);
+				        ev_name_buf, wTelemetry.event_counts[i], total_ms, avg_ms, max_ms);
 			}
 		}
 		fprintf(flog, "================================================================================\n");
