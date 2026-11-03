@@ -19,6 +19,7 @@
  */
 
 #include "wconfig.h"
+#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -151,6 +152,16 @@ int MonitorLoop(int argc, char **argv)
 			break;
 
 		child_argv[argc] = "--for-real-";
+
+		{
+			char exit_sentinel[64];
+
+			snprintf(exit_sentinel, sizeof(exit_sentinel), "/tmp/.wmaker-exit-%d", (int)pid);
+			if (access(exit_sentinel, F_OK) == 0) {
+				unlink(exit_sentinel);
+				break;
+			}
+		}
 
 		/* Check if the wmaker process exited due to a crash */
 		if (WIFSIGNALED(status) &&

@@ -19,9 +19,11 @@
 
 #include "wconfig.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -59,6 +61,15 @@ void Shutdown(WShutdownMode mode)
 	case WSLogoutMode:
 	case WSKillMode:
 	case WSExitMode:
+		{
+			char exit_sentinel[64];
+			int fd;
+
+			snprintf(exit_sentinel, sizeof(exit_sentinel), "/tmp/.wmaker-exit-%d", (int)getpid());
+			fd = open(exit_sentinel, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+			if (fd >= 0)
+				close(fd);
+		}
 		/* if there is no session manager, send SAVE_YOURSELF to
 		 * the clients */
 #ifdef HAVE_INOTIFY
