@@ -39,6 +39,18 @@
 93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
     - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
 
+94. **[`test/wm_stress.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/wm_stress.c), [`test/run_stress.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_stress.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
+    - Developed `wm_stress`, a standalone multithreaded X11 client tool configured by default to saturate all available CPU cores (8 threads on 8 cores).
+    - Emits aggressive concurrent window management operations on `:0` or custom displays:
+      - Rapid window creation, mapping, unmapping, and destruction.
+      - Dynamic property storms (`WM_NAME`, `_NET_WM_NAME`, UTF-8 strings).
+      - Continuous random geometry perturbance (`XMoveResizeWindow`).
+      - Client-side drawing of animated geometric shapes (rectangles, arcs, lines) with random colors.
+      - Transient / dialog modal relationships (`WM_TRANSIENT_FOR`).
+      - Rapid state transitions (`IconicState` / `NormalState`).
+    - Handled clean termination via `SIGINT`/`SIGTERM` with full X11 resource deallocation.
+    - Added Makefile target `make stress` and convenience launcher script `test/run_stress.sh`.
+
 ---
 
 ## Objectives and Completed Activities
@@ -437,6 +449,18 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 
 93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
     - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
+
+94. **[`test/wm_stress.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/wm_stress.c), [`test/run_stress.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_stress.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
+    - Developed `wm_stress`, a standalone multithreaded X11 client tool configured by default to saturate all available CPU cores (8 threads on 8 cores).
+    - Emits aggressive concurrent window management operations on `:0` or custom displays:
+      - Rapid window creation, mapping, unmapping, and destruction.
+      - Dynamic property storms (`WM_NAME`, `_NET_WM_NAME`, UTF-8 strings).
+      - Continuous random geometry perturbance (`XMoveResizeWindow`).
+      - Client-side drawing of animated geometric shapes (rectangles, arcs, lines) with random colors.
+      - Transient / dialog modal relationships (`WM_TRANSIENT_FOR`).
+      - Rapid state transitions (`IconicState` / `NormalState`).
+    - Handled clean termination via `SIGINT`/`SIGTERM` with full X11 resource deallocation.
+    - Added Makefile target `make stress` and convenience launcher script `test/run_stress.sh`.
 
 ---
 
