@@ -392,7 +392,9 @@ void wWindowSaveState(WWindow *wwin);
 void wWindowChangeWorkspace(WWindow *wwin, int workspace);
 void wWindowChangeWorkspaceRelative(WWindow *wwin, int amount);
 
+void wWindowInvalidateKeyGrabs(void);
 void wWindowSetKeyGrabs(WWindow *wwin);
+void wWindowSetKeyGrabsOnWindow(Window win);
 
 void wWindowResetMouseGrabs(WWindow *wwin);
 

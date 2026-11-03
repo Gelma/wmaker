@@ -1427,6 +1427,9 @@ void wKeyTreeRebuild(WScreen *scr)
 {
 	int i;
 
+	/* Invalidate precompiled key grab table */
+	wWindowInvalidateKeyGrabs();
+
 	/* Parameter not used */
 	(void)scr;
 
@@ -3470,6 +3473,8 @@ static int setKeyGrab(WScreen * scr, WDefaultEntry * entry, void *tdata, void *e
 		wKeyBindings[widx].chain_modifiers = NULL;
 		wKeyBindings[widx].chain_keycodes  = NULL;
 	}
+
+	wWindowInvalidateKeyGrabs();
 
 	wwin = scr->focused_window;
 

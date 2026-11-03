@@ -56,6 +56,7 @@
 #include "rootmenu.h"
 #include "startup.h"
 #include "switchmenu.h"
+#include "window.h"
 
 #include <WINGs/WUtil.h>
 
@@ -362,28 +363,27 @@ void wRootMenuInsertIntoTree(void)
 	}
 }
 
-void wRootMenuBindShortcuts(Window window)
+void wRootMenuForEachShortcut(void (*callback)(KeyCode keycode, unsigned int modifier, void *data), void *data)
 {
-	Shortcut *ptr;
-
-	ptr = shortcutList;
+	Shortcut *ptr = shortcutList;
 	while (ptr) {
-		if (ptr->modifier != AnyModifier) {
-			XGrabKey(dpy, ptr->keycode, ptr->modifier | LockMask,
-				 window, True, GrabModeAsync, GrabModeAsync);
-#ifdef NUMLOCK_HACK
-			wHackedGrabKey(ptr->keycode, ptr->modifier, window, True, GrabModeAsync, GrabModeAsync);
-#endif
+		if (ptr->keycode != 0) {
+			callback(ptr->keycode, ptr->modifier, data);
 		}
-		XGrabKey(dpy, ptr->keycode, ptr->modifier, window, True, GrabModeAsync, GrabModeAsync);
 		ptr = ptr->next;
 	}
+}
+
+void wRootMenuBindShortcuts(Window window)
+{
+	wWindowSetKeyGrabsOnWindow(window);
 }
 
 static void rebindKeygrabs(WScreen * scr)
 {
 	WWindow *wwin;
 
+	wWindowInvalidateKeyGrabs();
 	wwin = scr->focused_window;
 
 	while (wwin != NULL) {

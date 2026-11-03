@@ -1632,8 +1632,6 @@ WWindow *wManageInternalWindow(WScreen *scr, Window window, Window owner,
 
 	/*    if (wPreferences.auto_focus) */
 	wSetFocusTo(scr, wwin);
-	wWindowResetMouseGrabs(wwin);
-	wWindowSetKeyGrabs(wwin);
 
 	return wwin;
 }
@@ -2796,38 +2794,108 @@ static FocusMode getFocusMode(WWindow * wwin)
 	return mode;
 }
 
-void wWindowSetKeyGrabs(WWindow * wwin)
+typedef struct WCompiledKeyGrab {
+	KeyCode keycode;
+	unsigned int modifier;
+} WCompiledKeyGrab;
+
+static WCompiledKeyGrab *compiledKeyGrabs = NULL;
+static int compiledKeyGrabsCount = 0;
+static int compiledKeyGrabsCapacity = 0;
+static Bool keyGrabsDirty = True;
+
+static void addSingleKeyGrab(KeyCode keycode, unsigned int mod)
 {
 	int i;
-	WShortKey *key;
 
-	for (i = 0; i < WKBD_LAST; i++) {
-		key = &wKeyBindings[i];
-
-		if (key->keycode == 0)
-			continue;
-
-		/* WKBD_KEYCHAIN_CANCEL is only meaningful while inside an active key chain */
-		if (i == WKBD_KEYCHAIN_CANCEL)
-			continue;
-
-		if (key->modifier != AnyModifier) {
-			XGrabKey(dpy, key->keycode, key->modifier | LockMask,
-				 wwin->frame->core->window, True, GrabModeAsync, GrabModeAsync);
-#ifdef NUMLOCK_HACK
-			/* Also grab all modifier combinations possible that include,
-			 * LockMask, ScrollLockMask and NumLockMask, so that keygrabs
-			 * work even if the NumLock/ScrollLock key is on.
-			 */
-			wHackedGrabKey(key->keycode, key->modifier,
-				       wwin->frame->core->window, True, GrabModeAsync, GrabModeAsync);
-#endif
-		}
-		XGrabKey(dpy, key->keycode, key->modifier,
-			 wwin->frame->core->window, True, GrabModeAsync, GrabModeAsync);
+	for (i = 0; i < compiledKeyGrabsCount; i++) {
+		if (compiledKeyGrabs[i].keycode == keycode &&
+		    compiledKeyGrabs[i].modifier == mod)
+			return; /* Deduplicated */
 	}
 
-	wRootMenuBindShortcuts(wwin->frame->core->window);
+	if (compiledKeyGrabsCount >= compiledKeyGrabsCapacity) {
+		compiledKeyGrabsCapacity = (compiledKeyGrabsCapacity == 0) ? 64 : compiledKeyGrabsCapacity * 2;
+		compiledKeyGrabs = wrealloc(compiledKeyGrabs, compiledKeyGrabsCapacity * sizeof(WCompiledKeyGrab));
+	}
+
+	compiledKeyGrabs[compiledKeyGrabsCount].keycode = keycode;
+	compiledKeyGrabs[compiledKeyGrabsCount].modifier = mod;
+	compiledKeyGrabsCount++;
+}
+
+static void addKeyWithCombinations(KeyCode keycode, unsigned int modifier, void *unused)
+{
+	(void)unused;
+
+	if (keycode == 0)
+		return;
+
+	addSingleKeyGrab(keycode, modifier);
+
+	if (modifier == AnyModifier)
+		return;
+
+	addSingleKeyGrab(keycode, modifier | LockMask);
+
+#ifdef NUMLOCK_HACK
+	if (_NumLockMask)
+		addSingleKeyGrab(keycode, modifier | _NumLockMask);
+	if (_ScrollLockMask)
+		addSingleKeyGrab(keycode, modifier | _ScrollLockMask);
+	if (_NumLockMask && _ScrollLockMask)
+		addSingleKeyGrab(keycode, modifier | _NumLockMask | _ScrollLockMask);
+
+	if (_NumLockMask)
+		addSingleKeyGrab(keycode, modifier | _NumLockMask | LockMask);
+	if (_ScrollLockMask)
+		addSingleKeyGrab(keycode, modifier | _ScrollLockMask | LockMask);
+	if (_NumLockMask && _ScrollLockMask)
+		addSingleKeyGrab(keycode, modifier | _NumLockMask | _ScrollLockMask | LockMask);
+#endif
+}
+
+void wWindowInvalidateKeyGrabs(void)
+{
+	keyGrabsDirty = True;
+}
+
+static void recompileKeyGrabs(void)
+{
+	int i;
+
+	compiledKeyGrabsCount = 0;
+
+	for (i = 0; i < WKBD_LAST; i++) {
+		WShortKey *key = &wKeyBindings[i];
+
+		if (key->keycode == 0 || i == WKBD_KEYCHAIN_CANCEL)
+			continue;
+
+		addKeyWithCombinations(key->keycode, key->modifier, NULL);
+	}
+
+	wRootMenuForEachShortcut(addKeyWithCombinations, NULL);
+
+	keyGrabsDirty = False;
+}
+
+void wWindowSetKeyGrabsOnWindow(Window win)
+{
+	int i;
+
+	if (keyGrabsDirty || compiledKeyGrabs == NULL)
+		recompileKeyGrabs();
+
+	for (i = 0; i < compiledKeyGrabsCount; i++) {
+		XGrabKey(dpy, compiledKeyGrabs[i].keycode, compiledKeyGrabs[i].modifier,
+			 win, True, GrabModeAsync, GrabModeAsync);
+	}
+}
+
+void wWindowSetKeyGrabs(WWindow * wwin)
+{
+	wWindowSetKeyGrabsOnWindow(wwin->frame->core->window);
 }
 
 void wWindowResetMouseGrabs(WWindow * wwin)

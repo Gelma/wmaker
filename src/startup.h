@@ -21,6 +21,9 @@
 #ifndef WMSTARTUP_H
 #define WMSTARTUP_H
 
+extern unsigned int _NumLockMask;
+extern unsigned int _ScrollLockMask;
+
 void StartUp(Bool defaultScreenOnly);
 
 void wHackedGrabButton(unsigned int button, unsigned int modifiers,

@@ -83,8 +83,8 @@
 
 /***** Local *****/
 static WScreen **wScreen = NULL;
-static unsigned int _NumLockMask = 0;
-static unsigned int _ScrollLockMask = 0;
+unsigned int _NumLockMask = 0;
+unsigned int _ScrollLockMask = 0;
 static void manageAllWindows(WScreen * scr, int crashed);
 
 static int catchXError(Display * dpy, XErrorEvent * error)
