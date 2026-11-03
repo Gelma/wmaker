@@ -36,6 +36,9 @@
     - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
     - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
 
+93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
+    - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
+
 ---
 
 ## Objectives and Completed Activities
@@ -431,6 +434,9 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 92. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/screen.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.h), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
     - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
     - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
+
+93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
+    - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
 
 ---
 
