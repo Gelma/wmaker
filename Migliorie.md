@@ -200,21 +200,6 @@ lost, even though the object carries `"type": N`.
 
 Fix: use a unique key, e.g. `"ExtensionOrOther_%d"`, or emit an array of objects.
 
-### 8. Predictable `/tmp` paths (M, security)
-
-* `src/telemetry.c:111` `mkdir(get_telemetry_dir(), 0755)` and `:189`/`:232`
-  `fopen(..., "w")` on `/tmp/wmaker_runtime_logs/runtime_stats.json|log`. In a multi-user machine
-  the directory is predictable and world-readable; a local attacker can pre-create it as a symlink
-  and cause truncation of any file the WM user can write (`runtime_stats.json` is opened with `"w"`).
-* `src/shutdown.c:66-72` creates `/tmp/.wmaker-exit-<pid>` with
-  `open(..., O_WRONLY|O_CREAT|O_TRUNC, 0600)` — no `O_EXCL`, no `O_NOFOLLOW`, so the same
-  symlink attack applies (CWE-377/CWE-379). The file is also **never removed** when wmaker runs
-  without the monitor wrapper, leaving one stale file per session and arming pid-reuse false
-  positives.
-
-Fix: prefer `$XDG_RUNTIME_DIR` (or a `0700` directory with `O_NOFOLLOW|O_EXCL` and `fchmod`),
-and `unlink()` the exit sentinel on the way out if the process that consumes it never did.
-
 ### 9. `PR_SET_MEMORY_MERGE` is on by default, twice (M)
 
 `src/main.c:646` and `WINGs/wapplication.c:32` both call
