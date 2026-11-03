@@ -1621,9 +1621,26 @@ void wScreenDestroy(WScreen *scr)
 	}
 
 	while (scr->wapp_list) {
-		scr->wapp_list->refcount = 1;
-		scr->wapp_list->flags.bouncing = 0;
-		wApplicationDestroy(scr->wapp_list);
+		WApplication *wapp = scr->wapp_list;
+		scr->wapp_list = wapp->next;
+		if (wapp->urgent_bounce_timer) {
+			WMDeleteTimerHandler(wapp->urgent_bounce_timer);
+			wapp->urgent_bounce_timer = NULL;
+		}
+		if (wapp->main_window != None)
+			XDeleteContext(dpy, wapp->main_window, w_global.context.app_win);
+		if (wapp->main_window_desc) {
+			if (wapp->main_window_desc->wm_hints)
+				XFree(wapp->main_window_desc->wm_hints);
+			if (wapp->main_window_desc->wm_instance)
+				XFree(wapp->main_window_desc->wm_instance);
+			if (wapp->main_window_desc->wm_class)
+				XFree(wapp->main_window_desc->wm_class);
+			if (wapp->main_window_desc->net_icon_image)
+				RReleaseImage(wapp->main_window_desc->net_icon_image);
+			wfree(wapp->main_window_desc);
+		}
+		wfree(wapp);
 	}
 
 	if (scr->gview) {

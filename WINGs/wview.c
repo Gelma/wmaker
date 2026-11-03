@@ -367,14 +367,10 @@ static void destroyView(W_View * view)
 	/* destroy children recursively */
 	while (view->childrenList != NULL) {
 		ptr = view->childrenList;
+		view->childrenList = ptr->nextSister;
+		ptr->parent = NULL;
 		ptr->flags.parentDying = 1;
-
 		W_DestroyView(ptr);
-
-		if (ptr == view->childrenList) {
-			view->childrenList = ptr->nextSister;
-			ptr->parent = NULL;
-		}
 	}
 
 	W_CallDestroyHandlers(view);

@@ -205,7 +205,6 @@ static int initWVisualID(const char *user_str)
 noreturn void Exit(int status)
 {
 	WMReleaseApplication();
-	W_FontShutdown();
 
 	if (dpy)
 		XCloseDisplay(dpy);
