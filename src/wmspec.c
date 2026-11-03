@@ -133,6 +133,10 @@ static Atom net_frame_extents;
 /* Window Manager Protocols */
 static Atom net_wm_ping;	/* TODO */
 
+#define net_wm_sync_request          (w_global.atom.net.wm_sync_request)
+#define net_wm_sync_request_counter  (w_global.atom.net.wm_sync_request_counter)
+#define net_wm_bypass_compositor     (w_global.atom.net.wm_bypass_compositor)
+
 static Atom utf8_string;
 
 typedef struct {
@@ -218,6 +222,9 @@ static atomitem_t atomNames[] = {
 	{"_NET_FRAME_EXTENTS", &net_frame_extents},
 
 	{"_NET_WM_PING", &net_wm_ping},
+	{"_NET_WM_SYNC_REQUEST", &net_wm_sync_request},
+	{"_NET_WM_SYNC_REQUEST_COUNTER", &net_wm_sync_request_counter},
+	{"_NET_WM_BYPASS_COMPOSITOR", &net_wm_bypass_compositor},
 
 	{"UTF8_STRING", &utf8_string},
 };
@@ -321,6 +328,10 @@ static void setSupportedHints(WScreen *scr)
 
 	atom[i++] = net_wm_name;
 	atom[i++] = net_wm_icon_name;
+
+	atom[i++] = net_wm_sync_request;
+	atom[i++] = net_wm_sync_request_counter;
+	atom[i++] = net_wm_bypass_compositor;
 
 	XChangeProperty(dpy, scr->root_win, net_supported, XA_ATOM, 32, PropModeReplace, (unsigned char *)atom, i);
 
@@ -1633,6 +1644,140 @@ static Bool updateNetIconInfo(WWindow *wwin)
 	return hasState;
 }
 
+void wNETWMUpdateBypassCompositor(WWindow *wwin)
+{
+	Atom type_ret;
+	int fmt_ret;
+	unsigned long nitems_ret, bytes_after_ret;
+	unsigned long *data = NULL;
+
+	if (XGetWindowProperty(dpy, wwin->client_win, net_wm_bypass_compositor, 0, 1, False,
+			       XA_CARDINAL, &type_ret, &fmt_ret, &nitems_ret,
+			       &bytes_after_ret, (unsigned char **)&data) == Success && data) {
+		if (nitems_ret >= 1 && fmt_ret == 32) {
+			wwin->bypass_compositor = (unsigned int)(data[0] & 3);
+		}
+		XFree(data);
+	} else {
+		wwin->bypass_compositor = 0;
+	}
+}
+
+#ifdef USE_XSYNC
+static void syncTimeoutCallback(void *data)
+{
+	WWindow *wwin = (WWindow *)data;
+
+	if (wwin) {
+		wwin->sync_request.timeout_timer = NULL;
+		wwin->sync_request.is_waiting = 0;
+	}
+}
+
+void wNETWMUpdateSyncCounter(WWindow *wwin)
+{
+	Atom type_ret;
+	int fmt_ret;
+	unsigned long nitems_ret, bytes_after_ret;
+	unsigned long *data = NULL;
+
+	if (!w_global.xext.sync.supported || !wwin->protocols.NET_WM_SYNC_REQUEST)
+		return;
+
+	if (XGetWindowProperty(dpy, wwin->client_win, net_wm_sync_request_counter, 0, 2, False,
+			       XA_CARDINAL, &type_ret, &fmt_ret, &nitems_ret,
+			       &bytes_after_ret, (unsigned char **)&data) == Success && data) {
+		if (nitems_ret >= 1 && fmt_ret == 32) {
+			XSyncCounter new_counter = (XSyncCounter)data[0];
+
+			if (wwin->sync_request.counter != new_counter) {
+				if (wwin->sync_request.alarm) {
+					XDeleteContext(dpy, (XID)wwin->sync_request.alarm, w_global.context.sync_alarm);
+					XSyncDestroyAlarm(dpy, wwin->sync_request.alarm);
+					wwin->sync_request.alarm = None;
+				}
+				wwin->sync_request.counter = new_counter;
+				XSyncIntToValue(&wwin->sync_request.wait_value, 0);
+
+				if (new_counter != None) {
+					XSyncAlarmAttributes values;
+					values.trigger.counter = wwin->sync_request.counter;
+					values.trigger.value_type = XSyncAbsolute;
+					values.trigger.test_type = XSyncPositiveComparison;
+					values.trigger.wait_value = wwin->sync_request.wait_value;
+					XSyncIntToValue(&values.delta, 0);
+					values.events = True;
+
+					wwin->sync_request.alarm = XSyncCreateAlarm(dpy,
+						XSyncCACounter | XSyncCAValueType | XSyncCAValue |
+						XSyncCATestType | XSyncCADelta | XSyncCAEvents,
+						&values);
+					if (wwin->sync_request.alarm) {
+						XSaveContext(dpy, (XID)wwin->sync_request.alarm,
+							     w_global.context.sync_alarm, (XPointer)wwin);
+					}
+				}
+			}
+		}
+		XFree(data);
+	}
+}
+
+void wNETWMSendSyncRequest(WWindow *wwin)
+{
+	XClientMessageEvent ev;
+	XSyncValue add_val, next_val;
+	Bool overflow;
+
+	if (!w_global.xext.sync.supported || !wwin->protocols.NET_WM_SYNC_REQUEST ||
+	    !wwin->sync_request.counter || !wwin->sync_request.alarm)
+		return;
+
+	XSyncIntToValue(&add_val, 1);
+	XSyncValueAdd(&next_val, wwin->sync_request.wait_value, add_val, &overflow);
+	wwin->sync_request.wait_value = next_val;
+
+	XSyncAlarmAttributes values;
+	values.trigger.wait_value = wwin->sync_request.wait_value;
+	values.trigger.value_type = XSyncAbsolute;
+	values.trigger.test_type = XSyncPositiveComparison;
+	XSyncChangeAlarm(dpy, wwin->sync_request.alarm,
+			 XSyncCAValue | XSyncCAValueType | XSyncCATestType, &values);
+
+	memset(&ev, 0, sizeof(ev));
+	ev.type = ClientMessage;
+	ev.window = wwin->client_win;
+	ev.message_type = w_global.atom.wm.protocols;
+	ev.format = 32;
+	ev.data.l[0] = net_wm_sync_request;
+	ev.data.l[1] = w_global.timestamp.last_event;
+	ev.data.l[2] = XSyncValueLow32(wwin->sync_request.wait_value);
+	ev.data.l[3] = XSyncValueHigh32(wwin->sync_request.wait_value);
+	ev.data.l[4] = 0;
+
+	XSendEvent(dpy, wwin->client_win, False, 0, (XEvent *)&ev);
+
+	if (wwin->sync_request.timeout_timer)
+		WMDeleteTimerHandler(wwin->sync_request.timeout_timer);
+	wwin->sync_request.timeout_timer = WMAddTimerHandler(250, syncTimeoutCallback, wwin);
+	wwin->sync_request.is_waiting = 1;
+}
+
+void wNETWMHandleSyncAlarmNotify(XEvent *event)
+{
+	XSyncAlarmNotifyEvent *alarm_event = (XSyncAlarmNotifyEvent *)event;
+	WWindow *wwin = NULL;
+
+	if (XFindContext(dpy, (XID)alarm_event->alarm, w_global.context.sync_alarm, (XPointer *)&wwin) == 0 && wwin) {
+		if (wwin->sync_request.timeout_timer) {
+			WMDeleteTimerHandler(wwin->sync_request.timeout_timer);
+			wwin->sync_request.timeout_timer = NULL;
+		}
+		wwin->sync_request.is_waiting = 0;
+	}
+}
+#endif
+
 void wNETWMCheckInitialClientState(WWindow *wwin)
 {
 #ifdef DEBUG_WMSPEC
@@ -1644,6 +1789,10 @@ void wNETWMCheckInitialClientState(WWindow *wwin)
 	updateWindowType(wwin);
 	updateNetIconInfo(wwin);
 	updateIconImage(wwin);
+	wNETWMUpdateBypassCompositor(wwin);
+#ifdef USE_XSYNC
+	wNETWMUpdateSyncCounter(wwin);
+#endif
 }
 
 void wNETWMCheckInitialFrameState(WWindow *wwin)
@@ -1937,6 +2086,12 @@ void wNETWMCheckClientHintChange(WWindow *wwin, XPropertyEvent *event)
 		updateIconImage(wwin);
 	} else if (event->atom == net_wm_window_opacity) {
 		updateWindowOpacity(wwin);
+	} else if (event->atom == net_wm_bypass_compositor) {
+		wNETWMUpdateBypassCompositor(wwin);
+#ifdef USE_XSYNC
+	} else if (event->atom == net_wm_sync_request_counter) {
+		wNETWMUpdateSyncCounter(wwin);
+#endif
 	}
 }
 

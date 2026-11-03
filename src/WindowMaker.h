@@ -597,6 +597,13 @@ extern struct wmaker_global_variables {
 			Atom gtk_object_path;
 		} desktop;
 
+		/* NetWM / EWMH related */
+		struct {
+			Atom wm_sync_request;
+			Atom wm_sync_request_counter;
+			Atom wm_bypass_compositor;
+		} net;
+
 		/* WindowMaker specific */
 		struct {
 			Atom menu;
@@ -619,6 +626,9 @@ extern struct wmaker_global_variables {
 		XContext client_win;
 		XContext app_win;
 		XContext stack;
+#ifdef USE_XSYNC
+		XContext sync_alarm;
+#endif
 	} context;
 
 	/* X Extensions */
@@ -640,6 +650,14 @@ extern struct wmaker_global_variables {
 			Bool supported;
 			int event_base;
 		} randr;
+#endif
+
+#ifdef USE_XSYNC
+		struct {
+			Bool supported;
+			int event_base;
+			int error_base;
+		} sync;
 #endif
 
 		/*

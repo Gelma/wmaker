@@ -65,5 +65,11 @@ char *wNETWMGetIconName(Window window);
 char *wNETWMGetWindowName(Window window);
 void wNETFrameExtents(WWindow *wwin);
 void wNETCleanupFrameExtents(WWindow *wwin);
+void wNETWMUpdateBypassCompositor(WWindow *wwin);
+#ifdef USE_XSYNC
+void wNETWMUpdateSyncCounter(WWindow *wwin);
+void wNETWMSendSyncRequest(WWindow *wwin);
+void wNETWMHandleSyncAlarmNotify(XEvent *event);
+#endif
 RImage *get_window_image_from_x11(Window window);
 #endif

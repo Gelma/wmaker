@@ -305,6 +305,20 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Fontconfig / Display Exit Sequence (`src/main.c`)**: In `Exit()`, removed premature `W_FontShutdown()` (`FcFini()`) call before `XCloseDisplay(dpy)`. Calling `FcFini()` destroyed internal Fontconfig pattern caches while Xft and Xlib display connections were still open, causing invalid memory accesses when `XCloseDisplay()` flushed display font resources.
     - **Monitor Defense (`src/shutdown.c` & `src/monitor.c`)**: In `Shutdown()` (`WSExitMode`, `WSLogoutMode`, `WSKillMode`), created an intentional exit sentinel file (`/tmp/.wmaker-exit-<pid>`). In `MonitorLoop()`, if the sentinel file is present upon child process termination, it removes the sentinel and breaks out of the loop cleanly (exiting with code 0) rather than restarting the window manager.
 
+79. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) & [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c) - Extended EWMH Sync Protocol & Bypass Compositor**:
+    - **EWMH Sync Request Protocol (`_NET_WM_SYNC_REQUEST`, `_NET_WM_SYNC_REQUEST_COUNTER`)**:
+      - Integrated X11 Synchronization Extension (XSync) support via `libXext` for flicker-free, tear-free window resizing with modern GUI toolkits (GTK3/4, Qt5/6, Chromium, Electron, mpv).
+      - Detects `XSync` support dynamically at startup via `XSyncQueryExtension()` and `XSyncInitialize()` in `src/startup.c`.
+      - Advertises `_NET_WM_SYNC_REQUEST`, `_NET_WM_SYNC_REQUEST_COUNTER`, and `_NET_WM_BYPASS_COMPOSITOR` in `_NET_SUPPORTED` on the root window in `src/wmspec.c`.
+      - Detects client `_NET_WM_SYNC_REQUEST` capability in `PropGetProtocols()` and inspects `_NET_WM_SYNC_REQUEST_COUNTER` (supporting both 1-counter and 2-counter clients) during initial mapping (`wNETWMCheckInitialClientState`) and on runtime `PropertyNotify` in `src/client.c` and `src/wmspec.c`.
+      - Creates an `XSyncAlarm` with `XSyncPositiveComparison` registered in an `XUniqueContext()` mapping for $O(1)$ event dispatch.
+      - During window resizing (`wWindowConfigure`), increments the 64-bit monotonically increasing sync counter, updates the `XSyncAlarm` wait threshold, sends the `_NET_WM_SYNC_REQUEST` ClientMessage to the client, and arms a 250ms fallback timeout timer.
+      - Dispatches `XSyncAlarmNotify` events in `src/event.c:handleExtensions()`, disarming the safety timer and resetting the waiting state immediately when the application completes rendering.
+      - Fully cleans up alarms, XContext associations, and timeout timers upon window destruction in `wWindowDestroy()`.
+    - **Compositor Bypass Hint (`_NET_WM_BYPASS_COMPOSITOR`)**:
+      - Implemented reading and tracking of `_NET_WM_BYPASS_COMPOSITOR` (values: 0 = no preference, 1 = bypass compositor for direct scanout/unredirection, 2 = do not bypass) in `WWindow.bypass_compositor`.
+      - Handles dynamic updates via `PropertyNotify` in `wNETWMCheckClientHintChange()`.
+
 ---
 
 ## Verification Status
@@ -314,5 +328,6 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 - High-impact performance optimizations implemented, verified, and benchmarked.
 - KSM deduplication, Transparent Huge Pages, and Direct Huge Pages implemented and verified.
 - Session Exit crash and respawn loop resolved in `screen.c`, `main.c`, `wview.c`, `shutdown.c`, and `monitor.c`.
+- Extended EWMH Sync protocol (`_NET_WM_SYNC_REQUEST`) and Compositor Bypass hint (`_NET_WM_BYPASS_COMPOSITOR`) fully implemented, tested, and verified.
 - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
 - Active user session preserved without interruption or restart.

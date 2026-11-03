@@ -618,6 +618,12 @@ static void handleExtensions(XEvent * event)
 			wRandRHandleNotify(randr_scr, event);
 	}
 #endif
+#ifdef USE_XSYNC
+	if (w_global.xext.sync.supported &&
+	    (event->type == (w_global.xext.sync.event_base + XSyncAlarmNotify))) {
+		wNETWMHandleSyncAlarmNotify(event);
+	}
+#endif
 }
 
 static void handleMapRequest(XEvent * ev)

@@ -572,6 +572,10 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 			if (wwin->frame)
 				wWindowUpdateButtonImages(wwin);
 
+#ifdef USE_XSYNC
+			wNETWMUpdateSyncCounter(wwin);
+#endif
+
 		} else if (event->atom == w_global.atom.wm.colormap_windows) {
 
 			GetColormapWindows(wwin);

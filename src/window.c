@@ -258,6 +258,17 @@ void wWindowDestroy(WWindow *wwin)
 	}
 
 	XDeleteContext(dpy, wwin->client_win, w_global.context.client_win);
+#ifdef USE_XSYNC
+	if (wwin->sync_request.timeout_timer) {
+		WMDeleteTimerHandler(wwin->sync_request.timeout_timer);
+		wwin->sync_request.timeout_timer = NULL;
+	}
+	if (wwin->sync_request.alarm) {
+		XDeleteContext(dpy, (XID)wwin->sync_request.alarm, w_global.context.sync_alarm);
+		XSyncDestroyAlarm(dpy, wwin->sync_request.alarm);
+		wwin->sync_request.alarm = None;
+	}
+#endif
 
 	if (wwin->frame)
 		wFrameWindowDestroy(wwin->frame);
@@ -2286,6 +2297,11 @@ void wWindowConfigure(WWindow *wwin, int req_x, int req_y, int req_width, int re
 			req_width = MIN_WINDOW_SIZE;
 		if (req_height < MIN_WINDOW_SIZE)
 			req_height = MIN_WINDOW_SIZE;
+
+#ifdef USE_XSYNC
+		if (wwin->protocols.NET_WM_SYNC_REQUEST && wwin->sync_request.counter)
+			wNETWMSendSyncRequest(wwin);
+#endif
 
 		/* If growing, resize inner part before frame,
 		 * if shrinking, resize frame before.

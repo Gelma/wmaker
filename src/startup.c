@@ -435,6 +435,9 @@ void StartUp(Bool defaultScreenOnly)
 	w_global.context.client_win = XUniqueContext();
 	w_global.context.app_win = XUniqueContext();
 	w_global.context.stack = XUniqueContext();
+#ifdef USE_XSYNC
+	w_global.context.sync_alarm = XUniqueContext();
+#endif
 
 	/*    _XA_VERSION = XInternAtom(dpy, "VERSION", False); */
 
@@ -630,6 +633,18 @@ void StartUp(Bool defaultScreenOnly)
 #else
 	if (!w_global.xext.xkb.supported)
 		wwarning(_("XKB is not supported."));
+#endif
+
+#ifdef USE_XSYNC
+	{
+		int sync_major = 0, sync_minor = 0;
+		if (XSyncQueryExtension(dpy, &w_global.xext.sync.event_base, &w_global.xext.sync.error_base) &&
+		    XSyncInitialize(dpy, &sync_major, &sync_minor)) {
+			w_global.xext.sync.supported = 1;
+		} else {
+			w_global.xext.sync.supported = 0;
+		}
+	}
 #endif
 
 	if (defaultScreenOnly)
