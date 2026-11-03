@@ -275,13 +275,26 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **`WINGs/array.c` Dynamic Array Growth (`0871f1b8`)**: Replaced the fixed `RESIZE_INCREMENT 8` policy in `WMAddToArray()`, `WMInsertInArray()`, and `WMAppendArray()` with geometric 1.5x capacity growth, reducing memory reallocations from $O(N)$ to $O(\log N)$ and giving amortized $O(1)$ push time.
     - **`WINGs/hashtable.c` & `WINGs/proplist.c` Hashing (`2468be80`)**: Replaced weak 8-bit rotating shift hashing with 32-bit FNV-1a hashing for strings and property list keys, utilizing full 32-bit entropy and eliminating hash collisions. Replaced pointer division with Knuth's golden ratio multiplicative hashing in `hashPtr()`.
     - **`src/event.c`, `src/WindowMaker.h`, `src/main.c`, `src/shutdown.c` Event Loop Syscall Elimination (`4e711d6c`)**: Registered the `inotify` queue file descriptor with WINGs input handlers via `WMAddInputHandler(..., WIReadMask, ...)`. Completely eliminated the redundant zero-timeout `select()` system call executed on every single X event in `EventLoop()`, eliminating thousands of unnecessary system calls per second during mouse motion and window interaction.
-276: 
-277: ---
-278: 
-279: ## Verification Status
-280: - Build scripts and `make` commands executed successfully (exit code 0).
-281: - Static analysis audit with `flawfinder` and `scan-build-23` (Clang 23) executed with 0 remaining defects.
-282: - Live session log analysis performed and identified memory leaks/uninitialized memory resolved.
-283: - High-impact performance optimizations implemented, verified, and benchmarked.
-284: - All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
-285: - Active user session preserved without interruption or restart.
+77. **[`8465210e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c#L44-L125) - Kernel Memory Advising: KSM Deduplication, Transparent Huge Pages, and Direct Huge Pages**:
+    - **Kernel Samepage Merging (KSM / UKSM)**:
+      - Activated process-wide KSM deduplication on Linux 6.4+ via `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` in `src/main.c` (Window Maker core) and `WINGs/wapplication.c` (WINGs apps/tools).
+      - Applied `madvise(addr, size, MADV_MERGEABLE)` on all page-aligned allocations (`posix_memalign` and `mmap`) in `wrlib/raster.c`, `wrlib/xutil.c`, and `WINGs/memory.c`. Identical background patterns, desktop wallpapers, menu gradients, and theme textures are deduplicated into single Copy-On-Write pages by the kernel.
+    - **Transparent Huge Pages (THP)**:
+      - For large allocations ($ \ge 2\text{ MB} $, e.g. 1080p and 4K wallpapers and large textures), applied `madvise(addr, size, MADV_HUGEPAGE)` in `RCreateImage`, `RCreateXImage`, `wmalloc`, and `wrealloc`.
+      - Allows the Linux kernel (which operates with THP in `madvise` mode) to collapse 512 4KB pages into a single 2MB huge page, drastically cutting CPU TLB cache misses and accelerating graphics rendering.
+    - **Direct Huge Pages (`MAP_HUGETLB`)**:
+      - In `RCreateImage()`, allocations $ \ge 2\text{ MB} $ attempt direct allocation from the kernel's HugeTLB pool via `mmap(..., MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)`.
+      - If static hugepages are reserved by the system, direct huge pages are utilized immediately.
+      - If direct huge pages are unavailable (`MAP_HUGETLB` returns `MAP_FAILED`), gracefully falls back to anonymous `mmap` with `MADV_HUGEPAGE` (THP) and `MADV_MERGEABLE` (KSM).
+      - Tracks allocation metadata in `RImage` (`allocSize`, `is_mmap`) to ensure clean deallocation with `munmap()` or `free()`.
+
+---
+
+## Verification Status
+- Build scripts and `make` commands executed successfully (exit code 0).
+- Static analysis audit with `flawfinder` and `scan-build-23` (Clang 23) executed with 0 remaining defects.
+- Live session log analysis performed and identified memory leaks/uninitialized memory resolved.
+- High-impact performance optimizations implemented, verified, and benchmarked.
+- KSM deduplication, Transparent Huge Pages, and Direct Huge Pages implemented and verified.
+- All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
+- Active user session preserved without interruption or restart.
