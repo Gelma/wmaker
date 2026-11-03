@@ -77,6 +77,16 @@
 #define STIPPLE_HEIGHT 2
 static char STIPPLE_DATA[] = { 0x02, 0x01 };
 
+void wScreenUpdateRootEventMask(WScreen *scr)
+{
+	long event_mask = EVENT_MASK;
+
+	if (!(wPreferences.scrollable_menus || wPreferences.hot_corners))
+		event_mask &= ~PointerMotionMask;
+
+	XSelectInput(dpy, scr->root_win, event_mask);
+}
+
 static int CantManageScreen = 0;
 
 static WMPropList *dApplications = NULL;
@@ -614,7 +624,6 @@ WScreen *wScreenInit(int screen_number)
 	WScreen *scr;
 	XIconSize icon_size[1];
 	RContextAttributes rattr = {};
-	long event_mask;
 	XErrorHandler oldHandler;
 	int i;
 
@@ -660,8 +669,7 @@ WScreen *wScreenInit(int screen_number)
 		return NULL;
 	}
 
-	event_mask = EVENT_MASK;
-	XSelectInput(dpy, scr->root_win, event_mask);
+	wScreenUpdateRootEventMask(scr);
 
 #ifdef KEEP_XKB_LOCK_STATUS
 	if (w_global.xext.xkb.supported)

@@ -1591,10 +1591,8 @@ void wNETWMCheckClientHints(WWindow *wwin, int *layer, int *workspace)
 	}
 
 	wNETWMUpdateActions(wwin, False);
-	updateStrut(wwin->screen_ptr, wwin->client_win, False);
-	updateStrut(wwin->screen_ptr, wwin->client_win, True);
-
-	wScreenUpdateUsableArea(wwin->screen_ptr);
+	if (updateStrut(wwin->screen_ptr, wwin->client_win, True))
+		wScreenUpdateUsableArea(wwin->screen_ptr);
 }
 
 static Bool updateNetIconInfo(WWindow *wwin)
@@ -2075,9 +2073,10 @@ void wNETWMCheckClientHintChange(WWindow *wwin, XPropertyEvent *event)
 #endif
 
 	if (event->atom == net_wm_strut || event->atom == net_wm_strut_partial) {
-		updateStrut(wwin->screen_ptr, wwin->client_win, False);
-		updateStrut(wwin->screen_ptr, wwin->client_win, True);
-		wScreenUpdateUsableArea(wwin->screen_ptr);
+		Bool s_del = updateStrut(wwin->screen_ptr, wwin->client_win, False);
+		Bool s_add = updateStrut(wwin->screen_ptr, wwin->client_win, True);
+		if (s_del || s_add)
+			wScreenUpdateUsableArea(wwin->screen_ptr);
 	} else if (event->atom == net_wm_handled_icons || event->atom == net_wm_icon_geometry) {
 		updateNetIconInfo(wwin);
 	} else if (event->atom == net_wm_window_type) {
@@ -2171,9 +2170,10 @@ static void observer(void *self, WMNotification *notif)
 		updateClientListStacking(wwin->screen_ptr, NULL);
 		updateStateHint(wwin, True, False);
 
-		updateStrut(wwin->screen_ptr, wwin->client_win, False);
-		updateStrut(wwin->screen_ptr, wwin->client_win, True);
-		wScreenUpdateUsableArea(wwin->screen_ptr);
+		Bool s_del = updateStrut(wwin->screen_ptr, wwin->client_win, False);
+		Bool s_add = updateStrut(wwin->screen_ptr, wwin->client_win, True);
+		if (s_del || s_add)
+			wScreenUpdateUsableArea(wwin->screen_ptr);
 	} else if (strcmp(name, WMNUnmanaged) == 0 && wwin) {
 		if (ndata && ndata->show_desktop) {
 			WWindow **src, **dst;
@@ -2190,8 +2190,8 @@ static void observer(void *self, WMNotification *notif)
 		updateStateHint(wwin, False, True);
 		wNETWMUpdateActions(wwin, True);
 
-		updateStrut(wwin->screen_ptr, wwin->client_win, False);
-		wScreenUpdateUsableArea(wwin->screen_ptr);
+		if (updateStrut(wwin->screen_ptr, wwin->client_win, False))
+			wScreenUpdateUsableArea(wwin->screen_ptr);
 	} else if (strcmp(name, WMNResetStacking) == 0 && wwin) {
 		updateClientListStacking(wwin->screen_ptr, NULL);
 		updateStateHint(wwin, False, False);

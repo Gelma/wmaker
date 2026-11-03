@@ -1344,6 +1344,8 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 				scr->clip_submenu->flags.realized = 0;
 		}
 	}
+
+	wScreenUpdateRootEventMask(scr);
 }
 
 void wReadKeybindings(WScreen *scr, WMPropList *dict)
