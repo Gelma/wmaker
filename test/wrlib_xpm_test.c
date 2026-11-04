@@ -46,7 +46,9 @@ static int check_pixel(const RImage * image, unsigned x, unsigned y,
 
 	if (p[0] != r || p[1] != g || p[2] != b || (alpha && p[3] != a)) {
 		fprintf(stderr, "pixel %u,%u: got %u,%u,%u,%u expected %u,%u,%u,%u\n",
-		        x, y, p[0], p[1], p[2], alpha ? p[3] : 255, r, g, b, a);
+		        x, y, (unsigned)p[0], (unsigned)p[1], (unsigned)p[2],
+		        (unsigned)(alpha ? p[3] : 255), (unsigned)r, (unsigned)g,
+		        (unsigned)b, (unsigned)a);
 		return 1;
 	}
 	return 0;
