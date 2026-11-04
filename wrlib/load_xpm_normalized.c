@@ -143,6 +143,11 @@ RImage *RGetImageFromXPMData(RContext * context, char **data)
 			color_table[2][i] = blue;
 			color_table[3][i] = 255;
 		} else if (strncmp(&(data[line][j]), "None", 4) == 0 || strncmp(&(data[line][j]), "none", 4) == 0) {
+			/* Fully transparent entry: the RGB bytes are still read out of
+			 * the table later, so they must not stay uninitialized. */
+			color_table[0][i] = 0;
+			color_table[1][i] = 0;
+			color_table[2][i] = 0;
 			color_table[3][i] = 0;
 			transp = 1;
 		} else {
