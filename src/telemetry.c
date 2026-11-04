@@ -177,15 +177,47 @@ static const char *get_telemetry_dir(void)
 /* Keep the spike log open: reopening it for every slow event cost one
  * fopen/fclose pair plus a 4 KB stdio buffer each time (5,084 opens and
  * ~18.6 MB of churn in the 12.5 h DHAT session).  Lines are flushed
- * individually because helper processes fork from this one. */
+ * individually because helper processes fork from this one.
+ *
+ * The log is rotated at 4 MB (keeping one .1 generation) so a pathological
+ * session cannot fill the runtime directory. */
+#define TELEMETRY_SPIKES_MAX_BYTES (4ULL * 1024ULL * 1024ULL)
+
+static unsigned long long spike_bytes;
+
 static FILE *get_spike_file(void)
 {
 	if (!spike_file) {
 		char path[512];
+		struct stat st;
+
 		snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
 		spike_file = fopen(path, "a");
+		if (spike_file) {
+			if (fstat(fileno(spike_file), &st) == 0)
+				spike_bytes = (unsigned long long)st.st_size;
+			else
+				spike_bytes = 0;
+		}
 	}
 	return spike_file;
+}
+
+static void rotate_spike_file(void)
+{
+	char path[512];
+	char old[520];
+
+	if (!spike_file)
+		return;
+
+	snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
+	snprintf(old, sizeof(old), "%s.1", path);
+
+	fclose(spike_file);
+	spike_file = NULL;
+	spike_bytes = 0;
+	rename(path, old);
 }
 
 static void close_spike_file(void)
@@ -313,6 +345,9 @@ void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart
 				/* Keep the stream unbuffered across fork()s (dock apps and
 				 * helpers inherit it): one line, one write. */
 				fflush(fspike);
+				spike_bytes += (unsigned long long)len + 1;
+				if (spike_bytes > TELEMETRY_SPIKES_MAX_BYTES)
+					rotate_spike_file();
 			}
 		}
 	}

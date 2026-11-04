@@ -571,6 +571,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: one 4 KB stdio buffer for the whole session instead of 5,084, 5,083 fewer open/close syscalls, 512 bytes of stack per slow event. Measured with `strace -e trace=openat`: 20 spikes written with **1** openat of the file.
     - **Verification**: `strace` count above; `make exit-test` passes; spike line contents unchanged.
 
+107. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Spike Log Rotation (4 MB, one generation)**:
+    - **Problem**: `latency_spikes.log` was append-only and never rotated: 900 lines in three hours of a normal session, unbounded over weeks, in a directory the user does not clean.
+    - **Fix**: the persistent stream tracks its own size (seeded with `fstat()` at open, incremented per written line) and rotates at 4 MB: the current file is renamed to `latency_spikes.log.1` (replacing the previous generation) and the next entry reopens an empty log.
+    - **Cost/benefit**: one integer per written line, one `rename()` every ~40,000 entries; at most 8 MB of log on disk instead of unbounded growth. The recent history (two generations) is always available for diagnosis.
+    - **Verification**: pre-filled log of 4,200,000 bytes + a stress run produced `latency_spikes.log.1` (4,200,097 bytes, frozen) and a fresh `latency_spikes.log` (22 lines).
+
 ---
 
 ## Verification Status
