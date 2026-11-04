@@ -29,6 +29,56 @@ static void fill(RImage * image, unsigned int seed)
 	}
 }
 
+/* Uniform image: the 1 2 1 / 1 1 1 kernel averages to the same value, so a
+ * blur must leave every pixel untouched. */
+static int blur_uniform(int alpha)
+{
+	unsigned char pattern[4] = { 40, 90, 170, 200 };
+	unsigned chars = (unsigned)(alpha ? 4 : 3);
+	RImage *img;
+	unsigned char *copy;
+	size_t i, n;
+	int rc;
+
+	img = RCreateImage(16, 16, alpha);
+	if (!img) {
+		fprintf(stderr, "cannot create blur test image\n");
+		return 1;
+	}
+	n = (size_t)16 * 16 * chars;
+	for (i = 0; i < 16 * 16; i++)
+		memcpy(img->data + i * chars, pattern, chars);
+
+	copy = malloc(n);
+	if (!copy) {
+		fprintf(stderr, "out of memory\n");
+		RReleaseImage(img);
+		return 1;
+	}
+	memcpy(copy, img->data, n);
+
+	rc = RBlurImage(img);
+	if (!rc) {
+		fprintf(stderr, "RBlurImage failed\n");
+		free(copy);
+		RReleaseImage(img);
+		return 1;
+	}
+	for (i = 0; i < n; i++) {
+		if (img->data[i] != copy[i]) {
+			fprintf(stderr, "blur changed byte %zu of a uniform %s image: %u\n",
+			        i, alpha ? "RGBA" : "RGB", img->data[i]);
+			free(copy);
+			RReleaseImage(img);
+			return 1;
+		}
+	}
+
+	free(copy);
+	RReleaseImage(img);
+	return 0;
+}
+
 int main(void)
 {
 	RImage *dst, *src;
@@ -76,6 +126,15 @@ int main(void)
 	RReleaseImage(dst);
 	RReleaseImage(src);
 	free(expect);
+
+	/* RBlurImage() is public API with no caller in the tree, and cppcheck's
+	 * sibling (clang-analyzer) flags its border arithmetic: run it once on a
+	 * uniform image of each depth, where the 3x3 kernel must be a no-op.
+	 * The value is both the invariance check and the memory access pattern
+	 * (this is the test that runs under the sanitizer build). */
+	if (blur_uniform(0) != 0 || blur_uniform(1) != 0)
+		return 1;
+	printf("RBlurImage: uniform image unchanged, RGB and RGBA\n");
 
 	return 0;
 }

@@ -93,7 +93,12 @@ int RBlurImage(RImage * image)
 			pptr = tmpp;
 			ptr += 6;
 			nptr += 6;
-			pptr += 6;
+			/* pptr walks a scratch copy of one row, not the image: it
+			 * resumes at column 1 of that row, one pixel (not one row)
+			 * further.  The old "+6" shifted the window right by two
+			 * columns and read one byte past the buffer at the last
+			 * column, which is where the blur used to eat edge pixels. */
+			pptr += 3;
 		}
 	} else {
 		ptr += 4;
@@ -133,7 +138,7 @@ int RBlurImage(RImage * image)
 			pptr = tmpp;
 			ptr += 8;
 			nptr += 8;
-			pptr += 8;
+			pptr += 4;
 		}
 	}
 
