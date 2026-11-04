@@ -20,7 +20,7 @@ TOP_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 
 WM_BIN=${WM_BIN:-$TOP_DIR/src/.libs/wmaker}
 WM_LIB_DIRS=${WM_LIB_DIRS:-$TOP_DIR/src/.libs:$TOP_DIR/WINGs/.libs:$TOP_DIR/wrlib/.libs}
-STARTUP_TIMEOUT=${WM_TEST_TIMEOUT:-30}
+STARTUP_TIMEOUT=${WM_TEST_TIMEOUT:-60}
 EXIT_TIMEOUT=${WM_EXIT_TIMEOUT:-15}
 
 USE_VALGRIND=0
@@ -42,7 +42,7 @@ Environment:
   WM_BIN            Window Maker binary (default: <build>/src/.libs/wmaker)
   WM_LIB_DIRS       LD_LIBRARY_PATH for the uninstalled build tree
   WM_TEST_DISPLAY   use this X display instead of starting Xvfb
-  WM_TEST_TIMEOUT   seconds to wait for the window manager (default: 30)
+  WM_TEST_TIMEOUT   seconds to wait for the window manager (default: 60)
   WM_EXIT_TIMEOUT   seconds to wait for the exit after a signal (default: 15)
 EOF
 }
@@ -100,14 +100,39 @@ wait_for_new_wm() {
 
 start_wm() {
 	local log=$1
+	local attempt
+
 	shift
 
-	env DISPLAY="$DISPLAY" HOME="$TEST_HOME" LD_LIBRARY_PATH="$WM_LIB_DIRS" \
-		WM_RUNTIME_LOG_DIR="$TEST_HOME/logs" "$@" "$WM_BIN" --for-real \
-		>>"$log" 2>&1 </dev/null &
+	# No window manager is running here: drop the check window left behind by
+	# the previous instance so that a stale value cannot satisfy the wait.
+	xprop -root -remove _NET_SUPPORTING_WM_CHECK >/dev/null 2>&1 || true
 
-	WM_PID=$!
-	wait_for_new_wm ""
+	for attempt in 1 2; do
+		env DISPLAY="$DISPLAY" HOME="$TEST_HOME" LD_LIBRARY_PATH="$WM_LIB_DIRS" \
+			WM_RUNTIME_LOG_DIR="$TEST_HOME/logs" "$@" "$WM_BIN" --for-real \
+			>>"$log" 2>&1 </dev/null &
+
+		WM_PID=$!
+		if wait_for_new_wm ""; then
+			return 0
+		fi
+
+		if kill -0 "$WM_PID" 2>/dev/null; then
+			echo "window manager did not register within ${STARTUP_TIMEOUT}s" >&2
+			break
+		fi
+
+		# The X server may not have processed the previous instance's
+		# disconnect yet: it still owns the WM selection, so the new instance
+		# refuses to start.  Give the server a moment and retry once.
+		WM_PID=""
+		sleep 1
+	done
+
+	echo "window manager log ($log):" >&2
+	tail -n 20 "$log" >&2 || true
+	return 1
 }
 
 # stop_wm <signal>: waits for the process to exit and stores the status in

@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = no-dependencies
 
-EXTRA_DIST = notest.c
+EXTRA_DIST = notest.c run_exit_test.sh run_stress.sh
 
 noinst_PROGRAMS = wtest wm_fsm_test wm_stress
 
