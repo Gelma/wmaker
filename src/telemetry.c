@@ -199,6 +199,7 @@ void wTelemetryDump(void)
 		fprintf(fjson, "    \"key_grabs_set\": %" PRIu64 ",\n", wTelemetry.key_grabs_set);
 		fprintf(fjson, "    \"key_grabs_deduplicated\": %" PRIu64 ",\n", wTelemetry.key_grabs_deduplicated);
 		fprintf(fjson, "    \"xsync_eliminated\": %" PRIu64 ",\n", wTelemetry.xsync_eliminated);
+		fprintf(fjson, "    \"property_xgetgeometry_bypassed\": %" PRIu64 ",\n", wTelemetry.property_xgetgeometry_bypassed);
 		fprintf(fjson, "    \"motion_events_compressed\": %" PRIu64 ",\n", wTelemetry.motion_events_compressed);
 		fprintf(fjson, "    \"mini_preview_bypassed\": %" PRIu64 ",\n", wTelemetry.mini_preview_bypassed);
 		fprintf(fjson, "    \"wwindow_cache_hits\": %" PRIu64 ",\n", wTelemetry.wwindow_cache_hits);
@@ -253,6 +254,7 @@ void wTelemetryDump(void)
 		fprintf(flog, "  - Key Grabs Installed / Precompiled:            %" PRIu64 "\n", wTelemetry.key_grabs_set);
 		fprintf(flog, "  - Key Grabs Deduplicated:                       %" PRIu64 "\n", wTelemetry.key_grabs_deduplicated);
 		fprintf(flog, "  - Event Loop XSync Round-Trips Eliminated:      %" PRIu64 "\n", wTelemetry.xsync_eliminated);
+		fprintf(flog, "  - PropertyNotify XGetGeometry Bypassed:         %" PRIu64 "\n", wTelemetry.property_xgetgeometry_bypassed);
 		fprintf(flog, "  - Motion Events Compressed:                     %" PRIu64 "\n", wTelemetry.motion_events_compressed);
 		fprintf(flog, "  - Mini-Preview Screenshot Captures Bypassed:    %" PRIu64 "\n", wTelemetry.mini_preview_bypassed);
 		uint64_t total_cache = wTelemetry.wwindow_cache_hits + wTelemetry.wwindow_cache_misses;
