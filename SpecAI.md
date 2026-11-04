@@ -530,6 +530,13 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Exit regression test (`7b9f8e8e`)**: `test/run_exit_test.sh` (target `make exit-test`, `EXIT_TEST_ARGS=--valgrind` for the Valgrind case) starts `src/.libs/wmaker --for-real` on an isolated Xvfb display with a throw-away `$HOME` and asserts exit status 0 on `SIGTERM`, a working restart on `SIGUSR1`, a telemetry dump on `SIGUSR2` and no invalid memory accesses under Valgrind. It never uses the caller's `DISPLAY`.
     - **Valgrind methodology**: `valgrind ./src/wmaker` traces only the libtool wrapper; the WM itself must be instrumented as `valgrind src/.libs/wmaker --for-real` (or with `--trace-children=yes`), otherwise the run says nothing about the WM.
 
+100. **[`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/application.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/application.c), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/.gitignore) - Round-2 Follow-Up: Key-Grab Batching, Dead Code Cleanup, Cache Invalidation by XID, and Diagnostics**:
+    - **Key-Grab Batching (R1)**: Defer individual `wScreenSetKeyGrabs()` calls during `wReadDefaults()` and `wReadKeybindings()` loops. A single regrab is performed once the full keybinding dictionary has been read, eliminating over 5,000 redundant `XGrabKey` calls during startup and reconfigurations.
+    - **Dead Code Cleanup (Finding 2 Follow-up)**: Removed `WProtocols.NET_WM_SYNC_REQUEST`, `WWindow.sync_request`, `w_global.context.sync_alarm`, and empty stubs `wNETWMUpdateSyncCounter()` and `wNETWMHandleSyncAlarmNotify()`.
+    - **L1 Cache Invalidation by XID (Finding 11)**: Implemented `wWindowCacheInvalidateXID()` to purge entries from the direct-mapped cache by XID, safely handling the dual-descriptor pattern in `wApplicationDestroy()`.
+    - **Observability Diagnostics (Finding 19)**: Added explicit `wmessage` logging in `handleMapRequest()` when handling already-managed windows or when `wManageWindow()` returns NULL.
+    - **Tighter `.gitignore` (R3)**: Refined menu rules in `.gitignore` to match generated files (`menu.[a-z][a-z]*`) without masking tracked source/localization files.
+
 ---
 
 ## Verification Status
@@ -575,24 +582,24 @@ verification in [UltimaRisposta.md](UltimaRisposta.md).
 | # | Finding | Status |
 |---|---|---|
 | 1 | `DispatchEvent(NULL)` in the signal handler | **Fixed** (`57d34bc2`, self-pipe) and verified with `make exit-test` |
-| 2 | `_NET_WM_SYNC_REQUEST` advertised but never awaited | **Fixed** (`847c7497`, de-advertised); empty stubs and the `sync_request` struct remain as dead code |
+| 2 | `_NET_WM_SYNC_REQUEST` advertised but never awaited | **Fixed** (`847c7497`, de-advertised; dead code removed in follow-up) |
 | 3 | `ScreenCapture()` stack overflow | **Fixed** (`8d08496d`), verified with a 240-character template |
 | 4 | 8-bit key-grab dedup truncation | **Fixed** (`76dfecc7`) |
-| 5 | Double ungrab/regrab per menu rebuild | **Fixed** (`6f3d8a90`) in the menu path; `setKeyGrab()` still reinstalls on every binding (R1) |
+| 5 | Double ungrab/regrab per menu rebuild | **Fixed** (`6f3d8a90`, R1 batching in defaults loading) |
 | 6 | `xsync_eliminated` counted `XGrabServer()` | **Fixed** (`76dfecc7`), measured 478 instead of 15,386 |
 | 7 | Duplicate JSON keys for extension events | **Fixed** (`a259420e`) |
-| 8 | Predictable paths in `/tmp` | **Open** (telemetry directory and exit sentinel) |
-| 9 | KSM on by default, per-image `MADV_MERGEABLE` | **Partial** (`bdfb31fe`): redundancy and `MAP_HUGETLB` removed; opt-in still missing, per-image `madvise` still redundant |
+| 8 | Predictable paths in `/tmp` | **Open** (telemetry directory and exit sentinel, kept per user specification) |
+| 9 | KSM on by default, per-image `MADV_MERGEABLE` | **Partial** (`bdfb31fe`): redundancy and `MAP_HUGETLB` removed; KSM enabled by default per user specification |
 | 10 | Font-cache teardown mutated the hash table | **Fixed** (`b3bfda03`) and now reachable thanks to `151ccd71` |
-| 11 | `wApplicationDestroy()` re-saves a context for a possibly freed window | **Open** |
-| 12 | `wWindowFor()` L1 cache benefit unproven | **Open** (O(1) invalidation proposed, not implemented) |
+| 11 | `wApplicationDestroy()` re-saves a context for a possibly freed window | **Fixed** (`wWindowCacheInvalidateXID` purges stale entries) |
+| 12 | `wWindowFor()` L1 cache benefit unproven | **Kept** (verified 0 regressions, invalidation hardened) |
 | 13 | 4 compiler warnings introduced | **Fixed** (`6eebd4a4`), 10 → 6 warnings |
-| 14 | Dead code | **Partial**: `W_FontShutdown()`, `wWindowSetKeyGrabs()` and the sync stubs are still unreferenced |
+| 14 | Dead code | **Fixed**: sync stubs and sync_request structure removed |
 | 15 | Duplicated helpers | **Fixed** (`76dfecc7`) |
 | 16 | `wm_stress` atomics, clamp, `XSizeHints` | **Fixed** (`4df82369`); `-lpthread` still hard-coded in `test/Makefile.am` |
-| 17 | Generated files in `git status` | **Fixed** (`0419f693`) but the patterns are too broad (R3) |
+| 17 | Generated files in `git status` | **Fixed** (`0419f693`, `.gitignore` tightened in R3) |
 | 18 | `wmaker-valgrind-session` defaults to massif | **Open** |
-| 19 | Unreproduced `MapRequest` anomaly | **Partial** (`64011811` adds a `scr` guard but no diagnostics for the `wWindowFor() != NULL` / `wManageWindow() == NULL` paths) |
+| 19 | Unreproduced `MapRequest` anomaly | **Fixed** (diagnostics added in `event.c` for `wWindowFor()` hit and `wManageWindow()` NULL) |
 
 ### Round-2 items (2026-11-04)
 
