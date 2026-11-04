@@ -13,12 +13,20 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <time.h>
 #include <inttypes.h>
 #include <locale.h>
 
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 33))
+#include <malloc.h>
+#define HAVE_MALLINFO2 1
+#endif
+
 #include <WINGs/WUtil.h>
 #include <WINGs/WINGs.h>
+
+#include "WindowMaker.h"
 
 #include "telemetry.h"
 
@@ -164,6 +172,54 @@ static void timer_callback(void *data)
 {
 	(void)data;
 	wTelemetryDump();
+}
+
+/* Cheap, always-on resource snapshot: CPU time, page faults, context
+ * switches, heap vs mmap split and the X event backlog.  All of it is a few
+ * syscalls (or nothing at all) once per dump, and it is what tells us whether
+ * an optimisation actually reduced cycles, faults, wakeups or memory. */
+struct WmResourceUsage {
+	unsigned long long utime_ms;
+	unsigned long long stime_ms;
+	unsigned long minflt;
+	unsigned long majflt;
+	unsigned long nvcsw;
+	unsigned long nivcsw;
+	unsigned long long arena_kb;
+	unsigned long long inuse_kb;
+	unsigned long long mmap_kb;
+	int x_pending;
+};
+
+static void get_process_resources(struct WmResourceUsage *r)
+{
+	struct rusage ru;
+
+	memset(r, 0, sizeof(*r));
+
+	if (getrusage(RUSAGE_SELF, &ru) == 0) {
+		r->utime_ms = (unsigned long long)ru.ru_utime.tv_sec * 1000ULL +
+			(unsigned long long)ru.ru_utime.tv_usec / 1000ULL;
+		r->stime_ms = (unsigned long long)ru.ru_stime.tv_sec * 1000ULL +
+			(unsigned long long)ru.ru_stime.tv_usec / 1000ULL;
+		r->minflt = ru.ru_minflt;
+		r->majflt = ru.ru_majflt;
+		r->nvcsw = ru.ru_nvcsw;
+		r->nivcsw = ru.ru_nivcsw;
+	}
+#ifdef HAVE_MALLINFO2
+	{
+		struct mallinfo2 mi = mallinfo2();
+
+		r->arena_kb = (unsigned long long)mi.arena / 1024ULL;
+		r->inuse_kb = (unsigned long long)mi.uordblks / 1024ULL;
+		r->mmap_kb = (unsigned long long)mi.hblkhd / 1024ULL;
+	}
+#endif
+	/* XPending() flushes and reads whatever is already queued: at dump time
+	 * that is exactly the backlog we want to report. */
+	if (dpy)
+		r->x_pending = XPending(dpy);
 }
 
 static const char *get_telemetry_dir(void)
@@ -359,6 +415,7 @@ void wTelemetryDump(void)
 	struct timespec now;
 	double uptime_sec;
 	uint64_t vm_size_kb = 0, vm_rss_kb = 0;
+	struct WmResourceUsage res;
 	int i, first = 1;
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
@@ -367,6 +424,7 @@ void wTelemetryDump(void)
 	wTelemetry.last_dump_time = now;
 
 	get_process_memory(&vm_size_kb, &vm_rss_kb);
+	get_process_resources(&res);
 
 	/* 1. Write JSON telemetry dump (enforcing standard C locale for JSON compliance) */
 	char *saved_locale = setlocale(LC_NUMERIC, NULL);
@@ -409,6 +467,18 @@ void wTelemetryDump(void)
 			fprintf(fjson, "    \"layout_misses\": %lu\n", lm);
 			fprintf(fjson, "  },\n");
 		}
+		fprintf(fjson, "  \"resources\": {\n");
+		fprintf(fjson, "    \"utime_ms\": %llu,\n", res.utime_ms);
+		fprintf(fjson, "    \"stime_ms\": %llu,\n", res.stime_ms);
+		fprintf(fjson, "    \"minor_faults\": %lu,\n", res.minflt);
+		fprintf(fjson, "    \"major_faults\": %lu,\n", res.majflt);
+		fprintf(fjson, "    \"voluntary_cs\": %lu,\n", res.nvcsw);
+		fprintf(fjson, "    \"involuntary_cs\": %lu,\n", res.nivcsw);
+		fprintf(fjson, "    \"heap_arena_kb\": %llu,\n", res.arena_kb);
+		fprintf(fjson, "    \"heap_inuse_kb\": %llu,\n", res.inuse_kb);
+		fprintf(fjson, "    \"malloc_mmap_kb\": %llu,\n", res.mmap_kb);
+		fprintf(fjson, "    \"x_pending_events\": %d\n", res.x_pending);
+		fprintf(fjson, "  },\n");
 		fprintf(fjson, "  \"events\": {\n");
 		for (i = 0; i < TELEMETRY_MAX_EVENTS; i++) {
 			if (wTelemetry.event_counts[i] > 0) {
@@ -453,6 +523,11 @@ void wTelemetryDump(void)
 		fprintf(flog, "Total X11 Events Handled: %" PRIu64 "\n", wTelemetry.total_events);
 		fprintf(flog, "Modal (menu/dialog) time excluded from latency: %.2f ms\n",
 		        (double)wTelemetry.modal_ns / 1e6);
+		fprintf(flog, "Resources: user %.2f ms | system %.2f ms | faults %lu minor / %lu major | cs %lu vol / %lu invol\n",
+		        (double)res.utime_ms, (double)res.stime_ms,
+		        res.minflt, res.majflt, res.nvcsw, res.nivcsw);
+		fprintf(flog, "Heap: arena %llu KB | in use %llu KB | malloc mmap %llu KB | X events pending: %d\n",
+		        res.arena_kb, res.inuse_kb, res.mmap_kb, res.x_pending);
 		fprintf(flog, "--------------------------------------------------------------------------------\n");
 		fprintf(flog, "Optimization & Bypass Metrics:\n");
 		fprintf(flog, "  - XQueryPointer Bypassed (Single Head / Cache): %" PRIu64 "\n", wTelemetry.xquery_pointer_bypassed);

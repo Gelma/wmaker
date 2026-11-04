@@ -600,6 +600,14 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Answer**: `gdb -p <test instance> -ex "thread apply all bt"` shows the worker parked in `g_async_queue_pop()` inside `libpangoft2-1.0.so.0`. It is Pango's own `PangoFcFontMap` worker, used to batch font-pattern lookups off the main thread; libglib is the only linked library that imports `pthread_create`.
     - **Decision**: no change. Pango starts it on first font use; the churn is font matching that would otherwise run on the main loop. Disabling it would require patching Pango, and it does not block event dispatch.
 
+112. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Always-On Resource Metrics: CPU Time, Faults, Context Switches, Heap Split and X Backlog**:
+    - **Problem**: the telemetry measured latency and cache hit rates but not the quantities that justify a "less work" optimisation: how much CPU the WM burns, how many page faults and context switches it takes, how much of the heap is malloc arena versus mmap, and how far behind the event loop is.
+    - **Fix**: every dump now records `getrusage(RUSAGE_SELF)` (user/system ms, minor/major faults, voluntary/involuntary context switches), `mallinfo2()` (arena, in-use, malloc mmap) and `XPending()` (events already queued), as a `resources` object in `runtime_stats.json` plus two lines in the text report.
+    - **Cost**: two cheap syscalls and one `XPending()` (which also flushes, harmless at dump time) once per minute; all values are read at dump time, no extra state and no hot-path work.
+    - **Reference measurement**: 22.6 s session with 10 root-menu opens and 3 clients → user 112 ms, system 54 ms, 3,255 minor / 0 major faults, 1,159 voluntary / 4 involuntary context switches, heap arena 3,960 KB, in use 2,543 KB, malloc mmap 0 KB, 57 events pending.
+    - **Caveat**: `malloc_mmap_kb` is malloc's own mmap, not the image mappings of `RCreateImage` (raw `mmap`, visible only through `smaps_rollup`/massif).
+    - **Verification**: `make exit-test` passes; the fields are consistent with `/proc/<pid>/smaps_rollup` (Rss 26 MB at that point).
+
 ---
 
 ## Verification Status
