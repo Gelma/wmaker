@@ -56,7 +56,8 @@ EXTRA_DIST = TODO BUGS BUGFORM FAQ INSTALL \
 	script/generate-txt-from-texi.sh \
 	script/nested-func-to-macro.sh \
 	script/replace-ac-keywords.sh \
-	script/replace-generated-content.sh
+	script/replace-generated-content.sh \
+	tools/profile.sh
 
 
 .PHONY:	coverage-reset coverage

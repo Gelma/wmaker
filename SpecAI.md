@@ -608,6 +608,14 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Caveat**: `malloc_mmap_kb` is malloc's own mmap, not the image mappings of `RCreateImage` (raw `mmap`, visible only through `smaps_rollup`/massif).
     - **Verification**: `make exit-test` passes; the fields are consistent with `/proc/<pid>/smaps_rollup` (Rss 26 MB at that point).
 
+113. **[`tools/profile.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/tools/profile.sh ), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Three-Tier Profiling Helper (perf, strace, heaptrack, callgrind, massif, dhat)**:
+    - **Problem**: the profiling knowledge lived in session history, and the wrong incantation produced empty or misleading data: Valgrind through the libtool wrapper (untraced WM), `strace -c -p` (prints no summary on detach), `callgrind --zero` in this build (counters wrap), heaptrack auto-opening a Qt GUI with no display.
+    - **Fix**: `tools/profile.sh` with six subcommands. `perf` (stat + `record -g`, optional scenario as load, auto-selects a working `/usr/lib/linux-tools/*/perf`), `strace` (raw trace plus a per-syscall summary), `heaptrack` (raw recording + `heaptrack_interpret` pipeline, no GUI), `callgrind` (instrumentation enabled only for the scenario), `massif` (`--pages-as-heap=yes`) and `dhat` (with a Python summary of top live and churn sites). Deep dives always start a private Xvfb and a throw-away `$HOME`; live commands locate the WM through `_NET_SUPPORTING_WM_CHECK`/`_NET_WM_PID` instead of process names.
+    - **Cost**: a shell script plus a tiny XTest helper compiled on first use into the output directory; zero runtime cost for the WM.
+    - **Verification**: all six modes were run on this machine — `perf 6 <pid> map` reported 214.7 M cycles / 147.5 M instructions / 384 minor faults and 75 samples; `strace 3 <pid> map` counted 3x shmget/shmat/shmdt/shmctl, 3x madvise, 1x brk; `callgrind menu` produced a 1.37 G Ir dump dominated by fontconfig/Pango; `massif map` peaked at 57.8 MB (mostly mmap); `dhat map` ranked `__wmessage` first (see §114); `heaptrack map` produced real stacks inside fontconfig/Pango.
+
+114. **Follow-up finding — the `MapRequest` diagnostics are a hot-path cost**: the `wmessage()` calls added for the old MapRequest anomaly (`handleMapRequest()`) account for **12.5 MB of allocation churn** in a 3 s `wm_stress` run: every "window already managed" event formats and prints a message. They should become a `wTelemetry` counter (plus an optional rate-limited `wwarning`) before the next profiling round; the diagnostic is useful, the per-event message is not.
+
 ---
 
 ## Verification Status
