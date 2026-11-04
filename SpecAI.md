@@ -565,6 +565,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: one `XGetAtomName()` round-trip only when a spike is actually written (at most a few per minute) plus a 256-byte stack buffer; zero steady-state cost. In exchange every spike entry becomes a diagnosis: `MapRequest ... on window 0x400601 ... parent=0x46f`, `ClientMessage ... type=WM_CHANGE_STATE`.
     - **Verification**: `wm_stress -t 4 -d 5` on a private Xvfb produced the contextualized entries above; `make exit-test` passes.
 
+106. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Spike Log I/O: One Persistent Stream Instead of One `fopen` per Spike**:
+    - **Problem**: `wTelemetryRecordEventEnd()` opened, wrote and closed `latency_spikes.log` for every slow event: 5,084 open/close pairs and ~18.6 MB of 4 KB stdio buffers over the 12.5 h DHAT session.
+    - **Fix**: the file is opened lazily once (`get_spike_file()`), each line is formatted into a 512-byte stack buffer and written with one `fwrite` + `fflush` (the explicit flush keeps the inherited buffer empty across the forks used to launch dock apps/helpers), and the stream is closed in `wTelemetryShutdown()`.
+    - **Cost/benefit**: one 4 KB stdio buffer for the whole session instead of 5,084, 5,083 fewer open/close syscalls, 512 bytes of stack per slow event. Measured with `strace -e trace=openat`: 20 spikes written with **1** openat of the file.
+    - **Verification**: `strace` count above; `make exit-test` passes; spike line contents unchanged.
+
 ---
 
 ## Verification Status

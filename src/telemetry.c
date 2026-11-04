@@ -25,8 +25,10 @@
 WTelemetryStats wTelemetry;
 
 static WMHandlerID telemetry_timer_id = NULL;
+static FILE *spike_file = NULL;
 
 static void telemetryEventWaitHook(unsigned long long wait_ns);
+static FILE *get_spike_file(void);
 
 static const char *get_event_name(int type)
 {
@@ -172,6 +174,28 @@ static const char *get_telemetry_dir(void)
 	return TELEMETRY_DIR;
 }
 
+/* Keep the spike log open: reopening it for every slow event cost one
+ * fopen/fclose pair plus a 4 KB stdio buffer each time (5,084 opens and
+ * ~18.6 MB of churn in the 12.5 h DHAT session).  Lines are flushed
+ * individually because helper processes fork from this one. */
+static FILE *get_spike_file(void)
+{
+	if (!spike_file) {
+		char path[512];
+		snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
+		spike_file = fopen(path, "a");
+	}
+	return spike_file;
+}
+
+static void close_spike_file(void)
+{
+	if (spike_file) {
+		fclose(spike_file);
+		spike_file = NULL;
+	}
+}
+
 void wTelemetryInit(void)
 {
 	memset(&wTelemetry, 0, sizeof(wTelemetry));
@@ -265,22 +289,31 @@ void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart
 
 	/* Latency spike detection: alert if an event takes longer than 16.6 ms (one 60fps frame) */
 	if (elapsed_ns > 16666667ULL) {
-		char path[512];
-		snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
-		FILE *fspike = fopen(path, "a");
+		FILE *fspike = get_spike_file();
 		if (fspike) {
 			time_t now = time(NULL);
 			char timestr[64];
+			char line[512];
+			int len;
 			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", localtime(&now));
 			format_event_context(event, ctx, sizeof(ctx));
-			fprintf(fspike, "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms%s",
-			        timestr, get_event_name(event_type), event_type,
-			        (unsigned long)win, (double)elapsed_ns / 1000000.0, ctx);
-			if (modal_ns > 0)
-				fprintf(fspike, " (%llu ms in modal menus/dialogs excluded)",
-					(unsigned long long)(modal_ns / 1000000ULL));
-			fprintf(fspike, "\n");
-			fclose(fspike);
+			len = snprintf(line, sizeof(line),
+			               "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms%s",
+			               timestr, get_event_name(event_type), event_type,
+			               (unsigned long)win, (double)elapsed_ns / 1000000.0, ctx);
+			if (modal_ns > 0 && len > 0 && (size_t)len < sizeof(line))
+				len += snprintf(line + len, sizeof(line) - (size_t)len,
+				                " (%llu ms in modal menus/dialogs excluded)",
+				                (unsigned long long)(modal_ns / 1000000ULL));
+			if (len > 0) {
+				if ((size_t)len >= sizeof(line))
+					len = (int)sizeof(line) - 1;
+				fwrite(line, 1, (size_t)len, fspike);
+				fputc('\n', fspike);
+				/* Keep the stream unbuffered across fork()s (dock apps and
+				 * helpers inherit it): one line, one write. */
+				fflush(fspike);
+			}
 		}
 	}
 }
@@ -414,6 +447,7 @@ void wTelemetryDump(void)
 void wTelemetryShutdown(void)
 {
 	WMEventWaitHook = NULL;
+	close_spike_file();
 	if (telemetry_timer_id) {
 		WMDeleteTimerHandler(telemetry_timer_id);
 		telemetry_timer_id = NULL;
