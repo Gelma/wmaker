@@ -1,4 +1,4 @@
-# Migliorie.md — Review of `d958afd39a..0c496c09` (HEAD)
+# DeepSeekCheck.md — Review of `d958afd39a..0c496c09` (HEAD)
 
 Review date: 2026-11-03
 Scope: 149 commits, 133 files, `+5,028 / −1,061` lines
@@ -7,6 +7,14 @@ Valgrind Memcheck runs, isolated Xvfb sessions (`:86`–`:99`, throw-away `$HOME
 `test/wm_stress`, runtime telemetry dumps, and small hand-written X11 probes
 (`XGrabKey`/`XTest`/`XSelectInput`) to verify grab and redirect behaviour.
 The live user session was never touched.
+
+> **Correction (2026-11-04).** The Valgrind runs quoted below were started through the libtool
+> wrapper `src/wmaker`, which re-execs the real binary and therefore left the window manager
+> *untraced*: those "clean" results described the monitor and the helper processes, not Window
+> Maker itself. Re-instrumenting `src/.libs/wmaker --for-real` exposed a SIGSEGV on **every**
+> shutdown (introduced by `d7035384`), found during the round-2 verification of the fix batch. See
+> [UltimaRisposta.md](UltimaRisposta.md) and the appendix at the end of this file; the live status
+> of each finding is maintained in [SpecAI.md](SpecAI.md).
 
 ---
 
@@ -506,3 +514,67 @@ Also worth recording in `SpecAI.md`: the measured baseline numbers from this rev
 6. **Findings 9, 10, 11, 12** — review with the maintainer: they are policy/design choices.
 7. **Findings 13–18** — cleanup pass, ideally in the same commit series as the next feature.
 8. **Finding 19** — build the soak test; it either reproduces or rules out a state leak.
+
+---
+
+## Appendix — Round-2 verification (2026-11-04)
+
+This appendix records the verification of the follow-up batch that implemented the fixes
+(`d0dd9291..HEAD`, thirteen commits). The full narrative, with evidence per fix, is in
+[UltimaRisposta.md](UltimaRisposta.md); the live status of every finding is in
+[SpecAI.md](SpecAI.md).
+
+### Verdicts
+
+| Fix | Subject | Verdict |
+|---|---|---|
+| 1 | POSIX self-pipe for signals | correct; masked by the shutdown crash until `151ccd71` |
+| 2 | de-advertise `_NET_WM_SYNC_REQUEST` | functional, ~40 lines of dead stubs left |
+| 3 | `ScreenCapture()` bounds | correct; verified with a 240-character template |
+| 4 | exact key-grab dedup | correct |
+| 5 | remove double rebind | correct for menus; `setKeyGrab()` is still O(N²) (R1) |
+| 6 | `xsync_eliminated` | correct; 478 instead of 15,386 |
+| 7 | unique JSON keys | correct |
+| 9 | KSM/HugeTLB | half solved: `MAP_HUGETLB` removed, KSM still default |
+| 10 | font-cache snapshot | correct, but unreachable until `151ccd71` |
+| 13 | compiler warnings | correct; 10 → 6 warnings (all pre-existing) |
+| 15 | consolidated helpers | correct |
+| 16 | `wm_stress` hardening | correct; `-lpthread` still hard-coded |
+| 17 | `.gitignore` | works, but the patterns are too broad (R3) |
+| 19 | `MapRequest` guard | does not address the observed anomaly (no diagnostics) |
+
+### The crash the earlier review missed
+
+With `valgrind src/.libs/wmaker --for-real`, every `SIGTERM`/`SIGUSR1` ended with
+
+```
+Invalid read of size 8 at address 0x8
+  WMSetBalloonTextForView (wballoon.c:93)
+  destroyView (wview.c:332)
+  W_DestroyBalloon (wballoon.c:477)
+  WMDestroyScreen (widgets.c:1195)
+  wScreenDestroy (screen.c:1673)
+  Shutdown (shutdown.c:100)
+```
+
+Root cause: `d7035384` moved `scr->balloon = NULL` *before* `W_DestroyBalloon()`, and
+`destroyView()` calls `WMSetBalloonTextForView(NULL, view)`, which dereferences
+`view->screen->balloon`. Exit status was 139 (SIGSEGV) in all cases, so `Exit()`,
+`ExecExitScript()` and `wCleanupSignalPipe()` never ran. Fixed in `151ccd71` by making the balloon
+API tolerate a detached screen balloon (`make exit-test` now asserts status 0).
+
+### Items opened by this round
+
+- **R1** — `setKeyGrab()` reinstalls all grabs for every binding: 5,260 `XGrabKey` requests at
+  startup (~22 ungrab+regrab cycles of ~240 grabs). Batch them after the defaults are read.
+- **R3** — `.gitignore` patterns `WindowMaker/menu*`/`plmenu*`/`appearance.menu*` match 95 tracked
+  files; a future `menu.c`/`menu.h` would be silently ignored.
+- **R5** — ~5.2 KB definitely lost at exit (WINGs `loadPixmaps()` pixmaps and the dock menu).
+- **R7** — methodology: wrapper-based Valgrind runs say nothing about the WM; use
+  `src/.libs/wmaker --for-real`.
+
+### Commits produced by this verification
+
+`151ccd71` (balloon teardown), `52e1029a` (defaults initialisation), `7b9f8e8e` (exit regression
+test), `97b68f8a` (this document's saved answer) and the documentation update that follows them.
+

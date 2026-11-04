@@ -81,6 +81,12 @@
     - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
     - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
 
+99. **[`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c), [`WINGs/widgets.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`test/run_exit_test.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_exit_test.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
+    - **Shutdown SIGSEGV (`151ccd71`)**: `WMDestroyScreen()` detaches `scr->balloon` before calling `W_DestroyBalloon()`; `destroyView()` then reaches `WMSetBalloonTextForView()`, which dereferenced the detached pointer. Every `SIGTERM`/`SIGUSR1` exit ended with an `Invalid read of size 8` at address `0x8` (status 139), so `Exit()`, `ExecExitScript()` and `wCleanupSignalPipe()` never ran. The balloon API now tolerates a missing `scr->balloon`; exit status is 0 again.
+    - **Uninitialised defaults (`52e1029a`)**: `wDefaultsInitDomain()` allocated `WDDomain` with `wmalloc()` (not zeroed) and compared `stbuf.st_mtime` even when `stat()` had failed, which is the normal case on a fresh `$HOME`. The structure is zeroed and `st_mtime` is only used when `stat()` succeeded.
+    - **Exit regression test (`7b9f8e8e`)**: `test/run_exit_test.sh` (target `make exit-test`, `EXIT_TEST_ARGS=--valgrind` for the Valgrind case) starts `src/.libs/wmaker --for-real` on an isolated Xvfb display with a throw-away `$HOME` and asserts exit status 0 on `SIGTERM`, a working restart on `SIGUSR1`, a telemetry dump on `SIGUSR2` and no invalid memory accesses under Valgrind. It never uses the caller's `DISPLAY`.
+    - **Valgrind methodology**: `valgrind ./src/wmaker` traces only the libtool wrapper; the WM itself must be instrumented as `valgrind src/.libs/wmaker --for-real` (or with `--trace-children=yes`), otherwise the run says nothing about the WM.
+
 ---
 
 ## Objectives and Completed Activities
@@ -518,50 +524,100 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
     - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
 
+99. **[`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c), [`WINGs/widgets.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`test/run_exit_test.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_exit_test.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
+    - **Shutdown SIGSEGV (`151ccd71`)**: `WMDestroyScreen()` detaches `scr->balloon` before calling `W_DestroyBalloon()`; `destroyView()` then reaches `WMSetBalloonTextForView()`, which dereferenced the detached pointer. Every `SIGTERM`/`SIGUSR1` exit ended with an `Invalid read of size 8` at address `0x8` (status 139), so `Exit()`, `ExecExitScript()` and `wCleanupSignalPipe()` never ran. The balloon API now tolerates a missing `scr->balloon`; exit status is 0 again.
+    - **Uninitialised defaults (`52e1029a`)**: `wDefaultsInitDomain()` allocated `WDDomain` with `wmalloc()` (not zeroed) and compared `stbuf.st_mtime` even when `stat()` had failed, which is the normal case on a fresh `$HOME`. The structure is zeroed and `st_mtime` is only used when `stat()` succeeded.
+    - **Exit regression test (`7b9f8e8e`)**: `test/run_exit_test.sh` (target `make exit-test`, `EXIT_TEST_ARGS=--valgrind` for the Valgrind case) starts `src/.libs/wmaker --for-real` on an isolated Xvfb display with a throw-away `$HOME` and asserts exit status 0 on `SIGTERM`, a working restart on `SIGUSR1`, a telemetry dump on `SIGUSR2` and no invalid memory accesses under Valgrind. It never uses the caller's `DISPLAY`.
+    - **Valgrind methodology**: `valgrind ./src/wmaker` traces only the libtool wrapper; the WM itself must be instrumented as `valgrind src/.libs/wmaker --for-real` (or with `--trace-children=yes`), otherwise the run says nothing about the WM.
+
 ---
 
 ## Verification Status
-- Build scripts and `make` commands executed successfully (exit code 0).
-- Static analysis audit with `flawfinder` and `scan-build-23` (Clang 23) executed with 0 remaining defects.
-- Live session log analysis performed and identified memory leaks/uninitialized memory resolved.
-- High-impact performance optimizations implemented, verified, and benchmarked.
-- KSM deduplication, Transparent Huge Pages, and Direct Huge Pages implemented and verified.
-- Session Exit crash and respawn loop resolved in `screen.c`, `main.c`, `wview.c`, `shutdown.c`, and `monitor.c`.
-- Extended EWMH Sync protocol (`_NET_WM_SYNC_REQUEST`) and Compositor Bypass hint (`_NET_WM_BYPASS_COMPOSITOR`) fully implemented, tested, and verified.
-- All compiled Window Maker binaries and libraries are installed and up to date in `/opt/wmaker`.
-- Active user session preserved without interruption or restart.
+
+Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
+
+- **Build**: `make` with the project warning set (clang-23) succeeds with 0 errors and 6 warnings,
+  all pre-existing (3 `-Wdouble-promotion`, 1 `-Wc23-extensions` in `WINGs/wlist.c`, 2
+  `-Wunused-but-set-global` in `util/wmiv.c`); the 4 warnings introduced by the fix batch are gone.
+- **Shutdown**: `make exit-test` passes — `SIGTERM` exits with status 0, `SIGUSR1` re-execs and comes
+  back, `SIGUSR2` reloads the defaults and refreshes the telemetry dump. Before `151ccd71` every exit
+  ended with status 139 (SIGSEGV inside the balloon teardown).
+- **Valgrind**: with `valgrind src/.libs/wmaker --for-real` (see §99) there are no invalid
+  reads/writes/frees at startup or shutdown. `EXIT_TEST_ARGS=--valgrind make exit-test` asserts it.
+  Remaining diagnostics at exit are definite leaks of ~5.2 KB, mostly the WINGs pixmaps created by
+  `loadPixmaps()` and the dock menu; they are known and not fixed.
+- **Telemetry**: JSON parses under `it_IT.UTF-8`, keys are unique (`ExtensionOrOther_<n>`), the
+  `xsync_eliminated` counter no longer counts `XGrabServer()`, `WM_RUNTIME_LOG_DIR` isolates runs.
+- **Stress**: `make stress` / `./test/wm_stress -t 4 -d 10` = 69,150 operations in ~10 s with the WM
+  alive afterwards.
+- **EWMH**: `_NET_WM_SYNC_REQUEST` is no longer advertised (§97); the compositor bypass hint is kept.
+- **Memory advising**: `MAP_HUGETLB` is gone, THP (`MADV_HUGEPAGE`) and process-wide KSM
+  (`PR_SET_MEMORY_MERGE`) are kept; KSM remains opt-out rather than opt-in (see §98 and R5 below).
+- **Installed tree**: `/opt/wmaker` predates `151ccd71`/`52e1029a`; run `build_and_install.sh` before
+  relying on the installed binary for exit-path tests.
+
+Earlier statements in this file that are no longer accurate, kept as a record:
+
+- "Extended EWMH Sync protocol (`_NET_WM_SYNC_REQUEST`) ... fully implemented" — it was advertised
+  but never awaited; it is now de-advertised (§97).
+- "KSM deduplication, Transparent Huge Pages, and **Direct Huge Pages** implemented and verified" —
+  `MAP_HUGETLB` is removed (§98).
+- "0 definitely-lost bytes at exit" — true only for the monitor/dock helpers, never for the WM
+  itself (which was not traced by the wrapper-based Valgrind runs).
 
 ---
 
-## Review Backlog — 2026-11-03
+## Review Backlog — status of the 2026-11-03 findings
 
-Full independent review of `d958afd..0c496c09` (149 commits, 133 files) is in
-[DeepSeekCheck.md](DeepSeekCheck.md): 19 findings with evidence, reparation cost and a suggested priority
-order. The statements above that need qualification:
+The full review is in [DeepSeekCheck.md](DeepSeekCheck.md) (19 findings) and the round-2
+verification in [UltimaRisposta.md](UltimaRisposta.md).
 
-- **`_NET_WM_SYNC_REQUEST`**: advertised and the `XSyncAlarm` is armed, but
-  `wwin->sync_request.is_waiting` is written and never read — the WM does not wait for the client
-  acknowledgement (DeepSeekCheck.md #2: implement or de-advertise).
-- **Signal safety**: `handleExitSig()` still calls `DispatchEvent(NULL)`, which now runs
-  `wTelemetryDump()` and (for `WSTATE_NEED_EXIT`) `Shutdown()`; the dump is therefore still
-  executed in signal context (#1).
-- **"0 remaining defects"**: the normal build emits 10 warnings with the project warning set, 4 of
-  them introduced by this batch (`wrlib/gradient.c:47`, `WINGs/wballoon.c:42`,
-  `src/xmodifier.c:87`, `src/xmodifier.hack_nf.c:87`); the `scan-build` claim is about a different
-  tool and does not replace a `-Werror` gate (#13).
-- **Dead code contradicted by earlier entries**: `W_FontShutdown()` is defined but never called
-  (see §73/§318 vs §357), `wRootMenuBindShortcuts()` and `wWindowSetKeyGrabs()` have no callers,
-  and `rebindKeygrabs()` re-installs grabs that `wKeyTreeRebuild()` already installed (#5, #14).
-- **Telemetry semantics**: `key_grabs_deduplicated` is always 0 on real data, `xsync_eliminated`
-  is dominated by the `XGrabServer()` increment in `wManageWindow()`, `key_grabs_set` counts
-  planned grabs rather than successful ones (#4, #6).
-- **Key grabs are installed once per screen**: keyboard/NumLock remaps (`MappingNotify`) are not
-  picked up; `XGrabKey` requests are not "round-trips" (no reply is awaited), so §95's wording
-  should say *requests*.
+| # | Finding | Status |
+|---|---|---|
+| 1 | `DispatchEvent(NULL)` in the signal handler | **Fixed** (`57d34bc2`, self-pipe) and verified with `make exit-test` |
+| 2 | `_NET_WM_SYNC_REQUEST` advertised but never awaited | **Fixed** (`847c7497`, de-advertised); empty stubs and the `sync_request` struct remain as dead code |
+| 3 | `ScreenCapture()` stack overflow | **Fixed** (`8d08496d`), verified with a 240-character template |
+| 4 | 8-bit key-grab dedup truncation | **Fixed** (`76dfecc7`) |
+| 5 | Double ungrab/regrab per menu rebuild | **Fixed** (`6f3d8a90`) in the menu path; `setKeyGrab()` still reinstalls on every binding (R1) |
+| 6 | `xsync_eliminated` counted `XGrabServer()` | **Fixed** (`76dfecc7`), measured 478 instead of 15,386 |
+| 7 | Duplicate JSON keys for extension events | **Fixed** (`a259420e`) |
+| 8 | Predictable paths in `/tmp` | **Open** (telemetry directory and exit sentinel) |
+| 9 | KSM on by default, per-image `MADV_MERGEABLE` | **Partial** (`bdfb31fe`): redundancy and `MAP_HUGETLB` removed; opt-in still missing, per-image `madvise` still redundant |
+| 10 | Font-cache teardown mutated the hash table | **Fixed** (`b3bfda03`) and now reachable thanks to `151ccd71` |
+| 11 | `wApplicationDestroy()` re-saves a context for a possibly freed window | **Open** |
+| 12 | `wWindowFor()` L1 cache benefit unproven | **Open** (O(1) invalidation proposed, not implemented) |
+| 13 | 4 compiler warnings introduced | **Fixed** (`6eebd4a4`), 10 → 6 warnings |
+| 14 | Dead code | **Partial**: `W_FontShutdown()`, `wWindowSetKeyGrabs()` and the sync stubs are still unreferenced |
+| 15 | Duplicated helpers | **Fixed** (`76dfecc7`) |
+| 16 | `wm_stress` atomics, clamp, `XSizeHints` | **Fixed** (`4df82369`); `-lpthread` still hard-coded in `test/Makefile.am` |
+| 17 | Generated files in `git status` | **Fixed** (`0419f693`) but the patterns are too broad (R3) |
+| 18 | `wmaker-valgrind-session` defaults to massif | **Open** |
+| 19 | Unreproduced `MapRequest` anomaly | **Partial** (`64011811` adds a `scr` guard but no diagnostics for the `wWindowFor() != NULL` / `wManageWindow() == NULL` paths) |
+
+### Round-2 items (2026-11-04)
+
+- **R1 — `setKeyGrab()` is O(N²) at startup**: every key-binding default calls
+  `wScreenSetKeyGrabs()`, i.e. one ungrab+regrab of the whole compiled table per binding.
+  Measured: **5,260 XGrabKey requests at startup** (~22 installs of ~240 grabs). Batch the
+  invalidation and install the grabs once after the defaults are read.
+- **R2 — Shutdown SIGSEGV**: fixed in `151ccd71` (see §99); covered by `make exit-test`.
+- **R3 — `.gitignore` too broad**: `WindowMaker/menu*`, `WindowMaker/plmenu*` and
+  `WindowMaker/appearance.menu*` match 95 tracked files; a future `WindowMaker/menu.c`/`menu.h`
+  would be silently ignored. Prefer `WindowMaker/menu.[a-z][a-z]*` and similar.
+- **R4 — `W_FontShutdown()` and SpecAI claims**: `FcFini()` is intentionally not called before
+  `XCloseDisplay()`; the function is unreferenced. This section was rewritten to stop asserting the
+  opposite.
+- **R5 — Residual exit leaks (~5.2 KB)**: WINGs pixmaps from `loadPixmaps()` (32-byte `WMPixmap`
+  each) and the dock menu are never released. Small, deterministic, not user-visible.
+- **R6 — No regression tests in `make check`**: `make exit-test` now covers the exit path; the
+  stress tool and `wm_fsm_test` are still manual.
 
 Measured baseline for future comparisons (Xvfb, clang-23, this machine):
-12,841-window churn under Valgrind with 0 invalid reads/writes/frees and a clean `SIGTERM` exit
-(0 definitely-lost bytes); `./test/wm_stress -t 4 -d 10` = 69,150 ops in 10.09 s (6,853 ops/s) with
-the WM alive afterwards; `wWindowFor` L1 cache hit rate 4.3 % (3,023 hits / 67,641 misses) under
-that load; root-window key grabs verified functional (F12 opens the root menu while a client has
-focus).
+
+- `make exit-test`: SIGTERM/SIGUSR1/SIGUSR2 pass; `--valgrind` variant passes.
+- Valgrind (`src/.libs/wmaker --for-real`, SIGTERM with one client): 0 invalid accesses,
+  5,227 bytes definitely lost at exit (see R5).
+- `./test/wm_stress -t 4 -d 10`: 69,150 operations in 10.09 s (6,853 ops/s), WM alive afterwards.
+- `wWindowFor` L1 cache: 3,023 hits / 67,641 misses (4.3 %) under that load.
+- Root-window key grabs: F12 opens the root menu while a client has focus; 5,260 XGrabKey requests
+  at startup (R1).
