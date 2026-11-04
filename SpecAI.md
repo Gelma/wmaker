@@ -725,3 +725,72 @@ Measured baseline for future comparisons (Xvfb, clang-23, this machine):
 - `wWindowFor` L1 cache: 3,023 hits / 67,641 misses (4.3 %) under that load.
 - Root-window key grabs: F12 opens the root menu while a client has focus; 5,260 XGrabKey requests
   at startup (R1).
+
+---
+
+## Evaluate for Breaking to the future
+
+This section documents the feasibility analysis and architectural blueprint for upgrading Window Maker to a modern toolchain baseline (**GCC 14+ / Clang 23+**, **C23 / GNU23 standard**, Linux kernel 6.x+, and modern X11/XRender/XCB). Legacy compatibility with pre-C99 compilers and 1990s visual architectures is explicitly traded for peak CPU throughput, hardware vectorization, minimal syscall churn, and rock-solid memory safety.
+
+Detailed implementation steps are tracked in [BreakingToTheFuture.md](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/BreakingToTheFuture.md).
+
+### 1. Language & Compiler Features: C23 / GNU23 & Modern Builtins
+
+1. **Standard Attributes & Branch Prediction Optimization**:
+   - Apply `[[unlikely]]` and `[[likely]]` (or `__builtin_expect_with_probability()`) across the high-frequency event loop (`DispatchEvent` in [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c)) and lookup caches (`wWindowFor` in [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c)).
+   - Tag hot execution paths with `[[gnu::hot]]` (`DispatchEvent`, `wWindowFor`, `W_HandleInputEvents`) to cluster them into a contiguous `.text.hot` ELF segment, eliminating instruction cache (L1i) and iTLB misses.
+   - Tag error handling, exit scripts, and signal teardown with `[[gnu::cold]]`.
+   - Apply `[[nodiscard]]` to memory-allocating and context-querying functions.
+
+2. **Checked Arithmetic with `<stdckdint.h>`**:
+   - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) and EWMH icon parsers in [`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), replace manual integer bounds checks with C23 `ckd_mul()` and `ckd_add()`.
+   - Traps integer overflow in dimension calculations (`width * height * bpp`) directly via hardware overflow flags (`jo`) with zero cycle overhead.
+
+3. **Hardware Bit-Twiddling with `<stdbit.h>`**:
+   - Utilize standard C23 bit manipulation builtins (`stdc_count_ones`, `stdc_trailing_zeros`, `stdc_first_leading_one`) in key-grab lookup tables, modifier bitmask checks in [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), and occupancy maps in [`src/placement.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/placement.c).
+   - Generates single-cycle hardware instructions (`POPCNT`, `TZCNT`, `LZCNT`).
+
+4. **Compile-Time Asset Embedding via `#embed` (Clang 23 / C23)**:
+   - Embed default cursor themes, fallback icons ([`WindowMaker/Icons/`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WindowMaker/Icons)), and core menus directly into the binary.
+   - Eliminates filesystem lookups at startup, removes missing-asset crashes in containerized/minimal installations, and speeds up cold start.
+
+5. **Whole-Program Optimization (LTO) & PLT Elimination**:
+   - Enable `-flto=auto` and `-fno-plt` in compiler flags.
+   - Enables cross-library inlining across `wrlib`, `WINGs`, and `wmaker` objects, allowing dead code elimination across compilation units.
+
+### 2. Rastering & SIMD Vectorization in `wrlib`
+
+1. **32-Bit Aligned Pixel Storage**:
+   - Modernize `RImage` internal representation to 32-bit aligned ARGB/RGBA pixels, deprecating unaligned 24-bit RGB pixel packing.
+   - Prevents memory unaligned accesses crossing 64-byte cache lines, enabling immediate compiler auto-vectorization.
+
+2. **SIMD Alpha Blending and Scaling (AVX2 / SSE4.1)**:
+   - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) (`RCombineImagesWithOpaqueness`), replace scalar byte-by-byte loops with vector extensions (`typedef uint8_t v16u __attribute__((vector_size(16)));`) or SSE/AVX intrinsics (`_mm_maddubs_epi16`, `_mm_mulhi_epu16`).
+   - Blends 8 or 16 pixels per CPU cycle instead of 1 pixel per 9 operations, achieving an estimated 8x to 12x throughput improvement during workspace and window alpha fade animations.
+
+3. **Purge 8-bit Legacy Visuals**:
+   - Remove dead 8-bit visual conversion code in [`wrlib/convert.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/convert.c) (`PseudoColor`, `StaticColor`, `GrayScale`, Floyd-Steinberg dithering), eliminating >2,000 lines of obsolete code and focusing all optimization solely on 24/32-bit TrueColor.
+
+### 3. Modern Linux Kernel Facilities
+
+1. **`epoll` Event Multiplexing**:
+   - Migrate `W_HandleInputEvents` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) from `poll()`/`select()` to `epoll_create1(EPOLL_CLOEXEC)` and `epoll_wait()`.
+   - Provides $O(1)$ event dispatch, eliminating descriptor table copying between user and kernel space on every loop iteration.
+
+2. **Monotonic Hardware Timers via `timerfd`**:
+   - Replace software timer list and `gettimeofday()` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) with Linux `timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)` and `timerfd_settime()`.
+   - Eliminates drift and clock-jump vulnerabilities from manual time changes or NTP, integrates directly into `epoll`, and achieves sub-millisecond precision.
+
+3. **Lightweight Signal Wakeup via `eventfd`**:
+   - Replace the POSIX self-pipe trick (`pipe()`) in [`src/startup.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/startup.c) with `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)`.
+   - Consumes 1 file descriptor instead of 2, using a simple 8-byte scalar kernel counter with zero buffer overhead.
+
+### 4. Modern X11 Architecture: XCB & XRender
+
+1. **Asynchronous Request Pipelining with XCB**:
+   - Introduce hybrid XCB requests via `XGetXCBConnection(dpy)`.
+   - Decouple request emission from reply collection for high-frequency queries (`xcb_get_geometry`, `xcb_get_property`), avoiding blocking roundtrips during event processing.
+
+2. **Hardware 2D Acceleration via XRender (`libXrender`)**:
+   - Offload linear gradients (titlebars, menus) and alpha blending to the X server GPU rasterizer using `XRenderCreateLinearGradient` and `XRenderComposite`.
+   - Completely eliminates CPU-side gradient rendering and the transfer of megabytes of raw image bitmaps over the X11 socket.
