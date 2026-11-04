@@ -12,6 +12,7 @@ Backward compatibility with pre-C99 compilers and legacy 1990s visual architectu
 - **C Standard**: `-std=gnu23` (or `-std=c23`)
 - **OS / Kernel**: Linux $\ge$ 6.1 (with `eventfd`, `timerfd`, `epoll`)
 - **Graphics / X11**: 24/32-bit TrueColor visuals, `libXrender`, `libxcb`
+(DeepSeek comment: verified on this machine — gcc 14.2.0 is the default `cc` and `/usr/bin/clang-23` is installed, so `-std=gnu23` and `<stdckdint.h>` work with both; `#embed` is not in GCC 14 (it lands in GCC 15), so any asset embedding is clang-only here. "Linux-only" is not free either: `configure.ac` lines 287-296 still have FreeBSD/NetBSD/OpenBSD/Darwin branches, so taking this baseline means deliberately dropping them.)
 
 ---
 
@@ -32,6 +33,7 @@ Update the build system to enforce `-std=gnu23`, enable Link-Time Optimization (
 2. Add `-flto=auto` and `-fno-plt` to default optimization flags.
 3. Configure Libtool to support LTO across internal convenience libraries (`libwraster`, `libWINGs`).
 4. Ensure compiler warnings remain clean under `-Wall -Wextra` in C23 mode.
+(DeepSeek comment: `-std=gnu23` is fine here. Keep LTO out of the default build: it needs `gcc-ar`/`gcc-ranlib` (or `llvm-ar`/`llvm-ranlib`) for the shared libWINGs/libwraster, and it inlines frames away, which breaks Valgrind/DHAT/callgrind attribution — the main diagnosis tool, and how the balloon shutdown crash was found. Make it `--enable-lto` for release builds only. Cross-module inlining of `wWindowFor`/`wTextureRenderImage` buys little: the measured hot loops are Pango/HarfBuzz and Xlib round-trips. `-fno-plt` is safe but small; `-fvisibility=hidden` + `-fno-semantic-interposition` would give more on the shared libraries.)
 
 ### Expected Gains
 - **Cross-module inlining**: Functions like `wTextureRenderImage`, `wWindowFor`, and WINGs utilities can be directly inlined across translation units into hot loops.
@@ -65,12 +67,16 @@ Incorporate C23 checked integer arithmetic, hardware bit manipulation, branch pr
    - Annotate hot functions with `[[gnu::hot]]`: `DispatchEvent()`, `wWindowFor()`, `W_HandleInputEvents()`.
    - Annotate cold handlers with `[[gnu::cold]]`: `handleExitSig()`, `Shutdown()`, error logging.
    - Annotate latency check in `wTelemetryRecordEventEnd()` with `if (elapsed_ns > 16666667ULL) [[unlikely]]`.
+(DeepSeek comment: `[[unlikely]]` is not C23 — C23 standardises `[[deprecated]]`, `[[fallthrough]]`, `[[maybe_unused]]`, `[[nodiscard]]`, `[[noreturn]]`; the branch hint is `[[gnu::unlikely]]`/`[[gnu::likely]]` or `__builtin_expect`. `[[gnu::hot]]`/`[[gnu::cold]]` are fine with gcc 14/clang 23, but a WM that waits in `poll` and in Pango shaping gains almost nothing from `.text.hot` clustering.)
 2. **Checked Arithmetic (`<stdckdint.h>`)**:
    - In `RCreateImage()` and `wmspec.c` icon parsers, replace manual multiplication with `ckd_mul()` to catch integer overflow at hardware level without performance penalty.
+(DeepSeek comment: this is the part worth doing first. `RCreateImage` (`wrlib/raster.c:82`) computes `width * height * (alpha ? 4 : 3)` and already caps dimensions with `MAX_WIDTH`/`MAX_HEIGHT`, but on a 32-bit `size_t` the product can still overflow; `ckd_mul`/`ckd_add` make it explicit at no cost.)
 3. **Hardware Bit-Twiddling (`<stdbit.h>`)**:
    - Replace manual bit counting in modifier masks and placement occupancy maps with `stdc_count_ones()` and `stdc_trailing_zeros()` (compiles to single-cycle `POPCNT` and `TZCNT`).
+(DeepSeek comment: no real target here. The placement occupancy map is a byte array indexed by slot (`src/placement.c`, reworked in SpecAI §108), not a bitset, and the modifier masks are cold; `stdc_count_ones`/`stdc_trailing_zeros` would be cosmetic. Skip unless a profile shows otherwise.)
 4. **Compile-Time Asset Embedding (`#embed`)**:
    - In Clang 23 builds, embed default icons and fallback menus directly into read-only ELF data, eliminating initial filesystem lookups.
+(DeepSeek comment: GCC 14 does not implement `#embed` (GCC 15 does), so this is a clang-23-only path and the default gcc build is unchanged. It also needs a memory-image loader in wrlib/WINGs (icons and menus are read from files today), which is real work for a handful of file opens — and startup is dominated by proplist parsing (2 MB churn in DHAT). Drop it.)
 
 ### Expected Gains
 - Grouping hot functions into `.text.hot` eliminates instruction cache (L1i) and iTLB misses.
@@ -82,6 +88,7 @@ Incorporate C23 checked integer arithmetic, hardware bit manipulation, branch pr
 make -j$(nproc)
 make exit-test
 tools/profile.sh perf 10 $(pidof wmaker) map
+# (DeepSeek comment: `pidof wmaker` returns the monitor and the child and `perf -p` wants comma-separated pids; the script resolves the WM pid itself through _NET_WM_PID, so use: tools/profile.sh perf 10 "" map)
 ```
 
 ---
@@ -108,6 +115,7 @@ Replace legacy POSIX self-pipe trick, `poll()` descriptor scanning, and `gettime
 3. **`epoll` Multiplexing in WINGs**:
    - Initialize an epoll instance via `epoll_create1(EPOLL_CLOEXEC)`.
    - Replace the $O(N)$ linear reconstruction of `struct pollfd` on every loop iteration with $O(1)$ `epoll_wait()`.
+(DeepSeek comment: weak case. `WINGs/handlers.c` polls 2-4 descriptors (`total_fds = nfds + extrafd`, line 398), so epoll removes nothing measurable, and `gettimeofday` (lines 27/437) is a vDSO call (~20 ns), not a syscall. The only defensible piece is one `timerfd` armed to the next deadline, and even that did not appear in any profile. All three are Linux-only while `configure.ac` still supports BSD/macOS, so they would need `#ifdef __linux__` with the existing poll fallback — not in the baseline.)
 
 ### Expected Gains
 - Eliminates memory copying between userspace and kernel on every event loop wakeup.
@@ -118,6 +126,7 @@ Replace legacy POSIX self-pipe trick, `poll()` descriptor scanning, and `gettime
 ```bash
 make exit-test
 tools/profile.sh strace 5 $(pidof wmaker) menu
+# (DeepSeek comment: same as above, pass the pid resolved by the script: tools/profile.sh strace 5 "" menu)
 ```
 
 ---
@@ -136,11 +145,13 @@ Modernize raster graphics operations in `wrlib` by enforcing 32-bit aligned pixe
 ### Implementation Tasks
 1. **32-Bit Alignment**:
    - Standardize `RImage` pixel data to 32-bit aligned ARGB/RGBA words (`uint32_t`), eliminating unaligned 3-byte RGB packing.
+(DeepSeek comment: the observation is right — `RImage` is `(alpha ? 4 : 3)` bytes/px (`wrlib/raster.c:82`) — but fixing it to 4 bytes costs +33% memory on every non-alpha image, touches every wrlib routine, and changes the public `libwraster` ABI: `depth` and `data` are exposed in `wrlib/wraster.h` (lines 179/247). Do the SIMD first, keep the 3-byte layout, and revisit only if a profile shows pixel work dominating.)
 2. **SIMD Vector Blending (AVX2 / SSE4.1)**:
    - In `RCombineImages()` and `RCombineImagesWithOpaqueness()`, replace scalar byte multiplications with GCC/Clang vector types (`typedef uint8_t v16u __attribute__((vector_size(16)));`) or Intel intrinsics (`_mm_maddubs_epi16`, `_mm_mulhi_epu16`).
    - Process 8 or 16 pixels per CPU cycle instead of 1 pixel per 9 scalar instructions.
 3. **Optimized Bilinear Scaling**:
    - Vectorize horizontal and vertical interpolation passes in `RScaleImage()`.
+(DeepSeek comment: target the right functions — `RScaleImage` (`wrlib/scale.c:47`) is nearest-neighbour and already vectorised by the compiler; `RSmoothScaleImage` (`scale.c:313`, Catmull-Rom/Lanczos) and `RCombineImages*` (`wrlib/raster.c:214/267`) are the real candidates, and `RMakeTiledImage` (`raster.c:~640`) is already `memcpy` per row. Use runtime dispatch (`__builtin_cpu_supports`) and a bit-exactness test: rounding differences change the pixels, and the titlebar-hash method used for SpecAI §117 is the right tool.)
 
 ### Expected Gains
 - **8x to 12x speedup** in alpha blending and image scaling.
@@ -152,6 +163,7 @@ Modernize raster graphics operations in `wrlib` by enforcing 32-bit aligned pixe
 make -j$(nproc)
 make exit-test
 tools/profile.sh dhat scenario
+# (DeepSeek comment: the scenario argument is one of menu|map|mixed|idle.)
 ```
 
 ---
@@ -168,8 +180,10 @@ Remove obsolete 1990s paletted visual modes (`PseudoColor`, `StaticColor`, `Gray
 
 ### Implementation Tasks
 1. Remove `image2PseudoColor()`, `image2StandardPseudoColor()`, `image2GrayScale()`, and associated color quantization tables.
+(DeepSeek comment: the 8-bit block is about 370 lines, not ">2,000": `image2PseudoColor` line 514, `image2StandardPseudoColor` 598, `image2GrayScale` 748 plus dithering helpers, in a 1,098-line file. Still worthwhile for clarity, just smaller than advertised. Keep `image2Bitmap` (line 871, used by `RConvertImageMask` at line 981) — 1-bit masks are still needed. Also decide explicitly what happens to 15/16-bit TrueColor: `image2TrueColor` handles them today and this step says "solely 24/32-bit".)
 2. Specialize `RConvertImage()` solely for 24-bit and 32-bit `TrueColor` visuals.
 3. Clean up the MIT-SHM path in `RConvertImage()`, removing the redundant `XCopyArea()` workaround.
+(DeepSeek comment: that `XCopyArea` is not a "redundant workaround": the comment in `RConvertImage` explains it exists to control pixmap lifetime and shm segment detachment (otherwise a crash leaves stale segments). Removing it needs explicit pixmap-lifetime tracking, not a cleanup.)
 
 ### Expected Gains
 - Removes >2,000 lines of complex, obsolete code.
@@ -200,9 +214,11 @@ Offload 2D rasterization (gradients, bevels, alpha compositing) to the X server 
    - Link `libXrender`.
    - In `wTextureRenderImage()`, implement a fast-path utilizing `XRenderCreateLinearGradient()` and `XRenderComposite()`.
    - Render gradient textures directly into X11 Pixmaps on the GPU, bypassing software rasterization and bitmap socket transfers.
+(DeepSeek comment: not drop-in. `wTextureRenderImage` (`src/texture.c:349`) returns an `RImage` that is then tiled/composited and converted (`RMakeTiledImage`, `RConvertImage`); drawing gradients with XRender into a pixmap needs a parallel drawing path for menus and frames. On Xvfb/llvmpipe it is neutral or slower; measure on a real GPU first. Note the DHAT leader is texture tiling (`RMakeTiledImage`), not gradients.)
 2. **XCB Asynchronous Pipelining**:
    - Use `XGetXCBConnection(dpy)`.
    - For high-frequency queries in `handlePropertyNotify()` and window management, emit XCB cookies asynchronously and harvest replies only when required, avoiding blocking roundtrips.
+(DeepSeek comment: there is no XCB in the tree today (no `XGetXCBConnection`, no `xcb_*`), so this is a rewrite, not an integration. The remaining round-trip per MapRequest (`XGetWindowAttributes`) is needed *before* deciding to manage, so a cookie does not remove it; at most the request can be issued earlier, for ~50 microseconds per window. Highest risk, least evidence.)
 
 ### Expected Gains
 - Offloads the primary source of memory allocation churn (>700 MB in DHAT) from userspace CPU to the X server GPU.

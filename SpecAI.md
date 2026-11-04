@@ -747,56 +747,69 @@ Detailed implementation steps are tracked in [BreakingToTheFuture.md](file:///ho
    - Tag hot execution paths with `[[gnu::hot]]` (`DispatchEvent`, `wWindowFor`, `W_HandleInputEvents`) to cluster them into a contiguous `.text.hot` ELF segment, eliminating instruction cache (L1i) and iTLB misses.
    - Tag error handling, exit scripts, and signal teardown with `[[gnu::cold]]`.
    - Apply `[[nodiscard]]` to memory-allocating and context-querying functions.
+   - (DeepSeek comment: `[[unlikely]]` is not C23 (use `[[gnu::unlikely]]`/`__builtin_expect`); `[[gnu::hot]]`/`[[gnu::cold]]` work with gcc 14 and clang 23 but a WM that waits in poll and Pango gains little from `.text.hot` clustering.)
 
 2. **Checked Arithmetic with `<stdckdint.h>`**:
    - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) and EWMH icon parsers in [`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), replace manual integer bounds checks with C23 `ckd_mul()` and `ckd_add()`.
    - Traps integer overflow in dimension calculations (`width * height * bpp`) directly via hardware overflow flags (`jo`) with zero cycle overhead.
+   - (DeepSeek comment: this is the first item worth doing. `RCreateImage` (`wrlib/raster.c:82`) already caps dimensions with `MAX_WIDTH`/`MAX_HEIGHT`, but on 32-bit `size_t` the product can still overflow; `ckd_mul`/`ckd_add` make it explicit at no cost.)
 
 3. **Hardware Bit-Twiddling with `<stdbit.h>`**:
    - Utilize standard C23 bit manipulation builtins (`stdc_count_ones`, `stdc_trailing_zeros`, `stdc_first_leading_one`) in key-grab lookup tables, modifier bitmask checks in [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), and occupancy maps in [`src/placement.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/placement.c).
    - Generates single-cycle hardware instructions (`POPCNT`, `TZCNT`, `LZCNT`).
+   - (DeepSeek comment: no real target — the placement occupancy map is a byte array indexed by slot, not a bitset, and the modifier masks are cold. Cosmetic unless a profile says otherwise.)
 
 4. **Compile-Time Asset Embedding via `#embed` (Clang 23 / C23)**:
    - Embed default cursor themes, fallback icons ([`WindowMaker/Icons/`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WindowMaker/Icons)), and core menus directly into the binary.
    - Eliminates filesystem lookups at startup, removes missing-asset crashes in containerized/minimal installations, and speeds up cold start.
+   - (DeepSeek comment: `#embed` is not in GCC 14, so this is clang-only here, and it needs a memory-image loader in wrlib/WINGs (icons and menus are read from files today). Startup is dominated by proplist parsing, not by a handful of file opens: drop it.)
 
 5. **Whole-Program Optimization (LTO) & PLT Elimination**:
    - Enable `-flto=auto` and `-fno-plt` in compiler flags.
    - Enables cross-library inlining across `wrlib`, `WINGs`, and `wmaker` objects, allowing dead code elimination across compilation units.
+   - (DeepSeek comment: keep LTO out of the default build. It needs `gcc-ar`/`gcc-ranlib` for the shared libs and it inlines frames away, breaking Valgrind/DHAT/callgrind attribution (our main diagnosis tool). Make it `--enable-lto` for releases; `-fvisibility=hidden` + `-fno-semantic-interposition` give more than `-fno-plt` for the shared libraries.)
 
 ### 2. Rastering & SIMD Vectorization in `wrlib`
 
 1. **32-Bit Aligned Pixel Storage**:
    - Modernize `RImage` internal representation to 32-bit aligned ARGB/RGBA pixels, deprecating unaligned 24-bit RGB pixel packing.
    - Prevents memory unaligned accesses crossing 64-byte cache lines, enabling immediate compiler auto-vectorization.
+   - (DeepSeek comment: `RImage` is `(alpha ? 4 : 3)` bytes/px (`wrlib/raster.c:82`); switching to 4 bytes costs +33% memory on non-alpha images and changes the public `libwraster` ABI (`wrlib/wraster.h` lines 179/247 expose `depth` and `data`). Keep the 3-byte layout for now.)
 
 2. **SIMD Alpha Blending and Scaling (AVX2 / SSE4.1)**:
    - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) (`RCombineImagesWithOpaqueness`), replace scalar byte-by-byte loops with vector extensions (`typedef uint8_t v16u __attribute__((vector_size(16)));`) or SSE/AVX intrinsics (`_mm_maddubs_epi16`, `_mm_mulhi_epu16`).
    - Blends 8 or 16 pixels per CPU cycle instead of 1 pixel per 9 operations, achieving an estimated 8x to 12x throughput improvement during workspace and window alpha fade animations.
+   - (DeepSeek comment: target `RSmoothScaleImage` (`wrlib/scale.c:313`) and `RCombineImages*` (`wrlib/raster.c:214/267`); `RScaleImage` is nearest-neighbour and `RMakeTiledImage` is already `memcpy` per row. Use runtime dispatch and bit-exact pixel tests — rounding differences are visible, and the titlebar-hash method from §117 works.)
 
 3. **Purge 8-bit Legacy Visuals**:
    - Remove dead 8-bit visual conversion code in [`wrlib/convert.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/convert.c) (`PseudoColor`, `StaticColor`, `GrayScale`, Floyd-Steinberg dithering), eliminating >2,000 lines of obsolete code and focusing all optimization solely on 24/32-bit TrueColor.
+   - (DeepSeek comment: the 8-bit block is about 370 lines, not >2,000 (`image2PseudoColor` 514, `image2StandardPseudoColor` 598, `image2GrayScale` 748, file 1,098 lines). Keep `image2Bitmap` (871/981) for 1-bit masks, and decide explicitly what happens to 15/16-bit TrueColor. The SHM `XCopyArea` is not redundant: it manages pixmap and shm-segment lifetime.)
 
 ### 3. Modern Linux Kernel Facilities
 
 1. **`epoll` Event Multiplexing**:
    - Migrate `W_HandleInputEvents` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) from `poll()`/`select()` to `epoll_create1(EPOLL_CLOEXEC)` and `epoll_wait()`.
    - Provides $O(1)$ event dispatch, eliminating descriptor table copying between user and kernel space on every loop iteration.
+   - (DeepSeek comment: `WINGs/handlers.c` polls 2-4 fds (`total_fds = nfds + extrafd`, line 398), so epoll removes nothing measurable. Linux-only while `configure.ac` supports BSD/macOS: would need `#ifdef __linux__` and the poll fallback.)
 
 2. **Monotonic Hardware Timers via `timerfd`**:
    - Replace software timer list and `gettimeofday()` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) with Linux `timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)` and `timerfd_settime()`.
    - Eliminates drift and clock-jump vulnerabilities from manual time changes or NTP, integrates directly into `epoll`, and achieves sub-millisecond precision.
+   - (DeepSeek comment: `gettimeofday` is a vDSO call (~20 ns), not a syscall; a single timerfd armed to the next deadline is the only defensible piece, and no profile showed the timeout computation as a cost.)
 
 3. **Lightweight Signal Wakeup via `eventfd`**:
    - Replace the POSIX self-pipe trick (`pipe()`) in [`src/startup.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/startup.c) with `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)`.
    - Consumes 1 file descriptor instead of 2, using a simple 8-byte scalar kernel counter with zero buffer overhead.
+   - (DeepSeek comment: saves one fd and one pipe buffer; negligible on its own, and Linux-only.)
 
 ### 4. Modern X11 Architecture: XCB & XRender
 
 1. **Asynchronous Request Pipelining with XCB**:
    - Introduce hybrid XCB requests via `XGetXCBConnection(dpy)`.
    - Decouple request emission from reply collection for high-frequency queries (`xcb_get_geometry`, `xcb_get_property`), avoiding blocking roundtrips during event processing.
+   - (DeepSeek comment: no XCB in the tree today; the MapRequest round-trip is needed before the manage decision, so a cookie does not remove it (prefetching could, for ~50 microseconds per window). Highest risk, least evidence.)
 
 2. **Hardware 2D Acceleration via XRender (`libXrender`)**:
    - Offload linear gradients (titlebars, menus) and alpha blending to the X server GPU rasterizer using `XRenderCreateLinearGradient` and `XRenderComposite`.
    - Completely eliminates CPU-side gradient rendering and the transfer of megabytes of raw image bitmaps over the X11 socket.
+   - (DeepSeek comment: not drop-in — `wTextureRenderImage` (`src/texture.c:349`) returns an `RImage` that is tiled/composited/converted elsewhere, so XRender gradients need a parallel path for menus and frames; neutral or slower on Xvfb/llvmpipe, and DHAT shows tiling (`RMakeTiledImage`) rather than gradients as the churn leader.)
