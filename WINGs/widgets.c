@@ -1154,6 +1154,10 @@ void WMRedisplayWidget(WMWidget * w)
 void WMDestroyScreen(WMScreen *scr)
 {
 	int i;
+
+	if (!scr)
+		return;
+
 	W_Pixmap *pixmaps[] = {
 		scr->checkButtonImageOn, scr->checkButtonImageOff,
 		scr->radioButtonImageOn, scr->radioButtonImageOff,
@@ -1168,9 +1172,6 @@ void WMDestroyScreen(WMScreen *scr)
 		scr->createDirIcon,
 		scr->applicationIconPixmap
 	};
-
-	if (!scr)
-		return;
 
 	if (scr->sharedOpenPanel) {
 		WMFreeFilePanel(scr->sharedOpenPanel);

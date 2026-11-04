@@ -1356,16 +1356,10 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 	key_grabs_deferred = False;
 	if (key_grabs_deferred_dirty) {
 		key_grabs_deferred_dirty = False;
-		if (scr && !scr->flags.key_grabs_suspended) {
+		/* scr is never NULL past this point: the option loop above
+		 * dereferences it while converting the entries. */
+		if (!scr->flags.key_grabs_suspended)
 			wScreenSetKeyGrabs(scr);
-		} else if (!scr) {
-			int s_idx;
-			for (s_idx = 0; s_idx < w_global.screen_count; s_idx++) {
-				WScreen *s = wScreenWithNumber(s_idx);
-				if (s && !s->flags.key_grabs_suspended)
-					wScreenSetKeyGrabs(s);
-			}
-		}
 	}
 
 	wScreenUpdateRootEventMask(scr);
