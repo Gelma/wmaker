@@ -156,3 +156,8 @@ stress:
 	./test/wm_stress
 
 .PHONY: stress
+
+exit-test:
+	./test/run_exit_test.sh $(EXIT_TEST_ARGS)
+
+.PHONY: exit-test
