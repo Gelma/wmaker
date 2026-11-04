@@ -363,6 +363,13 @@ int main(int argc, char **argv)
 	pthread_t *threads = malloc(sizeof(pthread_t) * num_threads);
 	WorkerArg *args = calloc(num_threads, sizeof(WorkerArg));
 
+	if (!threads || !args) {
+		fprintf(stderr, "Fatal: cannot allocate worker descriptors\n");
+		free(threads);
+		free(args);
+		return 1;
+	}
+
 	for (int i = 0; i < num_threads; i++) {
 		args[i].thread_id = i;
 		args[i].display_name = display_name;

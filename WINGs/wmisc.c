@@ -135,7 +135,7 @@ static int fitText(const char *text, WMFont * font, int width, int wrap)
 	/* keep words complete if possible */
 	if (!isspace(text[i]) && word1 > 0) {
 		i = word1;
-	} else if (isspace(text[i]) && i < beforecrlf) {
+	} else if (i < beforecrlf && isspace(text[i])) {
 		/* keep space on current row, so new row has next word in column 1 */
 		i++;
 	}

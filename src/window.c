@@ -3302,7 +3302,7 @@ static void titlebarDblClick(WCoreWindow *sender, void *data, XEvent *event)
 
 	if (event->xbutton.button == Button1 ) {
 		if (event->xbutton.state == 0 ) {
-			if (!WFLAGP(wwin, no_shadeable) & !wPreferences.double_click_fullscreen) {
+			if (!WFLAGP(wwin, no_shadeable) && !wPreferences.double_click_fullscreen) {
 				/* shade window */
 				if (wwin->flags.shaded)
 					wUnshadeWindow(wwin);
