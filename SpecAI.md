@@ -667,6 +667,8 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - `src/defaults.c:1371`: calling `wScreenUpdateRootEventMask(scr)` unconditionally after handling `scr == NULL` a few lines prior causes an immediate SIGSEGV when defaults are read without an active screen context.
       - `WINGs/widgets.c:1157-1172`: `WMDestroyScreen(scr)` initializes stack array `pixmaps[]` by dereferencing members of `scr` before reaching the `if (!scr) return;` guard, turning it into dead code and crashing on `NULL`.
       - `test/wm_stress.c:364`: `calloc()` return value unchecked before thread argument assignment.
+      - `src/window.c:3305`: bitwise `&` operator used instead of logical `&&` on boolean conditions in `handleTitlebarButton`.
+      - `WINGs/wmisc.c:138`: array indexing `text[i]` performed before bounds check `i < beforecrlf`.
     - **Status**: Documented with unified diff patches in `cppcheck.md`; awaiting user instruction to apply.
 
 ---
