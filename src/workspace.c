@@ -212,6 +212,7 @@ typedef struct WorkspaceNameData {
 	int count;
 	RImage *back;
 	RImage *text;
+	RImage *render_buf;
 	time_t timeout;
 } WorkspaceNameData;
 
@@ -227,6 +228,8 @@ void wWorkspaceResetName(WScreen *scr)
 			RReleaseImage(scr->workspace_name_data->back);
 		if (scr->workspace_name_data->text)
 			RReleaseImage(scr->workspace_name_data->text);
+		if (scr->workspace_name_data->render_buf)
+			RReleaseImage(scr->workspace_name_data->render_buf);
 		wfree(scr->workspace_name_data);
 		scr->workspace_name_data = NULL;
 	}
@@ -243,14 +246,25 @@ static void hideWorkspaceName(void *data)
 		if (scr->workspace_name_data) {
 			RReleaseImage(scr->workspace_name_data->back);
 			RReleaseImage(scr->workspace_name_data->text);
+			if (scr->workspace_name_data->render_buf)
+				RReleaseImage(scr->workspace_name_data->render_buf);
 			wfree(scr->workspace_name_data);
 
 			scr->workspace_name_data = NULL;
 		}
 		scr->workspace_name_timer = NULL;
 	} else {
-		RImage *img = RCloneImage(scr->workspace_name_data->back);
+		RImage *img = scr->workspace_name_data->render_buf;
 		Pixmap pix;
+		size_t data_len;
+
+		if (!img) {
+			img = RCloneImage(scr->workspace_name_data->back);
+			scr->workspace_name_data->render_buf = img;
+		} else {
+			data_len = (size_t)img->width * img->height * (img->format == RRGBAFormat ? 4 : 3);
+			memcpy(img->data, scr->workspace_name_data->back->data, data_len);
+		}
 
 		scr->workspace_name_timer = WMAddTimerHandler(WORKSPACE_NAME_FADE_DELAY, hideWorkspaceName, scr);
 
@@ -258,8 +272,6 @@ static void hideWorkspaceName(void *data)
 					     scr->workspace_name_data->count * 255 / 10);
 
 		RConvertImage(scr->rcontext, img, &pix);
-
-		RReleaseImage(img);
 
 		XSetWindowBackgroundPixmap(dpy, scr->workspace_name, pix);
 		XClearWindow(dpy, scr->workspace_name);
@@ -299,11 +311,15 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	if (scr->workspace_name_data) {
 		RReleaseImage(scr->workspace_name_data->back);
 		RReleaseImage(scr->workspace_name_data->text);
+		if (scr->workspace_name_data->render_buf)
+			RReleaseImage(scr->workspace_name_data->render_buf);
 		wfree(scr->workspace_name_data);
 	}
 
 	data = wmalloc(sizeof(WorkspaceNameData));
 	data->back = NULL;
+	data->text = NULL;
+	data->render_buf = NULL;
 
 	w = WMWidthOfString(scr->workspace_name_font, name, len);
 	h = WMFontHeight(scr->workspace_name_font);
