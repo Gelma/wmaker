@@ -425,6 +425,8 @@ void wWindowUnsetMark(WWindow *wwin);
 
 #ifdef XKB_BUTTON_HINT
 void wWindowGetLanguageLabel(int group_index, char *label);
+void wWindowInvalidateLanguageLabel(void);
+void wWindowCheckXkbRulesChanged(XPropertyEvent *event);
 #endif
 
 #endif

@@ -3536,42 +3536,32 @@ static void windowCloseDblClick(WCoreWindow *sender, void *data, XEvent *event)
 }
 
 #ifdef XKB_BUTTON_HINT
-/* Helper function to extract the 2-letter language code for a given XKB group index */
-void wWindowGetLanguageLabel(int group_index, char *label)
+/* The XKB rules names live in the _XKB_RULES_NAMES property of the root
+ * window and change only when the keyboard configuration is replaced
+ * (setxkbmap).  Reading them costs a synchronous round-trip plus parsing and
+ * two heap copies, and the label is requested for every window and every
+ * frame repaint, so keep the layout list for the process lifetime and drop
+ * it when XKB reports a mapping change.  A few bytes of memory for one
+ * round-trip less per window. */
+static char *xkb_layout_list;
+static Bool xkb_layout_probed;
+
+static const char *getXkbLayoutList(void)
 {
 	XkbRF_VarDefsRec vd;
-	char *rules = NULL;
 
-	/* Default to empty - will fallback to pixmap if we can't get the label */
-	label[0] = '\0';
+	if (xkb_layout_probed)
+		return xkb_layout_list;
+
+	/* Probe once, including the "no property" answer: without this a server
+	 * without _XKB_RULES_NAMES would pay the round-trip per window.  A
+	 * MappingNotify drops the probe again, so a later setxkbmap is seen. */
+	xkb_layout_probed = True;
+
 	memset(&vd, 0, sizeof(vd));
-
-	if (XkbRF_GetNamesProp(dpy, &rules, &vd)) {
-		if (vd.layout) {
-			int i;
-			char *layout_list = strdup(vd.layout);
-			char *tok = strtok(layout_list, ",");
-
-			/* Iterate to the requested group index */
-			for (i = 0; i < group_index && tok != NULL; i++) {
-				tok = strtok(NULL, ",");
-			}
-
-			if (tok) {
-				/* Copy exactly the first two bytes, then format: first uppercase, second lowercase */
-				strncpy(label, tok, 2);
-				label[2] = '\0';
-				if (label[0])
-					label[0] = (char) toupper((unsigned char) label[0]);
-				if (label[1])
-					label[1] = (char) tolower((unsigned char) label[1]);
-			}
-
-			free(layout_list);
-		}
-
-		if (rules)
-			free(rules);
+	if (XkbRF_GetNamesProp(dpy, NULL, &vd)) {
+		if (vd.layout)
+			xkb_layout_list = wstrdup(vd.layout);
 		if (vd.model)
 			free(vd.model);
 		if (vd.layout)
@@ -3581,6 +3571,63 @@ void wWindowGetLanguageLabel(int group_index, char *label)
 		if (vd.options)
 			free(vd.options);
 	}
+
+	return xkb_layout_list;
+}
+
+/* Called when the XKB mapping changes: the cached layout list is stale. */
+void wWindowInvalidateLanguageLabel(void)
+{
+	wfree(xkb_layout_list);
+	xkb_layout_list = NULL;
+	xkb_layout_probed = False;
+}
+
+/* setxkbmap rewrites _XKB_RULES_NAMES on the root window; that property, not
+ * a core MappingNotify, is what tells us the layout list changed. */
+void wWindowCheckXkbRulesChanged(XPropertyEvent *event)
+{
+	static Atom xkb_rules_atom = None;
+
+	if (!xkb_rules_atom)
+		xkb_rules_atom = XInternAtom(dpy, "_XKB_RULES_NAMES", False);
+
+	if (xkb_rules_atom != None && event->atom == xkb_rules_atom)
+		wWindowInvalidateLanguageLabel();
+}
+
+static Bool languageLabelFromList(const char *layouts, int group_index, char *label)
+{
+	const char *tok = layouts;
+	int i;
+
+	for (i = 0; i < group_index && tok != NULL; i++) {
+		tok = strchr(tok, ',');
+		if (tok)
+			tok++;
+	}
+
+	if (!tok || tok[0] == '\0' || tok[0] == ',')
+		return False;
+
+	/* First letter uppercase, second lowercase; stop at the separator. */
+	label[0] = (char)toupper((unsigned char)tok[0]);
+	label[1] = (tok[1] != '\0' && tok[1] != ',') ? (char)tolower((unsigned char)tok[1]) : '\0';
+	label[2] = '\0';
+	return True;
+}
+
+/* Helper function to extract the 2-letter language code for a given XKB group index */
+void wWindowGetLanguageLabel(int group_index, char *label)
+{
+	const char *layouts;
+
+	/* Default to empty - will fallback to pixmap if we can't get the label */
+	label[0] = '\0';
+
+	layouts = getXkbLayoutList();
+	if (layouts)
+		languageLabelFromList(layouts, group_index, label);
 }
 
 static void windowLanguageClick(WCoreWindow *sender, void *data, XEvent *event)

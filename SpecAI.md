@@ -622,6 +622,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: one 64-bit increment per MapRequest in the normal path, a `time()` call only on failures; the diagnostic information stays available without the allocation and I/O. 
     - **Verification**: `tools/profile.sh dhat map` no longer lists `__wmessage` anywhere (top churn is now 5.5 MB `XkbRF_GetNamesProp`, then 4.8 MB Pango's worker); a run with **6,323** failed MapRequests produced **4** warning lines and a 3 KB log; `make exit-test` passes.
 
+116. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c) - Cache the XKB Layout List Instead of Re-Reading It per Window**:
+    - **Problem**: `wWindowGetLanguageLabel()` called `XkbRF_GetNamesProp()` — atom lookup, `XGetWindowProperty`, parsing and two `strdup`s — for every window and every frame repaint. After §115 it was the top DHAT churn at **5.5 MB** in a 3 s stress run.
+    - **Fix**: the layout list is read once (`getXkbLayoutList()`), kept with `wstrdup` for the process lifetime, and the probe result — including "property absent" — is cached so servers without `_XKB_RULES_NAMES` do not pay a round-trip per window either. The 2-letter label is parsed in place with `strchr`, without the per-call `strdup`/`strtok`. The cache is dropped when the root `_XKB_RULES_NAMES` property changes (`wWindowCheckXkbRulesChanged()` from `handlePropertyNotify`) and on a core `MappingNotify` with `MappingKeyboard`, so `setxkbmap` is picked up.
+    - **Cost/benefit**: a few bytes for the layout string and one round-trip per WM start (or keyboard reconfiguration) instead of one per window: memory spent deliberately to remove per-window X traffic.
+    - **Verification**: `dhat map` no longer lists `XkbRF_GetNamesProp` in the top churn (the whole path is now ~0.7 KB with a single `XGetWindowProperty`); functional test on a private Xvfb: label `Us`, rewriting `_XKB_RULES_NAMES` to `it` makes the next call return `It`, removing the property makes it empty (invalidation and re-probe both work); `make exit-test` passes.
+
 ---
 
 ## Verification Status

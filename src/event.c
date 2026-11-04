@@ -270,6 +270,11 @@ void DispatchEvent(XEvent * event)
 	case MappingNotify:
 		if (event->xmapping.request == MappingKeyboard || event->xmapping.request == MappingModifier)
 			XRefreshKeyboardMapping(&event->xmapping);
+#ifdef XKB_BUTTON_HINT
+		/* The cached XKB layout list may have changed (setxkbmap). */
+		if (event->xmapping.request == MappingKeyboard)
+			wWindowInvalidateLanguageLabel();
+#endif
 		break;
 
 	case FocusIn:
@@ -1064,6 +1069,13 @@ static void handlePropertyNotify(XEvent * event)
 {
 	WWindow *wwin;
 	WApplication *wapp;
+
+#ifdef XKB_BUTTON_HINT
+	/* setxkbmap changes _XKB_RULES_NAMES on the root window: drop the cached
+	 * layout list before any window label is computed again. */
+	if (wScreenForRootWindow(event->xproperty.window))
+		wWindowCheckXkbRulesChanged(&event->xproperty);
+#endif
 
 	wwin = wWindowFor(event->xproperty.window);
 	if (wwin) {
