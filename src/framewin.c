@@ -51,6 +51,7 @@ static void titlebarMouseDown(WObjDescriptor * desc, XEvent * event);
 static void resizebarMouseDown(WObjDescriptor * desc, XEvent * event);
 
 static void checkTitleSize(WFrameWindow * fwin);
+static void freeTitleStrip(WFrameWindow * fwin);
 
 static void paintButton(WCoreWindow * button, WTexture * texture,
 			unsigned long color, WPixmap * image, int pushed, int from_xpm);
@@ -82,6 +83,16 @@ WFrameWindow *wFrameWindowCreate(WScreen * scr, int wlevel, int x, int y,
 	WFrameWindow *fwin;
 
 	fwin = wmalloc(sizeof(WFrameWindow));
+
+	fwin->title_strip[0] = None;
+	fwin->title_strip[1] = None;
+	fwin->title_strip[2] = None;
+	fwin->title_strip_width = 0;
+	fwin->title_strip_x = 0;
+	fwin->title_strip_y = 0;
+	fwin->title_strip_w = 0;
+	fwin->title_strip_h = 0;
+	fwin->title_strip_text = NULL;
 
 	fwin->screen_ptr = scr;
 
@@ -461,6 +472,8 @@ void wFrameWindowUpdateBorders(WFrameWindow * fwin, int flags)
 void wFrameWindowDestroy(WFrameWindow * fwin)
 {
 	int i;
+
+	freeTitleStrip(fwin);
 
 	if (fwin->left_button)
 		wCoreDestroy(fwin->left_button);
@@ -962,6 +975,22 @@ static void remakeTexture(WFrameWindow * fwin, int state)
 	}
 }
 
+/* Drop the cached title strips.  Called when the title, the titlebar width or
+ * the frame textures change: the cached pixmap would show stale text or a
+ * stale background. */
+static void freeTitleStrip(WFrameWindow * fwin)
+{
+	int i;
+
+	for (i = 0; i < 3; i++)
+		FREE_PIXMAP(fwin->title_strip[i]);
+	wfree(fwin->title_strip_text);
+	fwin->title_strip_text = NULL;
+	fwin->title_strip_width = 0;
+	fwin->title_strip_w = 0;
+	fwin->title_strip_h = 0;
+}
+
 void wFrameWindowPaint(WFrameWindow * fwin)
 {
 	WScreen *scr = fwin->screen_ptr;
@@ -975,6 +1004,8 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 	if (fwin->flags.need_texture_remake) {
 		fwin->flags.texture_remake_mask = 0x7;
 		fwin->flags.need_texture_remake = 0;
+		/* the strips were rendered from the old textures */
+		freeTitleStrip(fwin);
 	}
 
 	if (fwin->flags.texture_remake_mask & (1 << state)) {
@@ -1003,6 +1034,8 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 		if (fwin->flags.texture_remake_mask & (1 << state)) {
 			fwin->flags.texture_remake_mask &= ~(1 << state);
 			remakeTexture(fwin, state);
+			/* the cached strip for this state was rendered with the old texture */
+			freeTitleStrip(fwin);
 		}
 		updateTexture(fwin);
 	}
@@ -1080,6 +1113,19 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 			Drawable buf;
 			char *title;
 
+			if (fwin->title_strip_text && fwin->title_strip[state] != None
+			    && fwin->title_strip_width == fwin->titlebar->width
+			    && strcmp(fwin->title_strip_text, fwin->title) == 0) {
+				/* Same title, same width, same textures: the strip is still
+				 * valid, so an Expose or a focus switch is one XCopyArea
+				 * instead of ShrinkString + Pango shaping + a pixmap
+				 * round-trip. */
+				XCopyArea(dpy, fwin->title_strip[state], fwin->titlebar->window,
+					  scr->copy_gc, 0, 0, fwin->title_strip_w + 2,
+					  fwin->title_strip_h, fwin->title_strip_x - 1, fwin->title_strip_y);
+				goto title_done;
+			}
+
 			title = ShrinkString(*fwin->font, fwin->title, fwin->titlebar->width - lofs - rofs);
 			titlelen = strlen(title);
 			w = WMWidthOfString(*fwin->font, title, titlelen);
@@ -1135,9 +1181,25 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 
 			XCopyArea(dpy, buf, fwin->titlebar->window, scr->copy_gc, 0, 0, w + 2, h, x - 1, y);
 
-			XFreePixmap(dpy, buf);
+			/* Keep the strip for the next repaint of this state. */
+			if (fwin->title_strip_text
+			    && (fwin->title_strip_width != fwin->titlebar->width
+				|| strcmp(fwin->title_strip_text, fwin->title) != 0))
+				freeTitleStrip(fwin);
+			if (!fwin->title_strip_text) {
+				fwin->title_strip_text = wstrdup(fwin->title);
+				fwin->title_strip_width = fwin->titlebar->width;
+				fwin->title_strip_x = x;
+				fwin->title_strip_y = y;
+				fwin->title_strip_w = w;
+				fwin->title_strip_h = h;
+			}
+			FREE_PIXMAP(fwin->title_strip[state]);
+			fwin->title_strip[state] = buf;
 
 			wfree(title);
+title_done:
+			;
 		}
 
 		if (fwin->left_button)

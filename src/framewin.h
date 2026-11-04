@@ -76,6 +76,16 @@ typedef struct WFrameWindow {
     Pixmap languagebutton_back[3];
 #endif
 
+    /* Rendered title strip, one per state: repainting a title that did not
+     * change (Expose, focus switch) copies it instead of re-shaping the text
+     * into a fresh pixmap.  Invalidated when the title, the titlebar width or
+     * the frame textures change. */
+    Pixmap title_strip[3];	       /* focused, unfocused, pfocused */
+    int title_strip_width;	       /* titlebar width the strips were made for */
+    int title_strip_x, title_strip_y;  /* placement inside the titlebar */
+    int title_strip_w, title_strip_h;  /* strip size (w is the text width) */
+    char *title_strip_text;	       /* title the strips were made for */
+
     WPixmap *lbutton_image;
     WPixmap *rbutton_image;
 #ifdef XKB_BUTTON_HINT
