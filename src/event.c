@@ -636,6 +636,8 @@ static void handleMapRequest(XEvent * ev)
 
 	wwin = wWindowFor(window);
 	if (wwin != NULL) {
+		wmessage("handleMapRequest: window 0x%lx already managed (shaded=%d, min=%d, hid=%d)",
+			 (unsigned long)window, wwin->flags.shaded, wwin->flags.miniaturized, wwin->flags.hidden);
 		if (wwin->flags.shaded) {
 			wUnshadeWindow(wwin);
 		}
@@ -660,6 +662,11 @@ static void handleMapRequest(XEvent * ev)
 	}
 
 	wwin = wManageWindow(scr, window);
+	if (!wwin) {
+		wmessage("handleMapRequest: wManageWindow returned NULL for window 0x%lx (override_redirect or unmapped)",
+			 (unsigned long)window);
+		return;
+	}
 
 	/*
 	 * This is to let the Dock know that the application it launched
