@@ -660,6 +660,15 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Artefact**: `test/wrlib_blend_test.c` (in `noinst_PROGRAMS`, `make -C test wrlib_blend_test`) pins the exact arithmetic — reference `(d*(255-op) + s*op)/256` per byte, compared byte-by-byte for opaqueness 0..255 on xorshift-filled images. Any future change to the loop — SIMD or otherwise — must keep this test green; it exists precisely because a hand kernel was tried and reverted.
     - **Verification**: `./test/wrlib_blend_test` prints "RCombineImagesWithOpaqueness: bit-exact for opaqueness 0..255"; full build 0 errors / 0 warnings; `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass with the scalar loop in the tree.
 
+122. **Static Analysis Audit (cppcheck 2.23 dev) & Defect Identification**:
+    - **Scope**: full scan across `src/`, `wrlib/`, `WINGs/`, and `test/` using `-DHAVE_CONFIG_H -I. -I./src -I./wrlib -I./WINGs`. Detailed report and patches documented in [cppcheck.md](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/cppcheck.md).
+    - **Clean module**: `wrlib/` passed with **0 errors and 0 warnings**, validating the recent arithmetic safety and visual purge commits.
+    - **Identified defects**:
+      - `src/defaults.c:1371`: calling `wScreenUpdateRootEventMask(scr)` unconditionally after handling `scr == NULL` a few lines prior causes an immediate SIGSEGV when defaults are read without an active screen context.
+      - `WINGs/widgets.c:1157-1172`: `WMDestroyScreen(scr)` initializes stack array `pixmaps[]` by dereferencing members of `scr` before reaching the `if (!scr) return;` guard, turning it into dead code and crashing on `NULL`.
+      - `test/wm_stress.c:364`: `calloc()` return value unchecked before thread argument assignment.
+    - **Status**: Documented with unified diff patches in `cppcheck.md`; awaiting user instruction to apply.
+
 ---
 
 ## Verification Status
