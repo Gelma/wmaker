@@ -1014,6 +1014,7 @@ WDDomain *wDefaultsInitDomain(const char *domain, Bool requireDictionary)
 	struct stat stbuf;
 	static int inited = 0;
 	WMPropList *shared_dict = NULL;
+	Bool have_stat = False;
 
 	if (!inited) {
 		inited = 1;
@@ -1021,10 +1022,12 @@ WDDomain *wDefaultsInitDomain(const char *domain, Bool requireDictionary)
 	}
 
 	db = wmalloc(sizeof(WDDomain));
+	memset(db, 0, sizeof(WDDomain));
 	db->domain_name = domain;
 	db->path = wdefaultspathfordomain(domain);
 
 	if (stat(db->path, &stbuf) >= 0) {
+		have_stat = True;
 		db->dictionary = WMReadPropListFromFile(db->path);
 		if (db->dictionary) {
 			if (requireDictionary && !WMIsPLDictionary(db->dictionary)) {
@@ -1046,11 +1049,11 @@ WDDomain *wDefaultsInitDomain(const char *domain, Bool requireDictionary)
 		WMMergePLDictionaries(shared_dict, db->dictionary, True);
 		WMReleasePropList(db->dictionary);
 		db->dictionary = shared_dict;
-		if (stbuf.st_mtime > db->timestamp)
+		if (have_stat && stbuf.st_mtime > db->timestamp)
 			db->timestamp = stbuf.st_mtime;
 	} else if (!db->dictionary) {
 		db->dictionary = shared_dict;
-		if (stbuf.st_mtime > db->timestamp)
+		if (have_stat && stbuf.st_mtime > db->timestamp)
 			db->timestamp = stbuf.st_mtime;
 	} else if (shared_dict) {
 		WMReleasePropList(shared_dict);
