@@ -397,6 +397,18 @@ void wTelemetryDump(void)
 		fprintf(fjson, "    \"wwindow_cache_hits\": %" PRIu64 ",\n", wTelemetry.wwindow_cache_hits);
 		fprintf(fjson, "    \"wwindow_cache_misses\": %" PRIu64 "\n", wTelemetry.wwindow_cache_misses);
 		fprintf(fjson, "  },\n");
+		{
+			unsigned long wh = 0, wm = 0, lh = 0, lm = 0, ah = 0;
+
+			WMGetFontCacheStats(&wh, &wm, &lh, &lm, &ah);
+			fprintf(fjson, "  \"font_caches\": {\n");
+			fprintf(fjson, "    \"ascii_width_hits\": %lu,\n", ah);
+			fprintf(fjson, "    \"width_hits\": %lu,\n", wh);
+			fprintf(fjson, "    \"width_misses\": %lu,\n", wm);
+			fprintf(fjson, "    \"layout_hits\": %lu,\n", lh);
+			fprintf(fjson, "    \"layout_misses\": %lu\n", lm);
+			fprintf(fjson, "  },\n");
+		}
 		fprintf(fjson, "  \"events\": {\n");
 		for (i = 0; i < TELEMETRY_MAX_EVENTS; i++) {
 			if (wTelemetry.event_counts[i] > 0) {

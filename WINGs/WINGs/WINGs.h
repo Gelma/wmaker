@@ -826,6 +826,12 @@ void WMDrawImageString(WMScreen *scr, Drawable d, WMColor *color,
 
 int WMWidthOfString(WMFont *font, const char *text, int length);
 
+/* Cache effectiveness counters (NULL pointers are allowed).  Used by the
+ * window manager telemetry to decide whether the caches pay for themselves. */
+void WMGetFontCacheStats(unsigned long *width_hits, unsigned long *width_misses,
+                         unsigned long *layout_hits, unsigned long *layout_misses,
+                         unsigned long *ascii_hits);
+
 /* ---[ WINGs/wpixmap.c ]------------------------------------------------- */
 
 WMPixmap* WMRetainPixmap(WMPixmap *pixmap);

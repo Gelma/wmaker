@@ -373,6 +373,28 @@ WMFont *WMBoldSystemFontOfSize(WMScreen * scrPtr, int size)
 	return font;
 }
 
+static unsigned long width_cache_hits;
+static unsigned long width_cache_misses;
+static unsigned long layout_cache_hits;
+static unsigned long layout_cache_misses;
+static unsigned long ascii_width_hits;
+
+void WMGetFontCacheStats(unsigned long *whits, unsigned long *wmisses,
+			unsigned long *lhits, unsigned long *lmisses,
+			unsigned long *ahits)
+{
+	if (whits)
+		*whits = width_cache_hits;
+	if (wmisses)
+		*wmisses = width_cache_misses;
+	if (lhits)
+		*lhits = layout_cache_hits;
+	if (lmisses)
+		*lmisses = layout_cache_misses;
+	if (ahits)
+		*ahits = ascii_width_hits;
+}
+
 #ifdef USE_PANGO
 static PangoLayout *get_or_create_cached_layout(WMFont *font, const char *text, int length)
 {
@@ -387,9 +409,12 @@ static PangoLayout *get_or_create_cached_layout(WMFont *font, const char *text, 
 	if (entry->font == font && entry->hash == h && entry->length == length) {
 		const char *cached = entry->dyn_text ? entry->dyn_text : entry->text;
 		if (memcmp(cached, text, length) == 0) {
+			layout_cache_hits++;
 			return entry->layout;
 		}
 	}
+
+	layout_cache_misses++;
 
 	/* Evict old entry if present */
 	if (entry->layout) {
@@ -439,8 +464,10 @@ int WMWidthOfString(WMFont * font, const char *text, int length)
 	/* Tier 1: Single ASCII character fast path */
 	if (length == 1) {
 		unsigned char c = (unsigned char)text[0];
-		if (font->ascii_widths[c] >= 0)
+		if (font->ascii_widths[c] >= 0) {
+			ascii_width_hits++;
 			return font->ascii_widths[c];
+		}
 	}
 
 	/* Tier 2: Hash cache lookup for strings */
@@ -450,9 +477,13 @@ int WMWidthOfString(WMFont * font, const char *text, int length)
 
 	if (entry->font == font && entry->hash == h && entry->length == length) {
 		const char *cached = entry->dyn_text ? entry->dyn_text : entry->text;
-		if (memcmp(cached, text, length) == 0)
+		if (memcmp(cached, text, length) == 0) {
+			width_cache_hits++;
 			return entry->width;
+		}
 	}
+
+	width_cache_misses++;
 
 	/* Cache miss: compute width via layout/Xft */
 #ifdef USE_PANGO

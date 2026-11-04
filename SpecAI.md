@@ -589,6 +589,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost**: one integer comparison per screenshot; no memory.
     - **Verification**: 240-character template still produces the expected 244-character file; a too-long template now reports the error; `make` is warning-free again.
 
+110. **[`WINGs/wfont.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wfont.c), [`WINGs/WINGs/WINGs.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGs.h), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Font Cache Observability (and Why the Layout Cache Stays)**:
+    - **Problem**: DHAT reported 261,299 `pango_layout_copy()` allocations (9.6 MB) in the 12.5 h session, but without hit counters there was no way to tell whether the 2,048-entry layout cache and the 65,536-entry width cache pay for themselves or merely add churn.
+    - **Fix**: WINGs exposes `WMGetFontCacheStats()` (ASCII fast-path hits, width-cache hits/misses, layout-cache hits/misses) and the telemetry dump publishes them under `"font_caches"` in `runtime_stats.json`. No behaviour change.
+    - **Measurement**: 10 root-menu opens plus 3 clients on a private Xvfb give width-cache **91.3%** (664/727) and layout-cache **86.7%** (111/128) hit rates. The misses are therefore 9-13% of lookups, so replacing the layout cache with a single scratch layout (the alternative considered) would make Pango re-shape ~7x more text than today: the caches stay, and the DHAT churn is the price of the hits that avoid shaping entirely.
+    - **Cost**: five `unsigned long` counters, three increments in the hot path (a register add), five `%lu` fields in the dump.
+
 ---
 
 ## Verification Status
