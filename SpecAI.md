@@ -583,6 +583,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: ~700 bytes instead of 2 MB per placement, no mmap/munmap pair and no VMA churn per icon, zero allocation after the first call (the buffer is reused), and the uninitialised-read assumption is gone. DHAT had attributed 11.4 MB of churn to six placements.
     - **Verification**: six clients iconified on a 1024x768 Xvfb produced icons at x = 0, 64, 128, 192, 256, 320 on the icon-yard row (distinct, adjacent, on-screen); `make exit-test` passes.
 
+109. **[`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c) - Screenshot Filename: Detect Truncation Instead of Silently Shortening**:
+    - **Problem**: after the bounds fix (8d08496d) the two `snprintf()` calls that assemble `<template>.png` and `<template>_<n>.png` could still truncate a very long template, producing a silently shortened name (and possibly colliding with another file). clang reported both with `-Wformat-truncation`.
+    - **Fix**: both calls now check the `snprintf()` return value against the buffer size and abort with a clear `werror()` ("Screenshot filename is too long, shorten ScreenshotFilenameTemplate") instead of writing a wrong path.
+    - **Cost**: one integer comparison per screenshot; no memory.
+    - **Verification**: 240-character template still produces the expected 244-character file; a too-long template now reports the error; `make` is warning-free again.
+
 ---
 
 ## Verification Status

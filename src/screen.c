@@ -1323,11 +1323,20 @@ void ScreenCapture(WScreen *scr, int mode)
 		return;
 	}
 
-	snprintf(filename, sizeof(filename), "%s%s", filename_date_part, filetype);
+	if (snprintf(filename, sizeof(filename), "%s%s", filename_date_part, filetype) >= (int)sizeof(filename)) {
+		wfree(screenshot_dir);
+		werror(_("Screenshot filename is too long, shorten ScreenshotFilenameTemplate"));
+		return;
+	}
 	filepath = wstrconcat(screenshot_dir, filename);
 	while (access(filepath, F_OK) == 0 && i < 600) {
 		i++;
-		snprintf(filename, sizeof(filename), "%s_%d%s", filename_date_part, i, filetype);
+		if (snprintf(filename, sizeof(filename), "%s_%d%s", filename_date_part, i, filetype) >= (int)sizeof(filename)) {
+			wfree(filepath);
+			wfree(screenshot_dir);
+			werror(_("Screenshot filename is too long, shorten ScreenshotFilenameTemplate"));
+			return;
+		}
 		wfree(filepath);
 		filepath = wstrconcat(screenshot_dir, filename);
 	}
