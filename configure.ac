@@ -144,8 +144,46 @@ m4_divert_pop([INIT_PREPARE])dnl
 AS_IF([test "x$native" = "xyes"],
     [AX_CFLAGS_GCC_OPTION([-march=native])])
 
+dnl Link Time Optimization Option
+dnl =================
+dnl Opt-in: LTO needs the plugin-aware archiver for the shared libraries and
+dnl it inlines frames away, which makes Valgrind/DHAT/callgrind attribution
+dnl much harder.  Keep it for release builds only.
+m4_divert_push([INIT_PREPARE])dnl
+AC_ARG_ENABLE([lto],
+    [AS_HELP_STRING([--enable-lto], [enable link time optimization, @<:@default=no@:>@])],
+    [AS_CASE(["$enableval"],
+        [yes], [lto=yes],
+        [no],  [lto=no],
+        [AC_MSG_ERROR([bad value $enableval for --enable-lto])] )],
+    [lto=no])
+m4_divert_pop([INIT_PREPARE])dnl
+AS_IF([test "x$lto" = "xyes"],
+    [AX_CFLAGS_GCC_OPTION([-flto=auto])
+     LDFLAGS="$LDFLAGS -flto=auto"
+     dnl LTO across static archives needs the plugin-aware archiver
+     AS_CASE(["$CC"],
+         [*clang*], [AC_CHECK_PROGS([WM_LTO_AR], [llvm-ar], [])
+                     AC_CHECK_PROGS([WM_LTO_RANLIB], [llvm-ranlib], [])],
+         [AC_CHECK_PROGS([WM_LTO_AR], [gcc-ar], [])
+          AC_CHECK_PROGS([WM_LTO_RANLIB], [gcc-ranlib], [])])
+     AS_IF([test -n "$WM_LTO_AR"],
+           [AR="$WM_LTO_AR"
+            RANLIB="$WM_LTO_RANLIB"],
+           [AC_MSG_WARN([--enable-lto: plugin-aware archiver not found, LTO disabled for static archives])])
+    ])
+
 AX_CFLAGS_GCC_OPTION([-Wall])
 AX_CFLAGS_GCC_OPTION([-Wextra -Wno-sign-compare])
+dnl
+dnl C23 baseline (GCC 14+ / Clang 18+).  Checked, because older compilers are
+dnl still accepted by the rest of configure: they simply keep their default
+dnl standard and the C23-only code is compiled out.
+AX_CFLAGS_GCC_OPTION([-std=gnu23])
+dnl
+dnl Position independent code: call external functions through the GOT instead
+dnl of the PLT.  Small but free where supported.
+AX_CFLAGS_GCC_OPTION([-fno-plt])
 dnl
 dnl The use of trampolines cause code that can crash on some secured OS, it is
 dnl also known to be a source of crash if not used properly, in a more general
