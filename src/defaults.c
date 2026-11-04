@@ -137,6 +137,8 @@ static WDECallbackUpdate setMenuTextBack;
 static WDECallbackUpdate setHightlight;
 static WDECallbackUpdate setHightlightText;
 static WDECallbackUpdate setKeyGrab;
+static Bool key_grabs_deferred = False;
+static Bool key_grabs_deferred_dirty = False;
 static WDECallbackUpdate setDoubleClick;
 static WDECallbackUpdate setIconPosition;
 static WDECallbackUpdate setWorkspaceMapBackground;
@@ -1233,6 +1235,9 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 
 	needs_refresh = 0;
 
+	key_grabs_deferred = True;
+	key_grabs_deferred_dirty = False;
+
 	for (i = 0; i < wlengthof(optionList); i++) {
 		entry = &optionList[i];
 
@@ -1348,6 +1353,21 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 		}
 	}
 
+	key_grabs_deferred = False;
+	if (key_grabs_deferred_dirty) {
+		key_grabs_deferred_dirty = False;
+		if (scr && !scr->flags.key_grabs_suspended) {
+			wScreenSetKeyGrabs(scr);
+		} else if (!scr) {
+			int s_idx;
+			for (s_idx = 0; s_idx < w_global.screen_count; s_idx++) {
+				WScreen *s = wScreenWithNumber(s_idx);
+				if (s && !s->flags.key_grabs_suspended)
+					wScreenSetKeyGrabs(s);
+			}
+		}
+	}
+
 	wScreenUpdateRootEventMask(scr);
 }
 
@@ -1357,6 +1377,9 @@ void wReadKeybindings(WScreen *scr, WMPropList *dict)
 	unsigned int i;
 	Bool keybindings_changed = False;
 	void *tdata;
+
+	key_grabs_deferred = True;
+	key_grabs_deferred_dirty = False;
 
 	for (i = 0; i < wlengthof(optionList); i++) {
 		entry = &optionList[i];
@@ -1397,8 +1420,23 @@ void wReadKeybindings(WScreen *scr, WMPropList *dict)
 		}
 	}
 
-	if (keybindings_changed)
+	key_grabs_deferred = False;
+	if (keybindings_changed) {
+		key_grabs_deferred_dirty = False;
 		wKeyTreeRebuild(scr);
+	} else if (key_grabs_deferred_dirty) {
+		key_grabs_deferred_dirty = False;
+		if (scr && !scr->flags.key_grabs_suspended) {
+			wScreenSetKeyGrabs(scr);
+		} else if (!scr) {
+			int s_idx;
+			for (s_idx = 0; s_idx < w_global.screen_count; s_idx++) {
+				WScreen *s = wScreenWithNumber(s_idx);
+				if (s && !s->flags.key_grabs_suspended)
+					wScreenSetKeyGrabs(s);
+			}
+		}
+	}
 }
 
 void wDefaultUpdateIcons(WScreen *scr)
@@ -3487,7 +3525,9 @@ static int setKeyGrab(WScreen * scr, WDefaultEntry * entry, void *tdata, void *e
 
 	wWindowInvalidateKeyGrabs();
 
-	if (scr && !scr->flags.key_grabs_suspended) {
+	if (key_grabs_deferred) {
+		key_grabs_deferred_dirty = True;
+	} else if (scr && !scr->flags.key_grabs_suspended) {
 		wScreenSetKeyGrabs(scr);
 	} else if (!scr) {
 		int i;
