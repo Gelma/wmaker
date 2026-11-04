@@ -72,6 +72,7 @@ static void menuTitleDoubleClick(WCoreWindow * sender, void *data, XEvent * even
 static void menuTitleMouseDown(WCoreWindow * sender, void *data, XEvent * event);
 static void menuCloseClick(WCoreWindow * sender, void *data, XEvent * event);
 static void updateTexture(WMenu * menu);
+static void flushMenuRImageCache(void);
 static int saveMenuRecurs(WMPropList * menus, WScreen * scr, WMenu * menu);
 static int restoreMenuRecurs(WScreen *scr, WMPropList *menus, WMenu *menu, const char *path);
 static void selectEntry(WMenu * menu, int entry_no);
@@ -93,6 +94,9 @@ static void appearanceObserver(void *self, WMNotification * notif)
 			wMenuRealize(menu);
 		}
 		if (flags & WTextureSettings) {
+			flushMenuRImageCache();
+			menu->texture_width = 0;
+			menu->texture_height = 0;
 			if (!menu->flags.brother)
 				updateTexture(menu);
 		}
@@ -392,22 +396,82 @@ void wMenuRemoveItem(WMenu * menu, int index)
 	menu->brother->entry_no--;
 }
 
+#define MENU_RIMAGE_CACHE_SIZE 16
+
+typedef struct {
+	WTexture *texture;
+	int width;
+	int height;
+	RImage *image;
+} MenuRImageCacheEntry;
+
+static MenuRImageCacheEntry menu_rimage_cache[MENU_RIMAGE_CACHE_SIZE];
+static int menu_rimage_cache_victim = 0;
+
+static void flushMenuRImageCache(void)
+{
+	int i;
+	for (i = 0; i < MENU_RIMAGE_CACHE_SIZE; i++) {
+		if (menu_rimage_cache[i].image) {
+			RReleaseImage(menu_rimage_cache[i].image);
+			menu_rimage_cache[i].image = NULL;
+		}
+		menu_rimage_cache[i].texture = NULL;
+		menu_rimage_cache[i].width = 0;
+		menu_rimage_cache[i].height = 0;
+	}
+	menu_rimage_cache_victim = 0;
+}
+
 static Pixmap renderTexture(WMenu * menu)
 {
-	RImage *img;
-	Pixmap pix;
+	RImage *img = NULL;
+	Pixmap pix = None;
 	int i;
 	RColor light;
 	RColor dark;
 	RColor mid;
 	WScreen *scr = menu->menu->screen_ptr;
 	WTexture *texture = scr->menu_item_texture;
+	Bool from_cache = False;
 
 	if (wPreferences.menu_style == MS_NORMAL) {
-		img = wTextureRenderImage(texture, menu->menu->width, menu->entry_height, WREL_MENUENTRY);
+		int width = menu->menu->width;
+		int height = menu->entry_height;
+
+		/* Check RImage cache for identical rendered tile */
+		for (i = 0; i < MENU_RIMAGE_CACHE_SIZE; i++) {
+			if (menu_rimage_cache[i].image &&
+			    menu_rimage_cache[i].texture == texture &&
+			    menu_rimage_cache[i].width == width &&
+			    menu_rimage_cache[i].height == height) {
+				img = menu_rimage_cache[i].image;
+				from_cache = True;
+				break;
+			}
+		}
+
+		if (!img) {
+			img = wTextureRenderImage(texture, width, height, WREL_MENUENTRY);
+			if (img) {
+				/* Insert into cache, evicting oldest slot */
+				int slot = menu_rimage_cache_victim;
+				menu_rimage_cache_victim = (menu_rimage_cache_victim + 1) % MENU_RIMAGE_CACHE_SIZE;
+
+				if (menu_rimage_cache[slot].image)
+					RReleaseImage(menu_rimage_cache[slot].image);
+
+				menu_rimage_cache[slot].texture = texture;
+				menu_rimage_cache[slot].width = width;
+				menu_rimage_cache[slot].height = height;
+				menu_rimage_cache[slot].image = img;
+				from_cache = True; /* image is now owned by cache */
+			}
+		}
 	} else {
 		img = wTextureRenderImage(texture, menu->menu->width, menu->menu->height + 1, WREL_MENUENTRY);
 	}
+
 	if (!img) {
 		wwarning(_("could not render texture: %s"), RMessageForError(RErrorCode));
 
@@ -438,7 +502,8 @@ static Pixmap renderTexture(WMenu * menu)
 	if (!RConvertImage(scr->rcontext, img, &pix)) {
 		wwarning(_("error rendering image:%s"), RMessageForError(RErrorCode));
 	}
-	RReleaseImage(img);
+	if (!from_cache)
+		RReleaseImage(img);
 
 	return pix;
 }
@@ -446,13 +511,33 @@ static Pixmap renderTexture(WMenu * menu)
 static void updateTexture(WMenu * menu)
 {
 	WScreen *scr = menu->menu->screen_ptr;
+	int req_w, req_h;
 
 	/* setup background texture */
 	if (scr->menu_item_texture->any.type != WTEX_SOLID) {
 		if (!menu->flags.brother) {
+			if (wPreferences.menu_style == MS_NORMAL) {
+				req_w = menu->menu->width;
+				req_h = menu->entry_height;
+			} else {
+				req_w = menu->menu->width;
+				req_h = menu->menu->height + 1;
+			}
+
+			if (menu->menu_texture_data != None &&
+			    menu->texture_width == req_w &&
+			    menu->texture_height == req_h) {
+				return;
+			}
+
 			FREE_PIXMAP(menu->menu_texture_data);
+			menu->menu_texture_data = None;
+			menu->texture_width = 0;
+			menu->texture_height = 0;
 
 			menu->menu_texture_data = renderTexture(menu);
+			menu->texture_width = req_w;
+			menu->texture_height = req_h;
 
 			XSetWindowBackgroundPixmap(dpy, menu->menu->window, menu->menu_texture_data);
 			XClearWindow(dpy, menu->menu->window);
@@ -628,6 +713,9 @@ void wMenuDestroy(WMenu * menu, int recurse)
 	}
 
 	FREE_PIXMAP(menu->menu_texture_data);
+	menu->menu_texture_data = None;
+	menu->texture_width = 0;
+	menu->texture_height = 0;
 
 	if (menu->cascades)
 		wfree(menu->cascades);
