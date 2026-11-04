@@ -42,6 +42,11 @@ typedef struct WTelemetryStats {
 	uint64_t poll_iterations;
 	uint64_t idle_executions;
 
+	/* Modal (menu/dialog) accounting: wall time spent inside nested event
+	 * loops while a handler is running, plus the current dispatch nesting. */
+	uint64_t modal_ns;
+	int dispatch_depth;
+
 	/* Timestamps */
 	struct timespec start_time;
 	struct timespec last_dump_time;
@@ -51,7 +56,9 @@ extern WTelemetryStats wTelemetry;
 
 void wTelemetryInit(void);
 void wTelemetryRecordEventStart(struct timespec *tstart);
-void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart, Window win);
+void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart,
+			      uint64_t modal_ns, Window win);
+uint64_t wTelemetryElapsedNs(const struct timespec *tstart);
 void wTelemetryDump(void);
 void wTelemetryShutdown(void);
 

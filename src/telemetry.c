@@ -18,12 +18,15 @@
 #include <locale.h>
 
 #include <WINGs/WUtil.h>
+#include <WINGs/WINGs.h>
 
 #include "telemetry.h"
 
 WTelemetryStats wTelemetry;
 
 static WMHandlerID telemetry_timer_id = NULL;
+
+static void telemetryEventWaitHook(unsigned long long wait_ns);
 
 static const char *get_event_name(int type)
 {
@@ -108,6 +111,10 @@ void wTelemetryInit(void)
 	clock_gettime(CLOCK_MONOTONIC, &wTelemetry.start_time);
 	wTelemetry.last_dump_time = wTelemetry.start_time;
 
+	/* Let WINGs report blocking waits so that modal (menu/dialog) time can
+	 * be excluded from event handler latency. */
+	WMEventWaitHook = telemetryEventWaitHook;
+
 	mkdir(get_telemetry_dir(), 0755);
 
 	/* Dump stats every 60 seconds (60,000 ms) */
@@ -124,17 +131,38 @@ void wTelemetryRecordEventStart(struct timespec *tstart)
 	clock_gettime(CLOCK_MONOTONIC, tstart);
 }
 
-void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart, Window win)
+uint64_t wTelemetryElapsedNs(const struct timespec *tstart)
 {
-	struct timespec tend;
+	struct timespec now;
+
+	if (!tstart)
+		return 0;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return (uint64_t)(now.tv_sec - tstart->tv_sec) * 1000000000ULL +
+		(uint64_t)(now.tv_nsec - tstart->tv_nsec);
+}
+
+/* Called by WINGs after every blocking wait.  A wait that happens while a
+ * handler is running belongs to a modal loop (menu, dialog, move/resize):
+ * it is interaction time, not handler latency. */
+static void telemetryEventWaitHook(unsigned long long wait_ns)
+{
+	if (wTelemetry.dispatch_depth > 0)
+		wTelemetry.modal_ns += wait_ns;
+}
+
+void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart,
+			      uint64_t modal_ns, Window win)
+{
 	uint64_t elapsed_ns;
+	uint64_t total_ns;
 
 	if (!tstart || tstart->tv_sec == 0)
 		return;
 
-	clock_gettime(CLOCK_MONOTONIC, &tend);
-	elapsed_ns = (uint64_t)(tend.tv_sec - tstart->tv_sec) * 1000000000ULL +
-	             (uint64_t)(tend.tv_nsec - tstart->tv_nsec);
+	total_ns = wTelemetryElapsedNs(tstart);
+	elapsed_ns = total_ns > modal_ns ? total_ns - modal_ns : 0;
 
 	wTelemetry.total_events++;
 
@@ -154,9 +182,13 @@ void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart, Win
 			time_t now = time(NULL);
 			char timestr[64];
 			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", localtime(&now));
-			fprintf(fspike, "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms\n",
+			fprintf(fspike, "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms",
 			        timestr, get_event_name(event_type), event_type,
 			        (unsigned long)win, (double)elapsed_ns / 1000000.0);
+			if (modal_ns > 0)
+				fprintf(fspike, " (%llu ms in modal menus/dialogs excluded)",
+					(unsigned long long)(modal_ns / 1000000ULL));
+			fprintf(fspike, "\n");
 			fclose(fspike);
 		}
 	}
@@ -190,6 +222,7 @@ void wTelemetryDump(void)
 	if (fjson) {
 		fprintf(fjson, "{\n");
 		fprintf(fjson, "  \"uptime_seconds\": %.2f,\n", uptime_sec);
+		fprintf(fjson, "  \"modal_time_ms\": %.2f,\n", (double)wTelemetry.modal_ns / 1e6);
 		fprintf(fjson, "  \"memory_vmsize_kb\": %" PRIu64 ",\n", vm_size_kb);
 		fprintf(fjson, "  \"memory_vmrss_kb\": %" PRIu64 ",\n", vm_rss_kb);
 		fprintf(fjson, "  \"total_events\": %" PRIu64 ",\n", wTelemetry.total_events);
@@ -247,6 +280,8 @@ void wTelemetryDump(void)
 		fprintf(flog, "Uptime: %.2f s | Memory VmRSS: %" PRIu64 " KB | VmSize: %" PRIu64 " KB\n",
 		        uptime_sec, vm_rss_kb, vm_size_kb);
 		fprintf(flog, "Total X11 Events Handled: %" PRIu64 "\n", wTelemetry.total_events);
+		fprintf(flog, "Modal (menu/dialog) time excluded from latency: %.2f ms\n",
+		        (double)wTelemetry.modal_ns / 1e6);
 		fprintf(flog, "--------------------------------------------------------------------------------\n");
 		fprintf(flog, "Optimization & Bypass Metrics:\n");
 		fprintf(flog, "  - XQueryPointer Bypassed (Single Head / Cache): %" PRIu64 "\n", wTelemetry.xquery_pointer_bypassed);
@@ -287,6 +322,7 @@ void wTelemetryDump(void)
 
 void wTelemetryShutdown(void)
 {
+	WMEventWaitHook = NULL;
 	if (telemetry_timer_id) {
 		WMDeleteTimerHandler(telemetry_timer_id);
 		telemetry_timer_id = NULL;

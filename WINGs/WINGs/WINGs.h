@@ -720,6 +720,12 @@ void WMNextEvent(Display *dpy, XEvent *event);
 
 void WMMaskEvent(Display *dpy, long mask, XEvent *event);
 
+/* Optional hook called after every blocking wait for X events/input, with the
+ * number of nanoseconds the wait lasted.  The window manager uses it to
+ * separate time spent inside modal loops (menus, dialogs) from the time
+ * actually spent handling the event that opened them.  May be NULL. */
+extern void (*WMEventWaitHook)(unsigned long long wait_ns);
+
 void WMSetViewNextResponder(WMView *view, WMView *responder);
 
 void WMRelayToNextResponder(WMView *view, XEvent *event);

@@ -347,21 +347,41 @@ int WMIsDoubleClick(XEvent * event)
  * registered input handlers and ConnectionNumber(dpy), or will return when
  * a timer handler expires if no input event arrived until then.
  */
+void (*WMEventWaitHook)(unsigned long long wait_ns) = NULL;
+
 static Bool waitForEvent(Display * dpy, unsigned long xeventmask, Bool waitForInput)
 {
+	Bool result;
+	struct timespec t0, t1;
+	unsigned long long waited_ns;
+
+	clock_gettime(CLOCK_MONOTONIC, &t0);
+
 	XFlush(dpy);
 	if (xeventmask == 0) {
-		if (XPending(dpy))
-			return True;
+		if (XPending(dpy)) {
+			result = True;
+			goto done;
+		}
 	} else {
 		XEvent ev;
 		if (XCheckMaskEvent(dpy, xeventmask, &ev)) {
 			XPutBackEvent(dpy, &ev);
-			return True;
+			result = True;
+			goto done;
 		}
 	}
 
-	return W_HandleInputEvents(waitForInput, ConnectionNumber(dpy));
+	result = W_HandleInputEvents(waitForInput, ConnectionNumber(dpy));
+
+ done:
+	clock_gettime(CLOCK_MONOTONIC, &t1);
+	waited_ns = (unsigned long long)(t1.tv_sec - t0.tv_sec) * 1000000000ULL +
+		(unsigned long long)(t1.tv_nsec - t0.tv_nsec);
+	if (WMEventWaitHook)
+		WMEventWaitHook(waited_ns);
+
+	return result;
 }
 
 void WMNextEvent(Display * dpy, XEvent * event)

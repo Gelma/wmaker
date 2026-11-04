@@ -201,7 +201,13 @@ void DispatchEvent(XEvent * event)
 		return;
 
 	struct timespec tstart;
+	uint64_t modal_before, total_ns, nested_ns, own_ns;
+	int depth;
+
 	wTelemetryRecordEventStart(&tstart);
+	modal_before = wTelemetry.modal_ns;
+	depth = wTelemetry.dispatch_depth;
+	wTelemetry.dispatch_depth = depth + 1;
 
 	saveTimestamp(event);
 	switch (event->type) {
@@ -290,7 +296,19 @@ void DispatchEvent(XEvent * event)
 		break;
 	}
 
-	wTelemetryRecordEventEnd(event->type, &tstart, event->xany.window);
+	wTelemetry.dispatch_depth = depth;
+
+	/* Time spent waiting inside modal loops (menus, dialogs, move/resize) is
+	 * interaction time: it belongs to the handler that opened the loop only
+	 * on paper.  Account it separately and, for nested dispatches, attribute
+	 * their own work to the enclosing modal session as well. */
+	total_ns = wTelemetryElapsedNs(&tstart);
+	nested_ns = wTelemetry.modal_ns - modal_before;
+	own_ns = total_ns > nested_ns ? total_ns - nested_ns : 0;
+	if (depth > 0)
+		wTelemetry.modal_ns += own_ns;
+
+	wTelemetryRecordEventEnd(event->type, &tstart, nested_ns, event->xany.window);
 }
 
 #ifdef HAVE_INOTIFY
