@@ -70,7 +70,7 @@ static void allocFrameBorderPixel(WFrameWindow *fwin, const char *color_name, un
 
 	*pixel = wmalloc(sizeof(unsigned long));
 	if (*pixel)
-		**pixel = xcol.pixel |= 0xff << 24;
+		**pixel = xcol.pixel |= 0xffu << 24;
 }
 
 WFrameWindow *wFrameWindowCreate(WScreen * scr, int wlevel, int x, int y,

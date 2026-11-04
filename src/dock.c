@@ -1651,6 +1651,11 @@ void wDockSaveState(WScreen *scr, WMPropList *old_state)
 	WMPropList *dock_state;
 	WMPropList *keys;
 
+	/* Shutdown can arrive before the dock exists (a startup that failed and
+	 * is sitting in an error dialog still reaches wScreenSaveState()). */
+	if (!scr->dock)
+		return;
+
 	dock_state = dockSaveState(scr->dock);
 
 	/*
