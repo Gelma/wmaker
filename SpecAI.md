@@ -559,6 +559,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: two `clock_gettime()` calls per wait (vDSO, ~20 ns each) and two integer operations per event; no memory. In exchange the only latency metric the project has becomes trustworthy: the same 3x F12 experiment now reports `KeyPress` max 0.45 ms with `modal_time_ms = 6008`, while a stress run still logs genuine 170 ms `MapRequest` entries.
     - **Verification**: `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass; F12 x3 test as described; `wm_stress -t 4 -d 5` logs real spikes with the modal annotation.
 
+105. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c) - Spike Log Diagnostics: Event-Specific Context**:
+    - **Problem**: a spike line only carried the event type and `xany.window`. For `PropertyNotify` it did not say *which* property (the 378 ms spikes on client `0x1e00007` could be a title update or `_NET_WM_ICON`); for `MapRequest` the generic `xany.window` overlays the `parent` field of the union, so it printed the root window instead of the client; for `KeyPress` the keycode was missing. The data could not be acted upon.
+    - **Fix**: `wTelemetryRecordEventEnd()` now takes the `XEvent` and appends `atom=<name> state=new/deleted` (`PropertyNotify`), `keycode/state` (`Key*`), `button/state/subwindow` (`Button*`), `x/y/x_root/y_root/state` (`Motion`), `parent=` (`MapRequest`), `WxH+X+Y` (`ConfigureRequest`), `mode/detail/focus` (`Enter`/`Leave`), `type=<atom>` (`ClientMessage`) and geometry (`Expose`). A helper `event_window()` reports the client window for `MapRequest`/`ConfigureRequest`/`CreateNotify` instead of the union's parent overlay.
+    - **Cost/benefit**: one `XGetAtomName()` round-trip only when a spike is actually written (at most a few per minute) plus a 256-byte stack buffer; zero steady-state cost. In exchange every spike entry becomes a diagnosis: `MapRequest ... on window 0x400601 ... parent=0x46f`, `ClientMessage ... type=WM_CHANGE_STATE`.
+    - **Verification**: `wm_stress -t 4 -d 5` on a private Xvfb produced the contextualized entries above; `make exit-test` passes.
+
 ---
 
 ## Verification Status

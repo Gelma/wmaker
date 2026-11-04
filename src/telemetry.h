@@ -56,8 +56,8 @@ extern WTelemetryStats wTelemetry;
 
 void wTelemetryInit(void);
 void wTelemetryRecordEventStart(struct timespec *tstart);
-void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart,
-			      uint64_t modal_ns, Window win);
+void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart,
+			      uint64_t modal_ns);
 uint64_t wTelemetryElapsedNs(const struct timespec *tstart);
 void wTelemetryDump(void);
 void wTelemetryShutdown(void);

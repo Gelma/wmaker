@@ -69,6 +69,73 @@ static const char *get_event_name(int type)
 	}
 }
 
+/* Human-readable context for a latency spike: which property, which key,
+ * which button, which geometry.  Without it a spike line such as
+ * "PropertyNotify on 0x... took 378 ms" cannot be acted upon. */
+static void format_event_context(const XEvent *event, char *buf, size_t len)
+{
+	Display *dpy = event->xany.display;
+
+	buf[0] = '\0';
+	switch (event->type) {
+	case PropertyNotify: {
+		char *name = XGetAtomName(dpy, event->xproperty.atom);
+		snprintf(buf, len, " atom=%s state=%s",
+			 name ? name : "?",
+			 event->xproperty.state == PropertyNewValue ? "new" : "deleted");
+		if (name)
+			XFree(name);
+		break;
+	}
+	case KeyPress:
+	case KeyRelease:
+		snprintf(buf, len, " keycode=%u state=0x%x",
+			 event->xkey.keycode, event->xkey.state);
+		break;
+	case ButtonPress:
+	case ButtonRelease:
+		snprintf(buf, len, " button=%u state=0x%x subwindow=0x%lx",
+			 event->xbutton.button, event->xbutton.state,
+			 (unsigned long)event->xbutton.subwindow);
+		break;
+	case MotionNotify:
+		snprintf(buf, len, " x=%d y=%d x_root=%d y_root=%d state=0x%x",
+			 event->xmotion.x, event->xmotion.y,
+			 event->xmotion.x_root, event->xmotion.y_root,
+			 event->xmotion.state);
+		break;
+	case MapRequest:
+		snprintf(buf, len, " parent=0x%lx",
+			 (unsigned long)event->xmaprequest.parent);
+		break;
+	case ConfigureRequest:
+		snprintf(buf, len, " %dx%d+%d+%d",
+			 event->xconfigurerequest.width, event->xconfigurerequest.height,
+			 event->xconfigurerequest.x, event->xconfigurerequest.y);
+		break;
+	case EnterNotify:
+	case LeaveNotify:
+		snprintf(buf, len, " mode=%d detail=%d focus=%s",
+			 event->xcrossing.mode, event->xcrossing.detail,
+			 event->xcrossing.focus ? "yes" : "no");
+		break;
+	case ClientMessage: {
+		char *name = XGetAtomName(dpy, event->xclient.message_type);
+		snprintf(buf, len, " type=%s", name ? name : "?");
+		if (name)
+			XFree(name);
+		break;
+	}
+	case Expose:
+		snprintf(buf, len, " %dx%d+%d+%d count=%d",
+			 event->xexpose.width, event->xexpose.height,
+			 event->xexpose.x, event->xexpose.y, event->xexpose.count);
+		break;
+	default:
+		break;
+	}
+}
+
 static void get_process_memory(uint64_t *vm_size_kb, uint64_t *vm_rss_kb)
 {
 	FILE *f;
@@ -152,14 +219,37 @@ static void telemetryEventWaitHook(unsigned long long wait_ns)
 		wTelemetry.modal_ns += wait_ns;
 }
 
-void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart,
-			      uint64_t modal_ns, Window win)
+/* The window a report should name.  For MapRequest/ConfigureRequest the
+ * generic xany.window overlays the parent field of the union, which would
+ * print the root window instead of the client. */
+static Window event_window(const XEvent *event)
+{
+	switch (event->type) {
+	case MapRequest:
+		return event->xmaprequest.window;
+	case ConfigureRequest:
+		return event->xconfigurerequest.window;
+	case CreateNotify:
+		return event->xcreatewindow.window;
+	default:
+		return event->xany.window;
+	}
+}
+
+void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart,
+			      uint64_t modal_ns)
 {
 	uint64_t elapsed_ns;
 	uint64_t total_ns;
+	int event_type;
+	Window win;
+	char ctx[256];
 
-	if (!tstart || tstart->tv_sec == 0)
+	if (!event || !tstart || tstart->tv_sec == 0)
 		return;
+
+	event_type = event->type;
+	win = event_window(event);
 
 	total_ns = wTelemetryElapsedNs(tstart);
 	elapsed_ns = total_ns > modal_ns ? total_ns - modal_ns : 0;
@@ -182,9 +272,10 @@ void wTelemetryRecordEventEnd(int event_type, const struct timespec *tstart,
 			time_t now = time(NULL);
 			char timestr[64];
 			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", localtime(&now));
-			fprintf(fspike, "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms",
+			format_event_context(event, ctx, sizeof(ctx));
+			fprintf(fspike, "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms%s",
 			        timestr, get_event_name(event_type), event_type,
-			        (unsigned long)win, (double)elapsed_ns / 1000000.0);
+			        (unsigned long)win, (double)elapsed_ns / 1000000.0, ctx);
 			if (modal_ns > 0)
 				fprintf(fspike, " (%llu ms in modal menus/dialogs excluded)",
 					(unsigned long long)(modal_ns / 1000000ULL));

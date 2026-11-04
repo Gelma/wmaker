@@ -308,7 +308,7 @@ void DispatchEvent(XEvent * event)
 	if (depth > 0)
 		wTelemetry.modal_ns += own_ns;
 
-	wTelemetryRecordEventEnd(event->type, &tstart, nested_ns, event->xany.window);
+	wTelemetryRecordEventEnd(event, &tstart, nested_ns);
 }
 
 #ifdef HAVE_INOTIFY
