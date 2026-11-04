@@ -634,14 +634,27 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: up to three pixmaps of (title width + 2) x (font height) per decorated window (about 150 KB at 600x24 px, X server memory) and one `wstrdup` of the title; in exchange every Expose and focus repaint loses text shaping, width measurement, pixmap creation/destruction and two copy operations.
     - **Verification**: functional test on a private Xvfb — the titlebar crop is byte-identical after an Expose (cache hit) and changes after `WM_NAME` is rewritten; no `BadDrawable`/`BadPixmap` in the WM log; `make exit-test --valgrind` passes; a 5 s `wm_stress` run leaves the WM alive with no X errors. (The focused/unfocused pixel comparison is inconclusive with the default theme, which uses the same titlebar colours for both states; the cache is keyed per state regardless.)
 
+118. **Build Baseline: C23 (`-std=gnu23`), `-fno-plt`, and Opt-In LTO**:
+    - **Problem**: the build used the compiler default standard (gnu17 on GCC 14) and the PLT for every external call; LTO was discussed in the modernization plan, but enabling it by default would break the Valgrind/DHAT/callgrind workflow the project relies on for diagnosis.
+    - **Fix**: `configure.ac` checks and appends `-std=gnu23` (GCC 14+ / Clang 18+) and `-fno-plt`, and adds a `--enable-lto` option (default **off**) that sets `-flto=auto` plus the plugin-aware `gcc-ar`/`gcc-ranlib` (or `llvm-ar`/`llvm-ranlib` when `CC` is clang). Older compilers simply skip the C23 flag: the macro checks it and the C23-only code is compiled out.
+    - **Cost/benefit**: no runtime cost; `-fno-plt` removes the PLT indirection for external calls and `-std=gnu23` enables `<stdckdint.h>` (see §119) and the C23 attribute syntax. LTO stays for release builds, where cross-module inlining is worth the loss of stack attribution.
+    - **Verification**: full rebuild with gcc 14.2 and with clang 23 (`-std=gnu23 -fno-plt`) has 0 errors and 0 warnings; `./configure --enable-lto` reports `-flto=auto`, `AR=gcc-ar`, `RANLIB=gcc-ranlib`; `make exit-test --valgrind` passes; the screenshot and menu texture paths still work.
+
+119. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) - Checked Arithmetic in `RCreateImage()`**:
+    - **Problem**: the buffer size was computed as `(size_t)width * height * (alpha ? 4 : 3) + 4`. The `MAX_WIDTH`/`MAX_HEIGHT` caps (20000) keep it under 2 GB today, but the safety came from the constants, not from the arithmetic: a future cap change or a smaller `size_t` would overflow silently.
+    - **Fix**: `ckd_mul()`/`ckd_add()` from `<stdckdint.h>` compute pixels, bytes and the +4 padding, returning `RERR_NOMEMORY` on overflow; the same checked add guards the huge-page rounding before `mmap()`. When `<stdckdint.h>` is unavailable (`__has_include`), two small `static inline` helpers provide identical semantics so older compilers keep building.
+    - **Cost/benefit**: three overflow-flag checks per image creation (a few cycles), no memory; the invariant is explicit and survives a 32-bit host.
+    - **Verification**: build with gcc 14 and clang 23 (0 warnings); `stdckdint.h` is the active path (the fallback is compiled out, checked in the preprocessed output); `make exit-test --valgrind` passes; screenshot and menu texture paths still work.
+
 ---
 
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
 
-- **Build**: `make` with the project warning set (clang-23) succeeds with 0 errors and 0 warnings
-  after §109; the 6 pre-existing warnings of the earlier batch are gone.
+- **Build**: `make` succeeds with 0 errors and 0 warnings with gcc 14.2 and with clang 23, using
+  `-std=gnu23 -fno-plt` (§118); LTO is available through `--enable-lto` but stays off the default
+  build because it degrades Valgrind/DHAT/callgrind attribution.
 - **Shutdown**: `make exit-test` passes — `SIGTERM` exits with status 0, `SIGUSR1` re-execs and comes
   back, `SIGUSR2` reloads the defaults and refreshes the telemetry dump. Before `151ccd71` every exit
   ended with status 139 (SIGSEGV inside the balloon teardown).

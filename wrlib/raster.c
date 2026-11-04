@@ -24,7 +24,41 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#if defined(__has_include)
+#  if __has_include(<stdckdint.h>)
+#    include <stdckdint.h>
+#    define WM_HAVE_STDCKDINT 1
+#  endif
+#endif
+
+#ifndef WM_HAVE_STDCKDINT
+/* Minimal stand-in for compilers older than C23 (or C23 with a pre-C23
+ * library): same semantics, without the C23-only header. */
+static inline bool wm_ckd_mul_size(size_t *result, size_t a, size_t b)
+{
+	if (a != 0 && b > SIZE_MAX / a)
+		return true;
+	*result = a * b;
+	return false;
+}
+
+static inline bool wm_ckd_add_size(size_t *result, size_t a, size_t b)
+{
+	if (b > SIZE_MAX - a)
+		return true;
+	*result = a + b;
+	return false;
+}
+
+#  define ckd_mul(result, a, b) wm_ckd_mul_size((result), (a), (b))
+#  define ckd_add(result, a, b) wm_ckd_add_size((result), (a), (b))
+#endif
+
 #include <X11/Xlib.h>
+
 
 #ifdef __linux__
 #include <sys/mman.h>
@@ -55,11 +89,23 @@ int RErrorCode = RERR_NONE;
 RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 {
 	RImage *image = NULL;
-	size_t size;
+	size_t size, pixels, bytes;
 
 	assert(width > 0 && height > 0);
 
 	if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+		RErrorCode = RERR_NOMEMORY;
+		return NULL;
+	}
+
+	/* The dimension caps keep the product below 2G today, but that is an
+	 * invariant of the constants above, not of size_t: checked arithmetic
+	 * makes it explicit and survives a future cap change (or a 32-bit host
+	 * with a lower MAX_*).  The +4 is the padding the image conversion
+	 * routines rely on (see convert.c). */
+	if (ckd_mul(&pixels, (size_t)width, (size_t)height)
+	    || ckd_mul(&bytes, pixels, (size_t)(alpha ? 4 : 3))
+	    || ckd_add(&size, bytes, 4u)) {
 		RErrorCode = RERR_NOMEMORY;
 		return NULL;
 	}
@@ -76,28 +122,32 @@ RImage *RCreateImage(unsigned width, unsigned height, int alpha)
 	image->format = alpha ? RRGBAFormat : RRGBFormat;
 	image->refCount = 1;
 
-	/* the +4 is to give extra bytes at the end of the buffer,
-	 * so that we can optimize image conversion for MMX(tm).. see convert.c
-	 */
-	size = (size_t)width * height * (alpha ? 4 : 3) + 4;
-
 #ifdef __linux__
 	{
 		static const size_t HUGEPAGE_SIZE = 2 * 1024 * 1024;
 
 		if (size >= HUGEPAGE_SIZE) {
-			size_t map_size = (size + HUGEPAGE_SIZE - 1) & ~(HUGEPAGE_SIZE - 1);
-			void *data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
-			                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			size_t rounded;
 
-			if (data != MAP_FAILED) {
-				image->data = data;
-				image->allocSize = map_size;
-				image->is_mmap = 1;
-				/* Enable Transparent Huge Pages */
-				madvise(data, map_size, MADV_HUGEPAGE);
-				/* Enable KSM deduplication */
-				madvise(data, map_size, MADV_MERGEABLE);
+			/* Rounding up to the huge page size can overflow size_t on a
+			 * 32-bit host with a very large image: skip the mmap path then
+			 * and fall back to the allocator. */
+			if (ckd_add(&rounded, size, HUGEPAGE_SIZE - 1))
+				rounded = 0;
+			if (rounded) {
+				size_t map_size = rounded & ~(HUGEPAGE_SIZE - 1);
+				void *data = mmap(NULL, map_size, PROT_READ | PROT_WRITE,
+				                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+				if (data != MAP_FAILED) {
+					image->data = data;
+					image->allocSize = map_size;
+					image->is_mmap = 1;
+					/* Enable Transparent Huge Pages */
+					madvise(data, map_size, MADV_HUGEPAGE);
+					/* Enable KSM deduplication */
+					madvise(data, map_size, MADV_MERGEABLE);
+				}
 			}
 		} else if (size >= 4096) {
 			void *aligned_ptr = NULL;
