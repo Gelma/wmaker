@@ -1191,6 +1191,11 @@ void WMDestroyScreen(WMScreen *scr)
 
 	if (scr->balloon) {
 		struct W_Balloon *balloon = scr->balloon;
+
+		/* Detach before destroying: destroying the balloon view can re-enter
+		 * through the StructureNotify handler and free it twice.  The trade
+		 * off is that the balloon API must tolerate a NULL scr->balloon while
+		 * the remaining views are destroyed (see WMSetBalloonTextForView()). */
 		scr->balloon = NULL;
 		W_DestroyBalloon(balloon);
 	}

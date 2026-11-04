@@ -81,7 +81,14 @@ void WMSetBalloonTextAlignment(WMScreen * scr, WMAlignment alignment)
 void WMSetBalloonTextForView(const char *text, WMView * view)
 {
 	char *oldText = NULL;
-	WMScreen *scr = view->screen;
+	WMScreen *scr;
+
+	/* destroyView() calls this for every view while the screen is being torn
+	 * down, after WMDestroyScreen() has already detached scr->balloon. */
+	if (!view || !view->screen || !view->screen->balloon)
+		return;
+
+	scr = view->screen;
 
 	if (text) {
 		oldText = WMHashInsert(scr->balloon->table, view, wstrdup(text));
