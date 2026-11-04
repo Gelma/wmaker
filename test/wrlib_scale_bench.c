@@ -20,7 +20,13 @@
 #include <time.h>
 #include <math.h>
 
-#include <immintrin.h>
+#if defined(__AVX2__)
+/* The kernel probe is AVX2-specific; on other targets (or with a plain
+ * -O2 build without -march=native) only the scalar and whole-call timings
+ * are meaningful. */
+#  include <immintrin.h>
+#  define HAVE_ROW_SIMD 1
+#endif
 
 #include <wraster.h>
 
@@ -152,6 +158,7 @@ static void horiz_scalar(unsigned char *dst, const unsigned char *src,
  * lane accumulates its j in the same order as the scalar loop, which is
  * what keeps the result comparable byte by byte.
  */
+#ifdef HAVE_ROW_SIMD
 static void horiz_simd(unsigned char *dst, const unsigned char *src,
                        unsigned src_width, unsigned rows, CList *contrib,
                        unsigned new_width, int sch)
@@ -270,6 +277,7 @@ static void horiz_simd8(unsigned char *dst, const unsigned char *src,
 		horiz_scalar(dst + (size_t)k * new_width * 3, src + (size_t)src_width * k * sch,
 		             src_width, rows - k, contrib, new_width, sch);
 }
+#endif /* HAVE_ROW_SIMD */
 
 static void bench_call(const char *label, unsigned sw, unsigned sh, unsigned dw, unsigned dh)
 {
@@ -305,11 +313,14 @@ static void bench_kernel(unsigned sw, unsigned sh, unsigned dw)
 {
 	CList *contrib = build_contribs(sw, dw, 3);
 	unsigned char *src, *a, *b;
-	double t0, t1, ts, t4, t8;
+	double t0, t1, ts;
 	size_t srcbytes = (size_t)sw * sh * 3;
 	size_t dstbytes = (size_t)dw * sh * 3;
 	int i, iters = 30;
+#ifdef HAVE_ROW_SIMD
+	double t4, t8;
 	long diff4 = 0, diff8 = 0;
+#endif
 
 	if (!contrib) {
 		fprintf(stderr, "cannot build contributions\n");
@@ -330,6 +341,7 @@ static void bench_kernel(unsigned sw, unsigned sh, unsigned dw)
 	t1 = now_ms();
 	ts = (t1 - t0) / iters;
 
+#ifdef HAVE_ROW_SIMD
 	horiz_simd(b, src, sw, sh, contrib, dw, 3);
 	for (i = 0; i < (int)dstbytes; i++)
 		if (a[i] != b[i])
@@ -351,12 +363,17 @@ static void bench_kernel(unsigned sw, unsigned sh, unsigned dw)
 		horiz_simd8(b, src, sw, sh, contrib, dw, 3);
 	t1 = now_ms();
 	t8 = (t1 - t0) / iters;
+#endif /* HAVE_ROW_SIMD */
 
 	printf("horizontal pass %ux%u -> %ux%u (%d contributions/px)\n",
 	       sw, sh, dw, sh, contrib[0].n);
 	printf("  scalar        %7.2f ms/iter\n", ts);
+#ifdef HAVE_ROW_SIMD
 	printf("  4 rows/AVX2   %7.2f ms/iter  (%.2fx, %ld bytes differ)\n", t4, ts / t4, diff4);
 	printf("  8 rows/AVX2   %7.2f ms/iter  (%.2fx, %ld bytes differ)\n", t8, ts / t8, diff8);
+#else
+	printf("  (kernel probe skipped: built without AVX2)\n");
+#endif
 
 	free(src);
 	free(a);
