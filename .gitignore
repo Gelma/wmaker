@@ -50,6 +50,7 @@ test/wtest
 test/wm_fsm_test
 test/wm_stress
 test/wrlib_blend_test
+test/wrlib_scale_bench
 
 util/convertfonts
 util/geticonset

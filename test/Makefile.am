@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = no-dependencies
 
 EXTRA_DIST = notest.c run_exit_test.sh run_stress.sh
 
-noinst_PROGRAMS = wtest wm_fsm_test wm_stress wrlib_blend_test
+noinst_PROGRAMS = wtest wm_fsm_test wm_stress wrlib_blend_test wrlib_scale_bench
 
 wtest_SOURCES = wtest.c
 
@@ -27,3 +27,10 @@ wrlib_blend_test_CPPFLAGS = @XCFLAGS@ -D_DEFAULT_SOURCE -D_GNU_SOURCE \
 	-I$(top_srcdir)/wrlib -I$(top_builddir)/wrlib
 
 wrlib_blend_test_LDADD = $(top_builddir)/wrlib/libwraster.la @XLFLAGS@ @XLIBS@ -lm
+
+wrlib_scale_bench_SOURCES = wrlib_scale_bench.c
+
+wrlib_scale_bench_CPPFLAGS = @XCFLAGS@ -D_DEFAULT_SOURCE -D_GNU_SOURCE \
+	-I$(top_srcdir)/wrlib -I$(top_builddir)/wrlib
+
+wrlib_scale_bench_LDADD = $(top_builddir)/wrlib/libwraster.la @XLFLAGS@ @XLIBS@ -lm
