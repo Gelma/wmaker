@@ -442,13 +442,21 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 	count = poll(fds, total_fds, timeout);
 
 	if (count > 0 && nfds > 0) {
-		WMArray *handlerCopy = WMDuplicateArray(inputHandler);
+		InputHandler *stack_copy[32];
+		InputHandler **handlers = stack_copy;
 		int mask;
 
-		/* use WM_ITERATE_ARRAY() here */
+		if (nfds > (int)(sizeof(stack_copy) / sizeof(stack_copy[0]))) {
+			handlers = wmalloc(sizeof(InputHandler *) * nfds);
+		}
+
 		for (i = 0; i < nfds; i++) {
-			handler = WMGetFromArray(handlerCopy, i);
-			/* check if the handler still exist or was removed by a callback */
+			handlers[i] = WMGetFromArray(inputHandler, i);
+		}
+
+		for (i = 0; i < nfds; i++) {
+			handler = handlers[i];
+			/* check if the handler still exists or was removed by a callback */
 			if (WMGetFirstInArray(inputHandler, handler) == WANotFound)
 				continue;
 
@@ -469,7 +477,8 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 			}
 		}
 
-		WMFreeArray(handlerCopy);
+		if (handlers != stack_copy)
+			wfree(handlers);
 	}
 
 	if (fds != stack_fds)
@@ -541,13 +550,21 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 	count = select(1 + maxfd, &rset, &wset, &eset, timeoutPtr);
 
 	if (count > 0 && nfds > 0) {
-		WMArray *handlerCopy = WMDuplicateArray(inputHandler);
+		InputHandler *stack_copy[32];
+		InputHandler **handlers = stack_copy;
 		int mask;
 
-		/* use WM_ITERATE_ARRAY() here */
+		if (nfds > (int)(sizeof(stack_copy) / sizeof(stack_copy[0]))) {
+			handlers = wmalloc(sizeof(InputHandler *) * nfds);
+		}
+
 		for (i = 0; i < nfds; i++) {
-			handler = WMGetFromArray(handlerCopy, i);
-			/* check if the handler still exist or was removed by a callback */
+			handlers[i] = WMGetFromArray(inputHandler, i);
+		}
+
+		for (i = 0; i < nfds; i++) {
+			handler = handlers[i];
+			/* check if the handler still exists or was removed by a callback */
 			if (WMGetFirstInArray(inputHandler, handler) == WANotFound)
 				continue;
 
@@ -567,7 +584,8 @@ Bool W_HandleInputEvents(Bool waitForInput, int inputfd)
 			}
 		}
 
-		WMFreeArray(handlerCopy);
+		if (handlers != stack_copy)
+			wfree(handlers);
 	}
 
 	W_FlushASAPNotificationQueue();
