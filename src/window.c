@@ -141,39 +141,57 @@ static void appearanceObserver(void *self, WMNotification * notif)
 }
 
 
-#define WWINDOW_CACHE_SIZE 128
-#define WWINDOW_CACHE_MASK (WWINDOW_CACHE_SIZE - 1)
+#define WWINDOW_CACHE_SETS 256
+#define WWINDOW_CACHE_SET_MASK (WWINDOW_CACHE_SETS - 1)
+#define WWINDOW_CACHE_WAYS 4
 
 typedef struct {
 	Window window;
 	WWindow *wwin;
+	unsigned char valid;
 } WWindowCacheEntry;
 
-static WWindowCacheEntry wwindow_cache[WWINDOW_CACHE_SIZE];
+static WWindowCacheEntry wwindow_cache[WWINDOW_CACHE_SETS][WWINDOW_CACHE_WAYS];
+static unsigned char wwindow_cache_victim[WWINDOW_CACHE_SETS];
+
+static inline unsigned int hashWindowXID(Window window)
+{
+	/* Multiplicative hash mapping XID into 256 cache sets */
+	return (unsigned int)(((uint32_t)window * 2654435761u) >> 24) & WWINDOW_CACHE_SET_MASK;
+}
 
 void wWindowCacheInvalidate(WWindow *wwin)
 {
-	int i;
+	int s, w;
 
-	for (i = 0; i < WWINDOW_CACHE_SIZE; i++) {
-		if (wwindow_cache[i].wwin == wwin) {
-			wwindow_cache[i].window = None;
-			wwindow_cache[i].wwin = NULL;
+	if (!wwin)
+		return;
+
+	for (s = 0; s < WWINDOW_CACHE_SETS; s++) {
+		for (w = 0; w < WWINDOW_CACHE_WAYS; w++) {
+			if (wwindow_cache[s][w].valid && wwindow_cache[s][w].wwin == wwin) {
+				wwindow_cache[s][w].valid = 0;
+				wwindow_cache[s][w].window = None;
+				wwindow_cache[s][w].wwin = NULL;
+			}
 		}
 	}
 }
 
 void wWindowCacheInvalidateXID(Window window)
 {
-	int i;
+	int w;
+	unsigned int set;
 
 	if (window == None)
 		return;
 
-	for (i = 0; i < WWINDOW_CACHE_SIZE; i++) {
-		if (wwindow_cache[i].window == window) {
-			wwindow_cache[i].window = None;
-			wwindow_cache[i].wwin = NULL;
+	set = hashWindowXID(window);
+	for (w = 0; w < WWINDOW_CACHE_WAYS; w++) {
+		if (wwindow_cache[set][w].valid && wwindow_cache[set][w].window == window) {
+			wwindow_cache[set][w].valid = 0;
+			wwindow_cache[set][w].window = None;
+			wwindow_cache[set][w].wwin = NULL;
 		}
 	}
 }
@@ -183,35 +201,49 @@ WWindow *wWindowFor(Window window)
 {
 	WObjDescriptor *desc;
 	WWindow *result = NULL;
-	unsigned int hash;
+	unsigned int set;
+	int w, target;
 
 	if (window == None)
 		return NULL;
 
-	/* Ultra-fast L1 direct-mapped cache lookup */
-	hash = (unsigned int)((window ^ (window >> 6)) & WWINDOW_CACHE_MASK);
-	if (wwindow_cache[hash].window == window) {
-		wTelemetry.wwindow_cache_hits++;
-		return wwindow_cache[hash].wwin;
+	/* 4-way set-associative cache lookup supporting both positive and negative results */
+	set = hashWindowXID(window);
+	for (w = 0; w < WWINDOW_CACHE_WAYS; w++) {
+		if (wwindow_cache[set][w].valid && wwindow_cache[set][w].window == window) {
+			wTelemetry.wwindow_cache_hits++;
+			return wwindow_cache[set][w].wwin;
+		}
 	}
 
 	wTelemetry.wwindow_cache_misses++;
 
-	if (XFindContext(dpy, window, w_global.context.client_win, (XPointer *) & desc) == XCNOENT)
-		return NULL;
-
-	if (desc->parent_type == WCLASS_WINDOW)
-		result = (WWindow *)desc->parent;
-	else if (desc->parent_type == WCLASS_FRAME) {
-		WFrameWindow *frame = (WFrameWindow *) desc->parent;
-		if (frame->flags.is_client_window_frame)
-			result = frame->child;
+	if (XFindContext(dpy, window, w_global.context.client_win, (XPointer *) & desc) != XCNOENT) {
+		if (desc->parent_type == WCLASS_WINDOW)
+			result = (WWindow *)desc->parent;
+		else if (desc->parent_type == WCLASS_FRAME) {
+			WFrameWindow *frame = (WFrameWindow *) desc->parent;
+			if (frame->flags.is_client_window_frame)
+				result = frame->child;
+		}
 	}
 
-	if (result) {
-		wwindow_cache[hash].window = window;
-		wwindow_cache[hash].wwin = result;
+	/* Cache positive and negative lookup results */
+	target = -1;
+	for (w = 0; w < WWINDOW_CACHE_WAYS; w++) {
+		if (!wwindow_cache[set][w].valid) {
+			target = w;
+			break;
+		}
 	}
+	if (target < 0) {
+		target = wwindow_cache_victim[set] % WWINDOW_CACHE_WAYS;
+		wwindow_cache_victim[set] = (target + 1) % WWINDOW_CACHE_WAYS;
+	}
+
+	wwindow_cache[set][target].window = window;
+	wwindow_cache[set][target].wwin = result;
+	wwindow_cache[set][target].valid = 1;
 
 	return result;
 }
@@ -824,6 +856,7 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 	else if (!wFetchName(dpy, window, &title))
 		title = NULL;
 
+	wWindowCacheInvalidateXID(window);
 	XSaveContext(dpy, window, w_global.context.client_win, (XPointer) & wwin->client_descriptor);
 
 #ifdef USE_XSHAPE
@@ -1607,6 +1640,7 @@ WWindow *wManageInternalWindow(WScreen *scr, Window window, Window owner,
 					 scr->resizebar_texture, scr->window_title_color, &scr->title_font,
 					 scr->w_depth, scr->w_visual, scr->w_colormap);
 
+	wWindowCacheInvalidateXID(window);
 	XSaveContext(dpy, window, w_global.context.client_win, (XPointer) & wwin->client_descriptor);
 
 	wwin->frame->flags.is_client_window_frame = 1;
