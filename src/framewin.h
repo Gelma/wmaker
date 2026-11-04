@@ -124,6 +124,7 @@ typedef struct WFrameWindow {
 #endif
 
         unsigned int need_texture_remake:1;
+        unsigned int texture_remake_mask:3;
 
         unsigned int single_texture:1;
 

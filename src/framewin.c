@@ -973,24 +973,22 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 		fwin->flags.justification = wPreferences.title_justification;
 
 	if (fwin->flags.need_texture_remake) {
-		int i;
-
+		fwin->flags.texture_remake_mask = 0x7;
 		fwin->flags.need_texture_remake = 0;
+	}
+
+	if (fwin->flags.texture_remake_mask & (1 << state)) {
+		fwin->flags.texture_remake_mask &= ~(1 << state);
 		fwin->flags.need_texture_change = 0;
 
 		if (fwin->flags.single_texture) {
 			remakeTexture(fwin, 0);
+			fwin->flags.texture_remake_mask = 0;
 			updateTexture(fwin);
 		} else {
-			/* first render the texture for the current state... */
+			/* lazily render texture for the current state */
 			remakeTexture(fwin, state);
-			/* ... and paint it */
 			updateTexture(fwin);
-
-			for (i = 0; i < 3; i++) {
-				if (i != state)
-					remakeTexture(fwin, i);
-			}
 		}
 #ifdef XKB_BUTTON_HINT
 		if (wPreferences.modelock)
@@ -1001,6 +999,11 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 	if (fwin->flags.need_texture_change) {
 		fwin->flags.need_texture_change = 0;
 
+		/* If the texture for the newly active state is not yet rendered, render it lazily */
+		if (fwin->flags.texture_remake_mask & (1 << state)) {
+			fwin->flags.texture_remake_mask &= ~(1 << state);
+			remakeTexture(fwin, state);
+		}
 		updateTexture(fwin);
 	}
 
