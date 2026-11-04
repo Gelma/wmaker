@@ -196,9 +196,11 @@ void wApplicationDestroy(WApplication *wapp)
 
 	wWindowDestroy(wapp->main_window_desc);
 	if (wwin) {
-		/* undelete client window context that was deleted in
-		 * wWindowDestroy */
+		/* Undelete client window context that was deleted in wWindowDestroy.
+		 * Note: main_window_desc and the managed WWindow are two distinct
+		 * objects sharing the same client_win XID. */
 		XSaveContext(dpy, wwin->client_win, w_global.context.client_win, (XPointer) & wwin->client_descriptor);
+		wWindowCacheInvalidateXID(wwin->client_win);
 	}
 	wfree(wapp);
 }

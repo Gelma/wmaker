@@ -163,6 +163,21 @@ void wWindowCacheInvalidate(WWindow *wwin)
 	}
 }
 
+void wWindowCacheInvalidateXID(Window window)
+{
+	int i;
+
+	if (window == None)
+		return;
+
+	for (i = 0; i < WWINDOW_CACHE_SIZE; i++) {
+		if (wwindow_cache[i].window == window) {
+			wwindow_cache[i].window = None;
+			wwindow_cache[i].wwin = NULL;
+		}
+	}
+}
+
 /* Return the WWindow associated with a given (Xlib) Window. */
 WWindow *wWindowFor(Window window)
 {
@@ -234,6 +249,8 @@ void wWindowDestroy(WWindow *wwin)
 	int i;
 
 	wWindowCacheInvalidate(wwin);
+	if (wwin->client_win != None)
+		wWindowCacheInvalidateXID(wwin->client_win);
 
 	if (wwin->screen_ptr->cmap_window == wwin)
 		wwin->screen_ptr->cmap_window = NULL;
