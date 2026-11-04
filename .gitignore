@@ -94,9 +94,12 @@ doc/*.1
 
 wrlib/libwraster.map
 
-WindowMaker/appearance.menu*
-WindowMaker/menu*
-WindowMaker/plmenu*
+WindowMaker/appearance.menu
+WindowMaker/appearance.menu.[a-z][a-z]*
+WindowMaker/menu
+WindowMaker/menu.[a-z][a-z]*
+WindowMaker/plmenu
+WindowMaker/plmenu.[a-z][a-z]*
 WindowMaker/wmmacros
 
 
