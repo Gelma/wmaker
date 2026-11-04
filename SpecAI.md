@@ -595,15 +595,19 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Measurement**: 10 root-menu opens plus 3 clients on a private Xvfb give width-cache **91.3%** (664/727) and layout-cache **86.7%** (111/128) hit rates. The misses are therefore 9-13% of lookups, so replacing the layout cache with a single scratch layout (the alternative considered) would make Pango re-shape ~7x more text than today: the caches stay, and the DHAT churn is the price of the hits that avoid shaping entirely.
     - **Cost**: five `unsigned long` counters, three increments in the hot path (a register add), five `%lu` fields in the dump.
 
+111. **[`SpecAI.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/SpecAI.md) - The Second Thread Is Pango's Font-Map Worker (identification, no change)**:
+    - **Question**: the WM runs two threads; DHAT attributed 44 MB of churn to `FcFontSetSort`/`FcPatternDuplicate` on the worker, which looked like an unexpected thread.
+    - **Answer**: `gdb -p <test instance> -ex "thread apply all bt"` shows the worker parked in `g_async_queue_pop()` inside `libpangoft2-1.0.so.0`. It is Pango's own `PangoFcFontMap` worker, used to batch font-pattern lookups off the main thread; libglib is the only linked library that imports `pthread_create`.
+    - **Decision**: no change. Pango starts it on first font use; the churn is font matching that would otherwise run on the main loop. Disabling it would require patching Pango, and it does not block event dispatch.
+
 ---
 
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
 
-- **Build**: `make` with the project warning set (clang-23) succeeds with 0 errors and 6 warnings,
-  all pre-existing (3 `-Wdouble-promotion`, 1 `-Wc23-extensions` in `WINGs/wlist.c`, 2
-  `-Wunused-but-set-global` in `util/wmiv.c`); the 4 warnings introduced by the fix batch are gone.
+- **Build**: `make` with the project warning set (clang-23) succeeds with 0 errors and 0 warnings
+  after §109; the 6 pre-existing warnings of the earlier batch are gone.
 - **Shutdown**: `make exit-test` passes — `SIGTERM` exits with status 0, `SIGUSR1` re-execs and comes
   back, `SIGUSR2` reloads the defaults and refreshes the telemetry dump. Before `151ccd71` every exit
   ended with status 139 (SIGSEGV inside the balloon teardown).
@@ -613,13 +617,20 @@ Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
   `loadPixmaps()` and the dock menu; they are known and not fixed.
 - **Telemetry**: JSON parses under `it_IT.UTF-8`, keys are unique (`ExtensionOrOther_<n>`), the
   `xsync_eliminated` counter no longer counts `XGrabServer()`, `WM_RUNTIME_LOG_DIR` isolates runs.
+  Since §104 latency excludes modal (menu/dialog) time and the JSON carries `modal_time_ms`; since
+  §105 spike entries carry the property/key/button/geometry that was slow; since §106 the spike log
+  is a single persistent stream rotated at 4 MB (§107); since §110 `font_caches` reports hit rates.
 - **Stress**: `make stress` / `./test/wm_stress -t 4 -d 10` = 69,150 operations in ~10 s with the WM
   alive afterwards.
 - **EWMH**: `_NET_WM_SYNC_REQUEST` is no longer advertised (§97); the compositor bypass hint is kept.
 - **Memory advising**: `MAP_HUGETLB` is gone, THP (`MADV_HUGEPAGE`) and process-wide KSM
   (`PR_SET_MEMORY_MERGE`) are kept; KSM remains opt-out rather than opt-in (see §98 and R5 below).
-- **Installed tree**: `/opt/wmaker` predates `151ccd71`/`52e1029a`; run `build_and_install.sh` before
-  relying on the installed binary for exit-path tests.
+- **Icon placement**: the occupancy map is slot-sized and reused (§108); six iconified clients land
+  on adjacent slots of the icon yard.
+- **Font caches**: width cache 91.3% and layout cache 86.7% hit rate in the menu-heavy measurement of
+  §110, which is why both caches are kept.
+- **Installed tree**: `/opt/wmaker` predates `151ccd71`, `52e1029a` and the §103-§110 work; run
+  `build_and_install.sh` before relying on the installed binary.
 
 Earlier statements in this file that are no longer accurate, kept as a record:
 
