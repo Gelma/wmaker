@@ -706,6 +706,29 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **What it did not find**: nothing in the scale paths (`test/wrlib_scale_bench`, every WM size), nothing in the XPM loader after the fix, and the WM survives SIGTERM / SIGUSR1 / SIGUSR2 with `all exit tests passed` under the sanitizer.
     - **Cost**: full build ~3 min, exit gate ~40 s, `wrlib_scale_bench` under ASan is ~8x slower (172 ms per 1920-wide horizontal pass vs 21 ms) which is expected and irrelevant for correctness runs.
 
+126. **Coverity Defect Audit and Corrective Action Plan (`CoverityReport/` & `CoverityGemini.md`)**:
+    - **Audit Scope**: Audited all 88 Coverity Defect JSON files (`cid_*.json` and `coverity_defects.json`) in [`CoverityReport/`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityReport) comprising 139 defect occurrences across 6 project subsystems: `src/` (37 CIDs), `WINGs/` (23 CIDs), `wrlib/` (3 CIDs), `util/` (15 CIDs), `WPrefs.app/` (9 CIDs), and `wmlib/` (1 CID).
+    - **Technical Analysis & Deliverable**: Produced [`CoverityGemini.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityGemini.md) detailing for every single CID the exact file location, issue description, severity classification, technical triage verdict (High Risk / Medium Risk / Minor / Intentional or False Positive), and recommended corrective action.
+    - **Key Critical Findings**:
+      - `src/event.c:395-401` (CID 1686058, 1686112): `pevent->name` inotify filename read without null-termination guarantee in read buffer, causing potential out-of-bounds `strcmp`.
+      - `WINGs/bagtree.c:459-464` (CID 1686055): Definite Use-After-Free accessing `self->root->index` after deleting root node.
+      - `WINGs/wtext.c:1874-1878` (CID 1686072): Definite Use-After-Free accessing `tb->prev` after calling `WMDestroyTextBlock(tb)`.
+      - `util/wmgenmenu.c:413, 459` (CID 1686037): Use-After-Free of `argv` across loop iterations where `wtokenfree` freed memory reused in subsequent iterations.
+      - `util/wmiv.c:1549-1568` (CID 1686103): Pointer `dir` freed without initialization when `scandir` fails.
+      - `WPrefs.app/WindowHandling.c:263, 275` & `Icons.c:461` (CID 1686046): `WMGetPopUpButtonSelectedItem` returns `-1` on no selection, leading to negative array index out-of-bounds read (`array[-1]`).
+      - `src/dock.c:3167-3172` (CID 240602): Memory leak of tokenized `argv` on early return when `argc == 0`.
+      - `src/misc.c:908-911` (CID 1686048): Dynamic heap string `tmp` leaked on modifier key mapping error.
+      - `src/window.c:1004-1009` (CID 1686075): Memory leak overwriting `class` in `fixLeaderProperties`.
+      - `src/xmodifier.c:155-162` (CID 1255978, 1255982, 1255987, 1255992): Tautology macro `alt_bit != alt_bit` disabling modifier conflict warnings.
+      - `WINGs/wcolorpanel.c:3554` (CID 1686065): Infinite loop caused by unsigned char overflow `for (unsigned char i = 0; i <= 255; i++)`.
+      - `WINGs/dragsource.c:736` (CID 1686050): Unsigned underflow on `nchildren - 1` when `nchildren == 0`.
+    - **Implementation Roadmap**: Formulated a 5-step prioritized remediation plan:
+      1. Step 1: Memory Safety, Buffer Bounds & Crash-Prone Paths (UAFs in `bagtree`, `wtext`, inotify bounds in `event.c`, array indexing in WPrefs).
+      2. Step 2: Critical Logic, Loops & In-Tree Pointer Leaks (`wcolorpanel.c` loop, `xmodifier.c` macro, `dock.c`/`misc.c`/`window.c` memory leaks).
+      3. Step 3: Command-line Utilities (`util/wmgenmenu.c`, `util/wmiv.c`, `util/wmsetbg.c`).
+      4. Step 4: Configuration App & Library Cleanups (`WPrefs.app`, `wmlib`, `wrlib`).
+      5. Step 5: Verification & Baseline Update (Re-run `make exit-test`, sanitizer build, and static analysis baseline).
+
 ---
 
 ## Verification Status
