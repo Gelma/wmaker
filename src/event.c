@@ -646,6 +646,23 @@ static void handleExtensions(XEvent * event)
 #endif
 }
 
+/* A failed MapRequest is a real anomaly, but it can repeat for every window
+ * of a misbehaving client: keep the informative message, drop the per-event
+ * cost (wmessage/wwarning allocate and format a full line each time). */
+static void warnMapRequestFailure(Window window)
+{
+	static time_t last_warn = 0;
+	static unsigned int warned = 0;
+	time_t now = time(NULL);
+
+	if (warned < 3 || now != last_warn) {
+		last_warn = now;
+		warned++;
+		wwarning("handleMapRequest: wManageWindow returned NULL for window 0x%lx (override_redirect or unmapped)",
+			 (unsigned long)window);
+	}
+}
+
 static void handleMapRequest(XEvent * ev)
 {
 	WWindow *wwin;
@@ -654,8 +671,9 @@ static void handleMapRequest(XEvent * ev)
 
 	wwin = wWindowFor(window);
 	if (wwin != NULL) {
-		wmessage("handleMapRequest: window 0x%lx already managed (shaded=%d, min=%d, hid=%d)",
-			 (unsigned long)window, wwin->flags.shaded, wwin->flags.miniaturized, wwin->flags.hidden);
+		/* Benign and frequent (clients re-map a window they already have);
+		 * counted instead of logged, see wTelemetryDump(). */
+		wTelemetry.map_request_already_managed++;
 		if (wwin->flags.shaded) {
 			wUnshadeWindow(wwin);
 		}
@@ -675,14 +693,15 @@ static void handleMapRequest(XEvent * ev)
 
 	scr = wScreenForRootWindow(ev->xmaprequest.parent);
 	if (!scr) {
+		wTelemetry.map_request_no_screen++;
 		wwarning("handleMapRequest: screen not found for root window 0x%lx", (unsigned long)ev->xmaprequest.parent);
 		return;
 	}
 
 	wwin = wManageWindow(scr, window);
 	if (!wwin) {
-		wmessage("handleMapRequest: wManageWindow returned NULL for window 0x%lx (override_redirect or unmapped)",
-			 (unsigned long)window);
+		wTelemetry.map_request_failed++;
+		warnMapRequestFailure(window);
 		return;
 	}
 

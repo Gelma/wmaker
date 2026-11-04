@@ -479,6 +479,11 @@ void wTelemetryDump(void)
 		fprintf(fjson, "    \"malloc_mmap_kb\": %llu,\n", res.mmap_kb);
 		fprintf(fjson, "    \"x_pending_events\": %d\n", res.x_pending);
 		fprintf(fjson, "  },\n");
+		fprintf(fjson, "  \"diagnostics\": {\n");
+		fprintf(fjson, "    \"map_request_already_managed\": %" PRIu64 ",\n", wTelemetry.map_request_already_managed);
+		fprintf(fjson, "    \"map_request_failed\": %" PRIu64 ",\n", wTelemetry.map_request_failed);
+		fprintf(fjson, "    \"map_request_no_screen\": %" PRIu64 "\n", wTelemetry.map_request_no_screen);
+		fprintf(fjson, "  },\n");
 		fprintf(fjson, "  \"events\": {\n");
 		for (i = 0; i < TELEMETRY_MAX_EVENTS; i++) {
 			if (wTelemetry.event_counts[i] > 0) {
@@ -528,6 +533,9 @@ void wTelemetryDump(void)
 		        res.minflt, res.majflt, res.nvcsw, res.nivcsw);
 		fprintf(flog, "Heap: arena %llu KB | in use %llu KB | malloc mmap %llu KB | X events pending: %d\n",
 		        res.arena_kb, res.inuse_kb, res.mmap_kb, res.x_pending);
+		fprintf(flog, "MapRequest: already managed %" PRIu64 " | manage failed %" PRIu64 " | screen not found %" PRIu64 "\n",
+		        wTelemetry.map_request_already_managed, wTelemetry.map_request_failed,
+		        wTelemetry.map_request_no_screen);
 		fprintf(flog, "--------------------------------------------------------------------------------\n");
 		fprintf(flog, "Optimization & Bypass Metrics:\n");
 		fprintf(flog, "  - XQueryPointer Bypassed (Single Head / Cache): %" PRIu64 "\n", wTelemetry.xquery_pointer_bypassed);

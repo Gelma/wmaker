@@ -42,6 +42,12 @@ typedef struct WTelemetryStats {
 	uint64_t poll_iterations;
 	uint64_t idle_executions;
 
+	/* MapRequest diagnostics: replacing per-event wmessage() calls, which
+	 * allocate and format a line for every mapped window. */
+	uint64_t map_request_already_managed;
+	uint64_t map_request_failed;
+	uint64_t map_request_no_screen;
+
 	/* Modal (menu/dialog) accounting: wall time spent inside nested event
 	 * loops while a handler is running, plus the current dispatch nesting. */
 	uint64_t modal_ns;

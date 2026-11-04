@@ -616,6 +616,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 
 114. **Follow-up finding — the `MapRequest` diagnostics are a hot-path cost**: the `wmessage()` calls added for the old MapRequest anomaly (`handleMapRequest()`) account for **12.5 MB of allocation churn** in a 3 s `wm_stress` run: every "window already managed" event formats and prints a message. They should become a `wTelemetry` counter (plus an optional rate-limited `wwarning`) before the next profiling round; the diagnostic is useful, the per-event message is not.
 
+115. **[`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - `MapRequest` Diagnostics as Counters Instead of Per-Event Messages**:
+    - **Problem**: `wmessage()` was called for every "window already managed" and every failed `wManageWindow()`. Each call does `wmalloc(sysconf(_SC_LINE_MAX))`, formats and writes a line: DHAT ranked `__wmessage` first at 12.5 MB of churn in a 3 s stress run, and the WM log grew to ~550 KB with thousands of identical lines.
+    - **Fix**: "already managed" (benign and frequent) only increments `map_request_already_managed`. A `wManageWindow()` failure increments `map_request_failed` and calls `wwarning()` at most three times plus once per second, keeping the same message text. `map_request_no_screen` counts the third case. The counters are published in a `diagnostics` object in `runtime_stats.json` and on one line of the text report.
+    - **Cost/benefit**: one 64-bit increment per MapRequest in the normal path, a `time()` call only on failures; the diagnostic information stays available without the allocation and I/O. 
+    - **Verification**: `tools/profile.sh dhat map` no longer lists `__wmessage` anywhere (top churn is now 5.5 MB `XkbRF_GetNamesProp`, then 4.8 MB Pango's worker); a run with **6,323** failed MapRequests produced **4** warning lines and a 3 KB log; `make exit-test` passes.
+
 ---
 
 ## Verification Status
