@@ -547,6 +547,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Menu Background Texture Caching (`9bbd931a`)**: Addressed DHAT's top allocation source (>700 MB of texture rasterization). Added `texture_width` and `texture_height` tracking to `WMenu`, skipping `renderTexture()`, `XCreatePixmap()`, and `XClearWindow()` when menu dimensions remain unchanged across realize calls. Introduced a 16-slot LRU cache (`menu_rimage_cache`) for `MS_NORMAL` tile `RImage`s, allowing menus with identical dimensions to reuse rendered raster buffers without re-rendering.
     - **Lazy Window Frame Texture Remaking (`fdaaba85`)**: Replaced immediate synchronous rendering of all 3 window states (unfocused, focused, owner) on every resize or configuration with dirty-mask tracking (`texture_remake_mask`). Renders only the currently active state during paint and defers rendering of inactive states until they actually become active, saving up to 66% of frame texture rasterization overhead during window resize.
 
+103. **[`src/wcore.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wcore.c), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c) - Negative Lookup Cache Correctness: Invalidate WM-Created XIDs on Create and Destroy**:
+    - **Problem**: `a4dc6b9d` added negative caching (XID -> NULL) to the window lookup cache. Every WM-created window (frame, menu, app icon, dialog) is registered in the `client_win` context by `wCoreCreate*()`, but `wCoreDestroy()` only deleted the context. A negative entry cached for a menu or frame XID therefore survived its destruction and could match the next window that the X server assigned the same XID to (XIDs are recycled aggressively), making a real frame look unmanaged: no `EnterNotify` focus handling and no frame repaint for that window.
+    - **Fix**: `wWindowCacheInvalidateXID()` is now called from `wCoreCreateTopLevel()`, `wCoreCreate()` and `wCoreDestroy()`. `wWindowDestroy()` already invalidated both the `WWindow` and its client XID.
+    - **Cost/benefit**: four comparisons per create/destroy, no memory at all; it removes a rare but user-visible failure mode introduced by the negative cache (a cache that buys ~1000 `XFindContext()` traversals per second must never return a wrong answer).
+    - **Verification**: `make exit-test` passes; 20 root-menu open/close cycles followed by a fresh client still produce a viewable client window and frame; `wm_stress -t 2 -d 5` passes.
+
 ---
 
 ## Verification Status

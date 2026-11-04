@@ -27,6 +27,7 @@
 
 #include "WindowMaker.h"
 #include "wcore.h"
+#include "window.h"
 
 
 /*----------------------------------------------------------------------
@@ -72,6 +73,8 @@ WCoreWindow *wCoreCreateTopLevel(WScreen *screen, int x, int y, int width, int h
 
 	XClearWindow(dpy, core->window);
 	XSaveContext(dpy, core->window, w_global.context.client_win, (XPointer) & core->descriptor);
+	/* XIDs are recycled: drop any stale lookup cached for this window id. */
+	wWindowCacheInvalidateXID(core->window);
 
 	return core;
 }
@@ -119,6 +122,8 @@ WCoreWindow *wCoreCreate(WCoreWindow *parent, int x, int y, int width, int heigh
 	core->descriptor.self = core;
 
 	XSaveContext(dpy, core->window, w_global.context.client_win, (XPointer) & core->descriptor);
+	/* XIDs are recycled: drop any stale lookup cached for this window id. */
+	wWindowCacheInvalidateXID(core->window);
 	return core;
 }
 
@@ -126,6 +131,12 @@ void wCoreDestroy(WCoreWindow * core)
 {
 	if (core->stacking)
 		wfree(core->stacking);
+
+	/* Every WM-created window (frames, menus, icons, dialogs) uses this
+	 * path.  Remove the id from the window lookup cache before the X server
+	 * can hand it out again to a new frame: with negative caching a stale
+	 * "no WWindow" entry would make the new frame look unmanaged. */
+	wWindowCacheInvalidateXID(core->window);
 
 	XDeleteContext(dpy, core->window, w_global.context.client_win);
 	XDestroyWindow(dpy, core->window);
