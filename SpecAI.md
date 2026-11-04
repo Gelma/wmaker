@@ -577,6 +577,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: one integer per written line, one `rename()` every ~40,000 entries; at most 8 MB of log on disk instead of unbounded growth. The recent history (two generations) is always available for diagnosis.
     - **Verification**: pre-filled log of 4,200,000 bytes + a stress run produced `latency_spikes.log.1` (4,200,097 bytes, frozen) and a fresh `latency_spikes.log` (22 lines).
 
+108. **[`src/placement.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/placement.c) - Icon Placement: One Byte per Slot Instead of One Byte per Pixel**:
+    - **Problem**: `PlaceIcon()` allocated `(screen_width+2) x (screen_height+2)` bytes for an occupancy map indexed in *icon slots* (`x / icon_size`). On 1920x1080 that is 2.08 MB allocated, mmapped and unmapped for every placement, while only ~700 bytes were used. It was also never cleared: the 2 MB mapping happened to be zero-filled by the kernel, an implicit and fragile assumption.
+    - **Fix**: the map is now `(fullW+2) x (fullH+2)` bytes (34x21 = 714 bytes on 1920x1080 with 64 px icons), kept in a static grow-on-demand buffer across calls, and explicitly `memset()` before use. Only the used region is cleared.
+    - **Cost/benefit**: ~700 bytes instead of 2 MB per placement, no mmap/munmap pair and no VMA churn per icon, zero allocation after the first call (the buffer is reused), and the uninitialised-read assumption is gone. DHAT had attributed 11.4 MB of churn to six placements.
+    - **Verification**: six clients iconified on a 1024x768 Xvfb produced icons at x = 0, 64, 128, 192, 256, 320 on the icon-yard row (distinct, adjacent, on-screen); `make exit-test` passes.
+
 ---
 
 ## Verification Status
