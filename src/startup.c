@@ -467,9 +467,6 @@ void StartUp(Bool defaultScreenOnly)
 	w_global.context.client_win = XUniqueContext();
 	w_global.context.app_win = XUniqueContext();
 	w_global.context.stack = XUniqueContext();
-#ifdef USE_XSYNC
-	w_global.context.sync_alarm = XUniqueContext();
-#endif
 
 	/*    _XA_VERSION = XInternAtom(dpy, "VERSION", False); */
 

@@ -1669,18 +1669,6 @@ void wNETWMUpdateBypassCompositor(WWindow *wwin)
 	}
 }
 
-#ifdef USE_XSYNC
-void wNETWMUpdateSyncCounter(WWindow *wwin)
-{
-	(void)wwin;
-}
-
-void wNETWMHandleSyncAlarmNotify(XEvent *event)
-{
-	(void)event;
-}
-#endif
-
 void wNETWMCheckInitialClientState(WWindow *wwin)
 {
 #ifdef DEBUG_WMSPEC
@@ -1693,9 +1681,6 @@ void wNETWMCheckInitialClientState(WWindow *wwin)
 	updateNetIconInfo(wwin);
 	updateIconImage(wwin);
 	wNETWMUpdateBypassCompositor(wwin);
-#ifdef USE_XSYNC
-	wNETWMUpdateSyncCounter(wwin);
-#endif
 }
 
 void wNETWMCheckInitialFrameState(WWindow *wwin)
@@ -1992,10 +1977,6 @@ void wNETWMCheckClientHintChange(WWindow *wwin, XPropertyEvent *event)
 		updateWindowOpacity(wwin);
 	} else if (event->atom == net_wm_bypass_compositor) {
 		wNETWMUpdateBypassCompositor(wwin);
-#ifdef USE_XSYNC
-	} else if (event->atom == net_wm_sync_request_counter) {
-		wNETWMUpdateSyncCounter(wwin);
-#endif
 	}
 }
 

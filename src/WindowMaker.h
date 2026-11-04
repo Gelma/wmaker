@@ -626,9 +626,6 @@ extern struct wmaker_global_variables {
 		XContext client_win;
 		XContext app_win;
 		XContext stack;
-#ifdef USE_XSYNC
-		XContext sync_alarm;
-#endif
 	} context;
 
 	/* X Extensions */

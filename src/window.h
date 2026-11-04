@@ -157,8 +157,6 @@ typedef struct {
     unsigned int SAVE_YOURSELF:1;
     /* WindowMaker specific */
     unsigned int MINIATURIZE_WINDOW:1;
-    /* EWMH */
-    unsigned int NET_WM_SYNC_REQUEST:1;
 } WProtocols;
 
 
@@ -301,15 +299,6 @@ typedef struct WWindow {
 	RImage *net_icon_image;			/* Window Image */
 	Atom type;
 	char *mark_key_label;		/* Vim-like Window Marking */
-#ifdef USE_XSYNC
-	struct {
-		XSyncCounter counter;
-		XSyncAlarm alarm;
-		XSyncValue wait_value;
-		WMHandlerID timeout_timer;
-		unsigned int is_waiting:1;
-	} sync_request;
-#endif
 	unsigned int bypass_compositor:2;
 } WWindow;
 
