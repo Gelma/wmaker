@@ -21,6 +21,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
@@ -63,8 +65,8 @@ int main(int argc, char **argv)
 	FILE *file = stdin;
 	char *buf = NULL;
 	char *display_name = "";
-	int l = 0;
-	int buf_len = 0;
+	size_t l = 0;
+	size_t buf_len = 0;
 	int limit_check = 1;
 	int clear_selection = 0;
 	int failed;
@@ -184,11 +186,21 @@ int main(int argc, char **argv)
 	}
 
 	char tmp[LINESIZE + 2];
-	int nl;
+	size_t nl;
 
 	while ((nl = fread(tmp, 1, LINESIZE, file)) > 0) {
 		char *nbuf;
-		if (buf == NULL) {
+		int overflow = 0;
+
+		/* The size comes from the input - copying it is what this tool
+		 * does - but the arithmetic must not wrap: with -nolimit the
+		 * doubling below reaches 2 GB, and in int it overflowed to a
+		 * negative size (Semgrep: tainted allocation size).  Both
+		 * additions and the doubling are checked in size_t. */
+		if (l > SIZE_MAX - nl - 1) {
+			overflow = 1;
+			nbuf = NULL;
+		} else if (buf == NULL) {
 			buf_len = l + nl + 1;
 			nbuf = malloc(buf_len);
 		} else if (buf_len < l + nl + 1) {
@@ -197,10 +209,20 @@ int main(int argc, char **argv)
 			 * grow by doubling, not by the minimum needed for the
 			 * current line.
 			 */
-			buf_len = 2 * buf_len + nl + 1;
-			nbuf = realloc(buf, buf_len);
+			if (buf_len > (SIZE_MAX - nl - 1) / 2) {
+				overflow = 1;
+				nbuf = NULL;
+			} else {
+				buf_len = 2 * buf_len + nl + 1;
+				nbuf = realloc(buf, buf_len);
+			}
 		} else {
 			nbuf = buf;
+		}
+		if (overflow) {
+			fprintf(stderr, "%s: input too large for this build\n", prog_name);
+			free(buf);
+			exit(1);
 		}
 		if (!nbuf) {
 			fprintf(stderr, "%s: out of memory\n", prog_name);
@@ -235,18 +257,23 @@ int main(int argc, char **argv)
 	if (clear_selection) {
 		XSetSelectionOwner(dpy, XA_PRIMARY, None, CurrentTime);
 	}
+	if (buf && l > (size_t)INT_MAX) {
+		fprintf(stderr, "%s: selection too large for a cut buffer\n", prog_name);
+		free(buf);
+		exit(1);
+	}
 	if (buf) {
-		XStoreBuffer(dpy, buf, l, buffer);
+		XStoreBuffer(dpy, buf, (int)l, buffer);
 	}
 	XFlush(dpy);
 	XCloseDisplay(dpy);
+	/* status before the close: ferror() stops being meaningful after
+	 * fclose().  errno is not a success indicator - a pipe read leaves
+	 * EAGAIN behind, which made this tool exit 1 on a successful copy
+	 * (Semgrep: the status was computed after the free). */
+	failed = (buf == NULL || ferror(file));
 	if (file != stdin)
 		fclose(file);
-	/* Evaluate the status before releasing the buffer: reading a freed
-	 * pointer to compare it with NULL is undefined behaviour, and the
-	 * compiler is free to see the assignment as dead (Semgrep: use
-	 * after free). */
-	failed = (buf == NULL || errno != 0);
 	free(buf);
 	exit(failed);
 }
