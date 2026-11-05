@@ -1667,12 +1667,19 @@ void wDockSaveState(WScreen *scr, WMPropList *old_state)
 
 		keys = WMGetPLDictionaryKeys(old_state);
 		for (i = 0; i < WMGetPropListItemCount(keys); i++) {
+			WMPropList *old_value;
+
 			tmp = WMGetFromPLArray(keys, i);
 
-			if (strncasecmp(WMGetFromPLString(tmp), "applications", 12) == 0
+			old_value = WMGetFromPLDictionary(old_state, tmp);
+			/* Only carry over an entry that exists and is a
+			 * dictionary: the key list comes from the same file but
+			 * the value can be anything (Coverity CID 1686083). */
+			if (old_value && WMIsPLDictionary(old_value)
+			    && strncasecmp(WMGetFromPLString(tmp), "applications", 12) == 0
 			    && !WMGetFromPLDictionary(dock_state, tmp)) {
 
-				WMPutInPLDictionary(dock_state, tmp, WMGetFromPLDictionary(old_state, tmp));
+				WMPutInPLDictionary(dock_state, tmp, old_value);
 			}
 		}
 		WMReleasePropList(keys);
