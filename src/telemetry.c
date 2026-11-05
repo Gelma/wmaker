@@ -8,6 +8,7 @@
 #include "wconfig.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,28 @@ static FILE *spike_file = NULL;
 
 static void telemetryEventWaitHook(unsigned long long wait_ns);
 static FILE *get_spike_file(void);
+
+/* The dump carries window titles and command lines, so it must not be
+ * readable by other users: create it 0600 and tighten a file left by an
+ * older build (CodeQL: file created without restricting permissions). */
+static FILE *open_private(const char *path, int flags)
+{
+	int fd;
+	FILE *f;
+
+	fd = open(path, flags, 0600);
+	if (fd < 0)
+		return NULL;
+
+	/* the mode above only applies when the file is created */
+	(void)fchmod(fd, 0600);
+
+	f = fdopen(fd, (flags & O_APPEND) ? "a" : "w");
+	if (!f)
+		close(fd);
+
+	return f;
+}
 
 static const char *get_event_name(int type)
 {
@@ -249,7 +272,7 @@ static FILE *get_spike_file(void)
 		struct stat st;
 
 		snprintf(path, sizeof(path), "%s/latency_spikes.log", get_telemetry_dir());
-		spike_file = fopen(path, "a");
+		spike_file = open_private(path, O_WRONLY | O_CREAT | O_APPEND);
 		if (spike_file) {
 			if (fstat(fileno(spike_file), &st) == 0)
 				spike_bytes = (unsigned long long)st.st_size;
@@ -446,7 +469,7 @@ void wTelemetryDump(void)
 	snprintf(path_json, sizeof(path_json), "%s/runtime_stats.json", get_telemetry_dir());
 	snprintf(path_log, sizeof(path_log), "%s/runtime_stats.log", get_telemetry_dir());
 
-	fjson = fopen(path_json, "w");
+	fjson = open_private(path_json, O_WRONLY | O_CREAT | O_TRUNC);
 	if (fjson) {
 		fprintf(fjson, "{\n");
 		fprintf(fjson, "  \"uptime_seconds\": %.2f,\n", uptime_sec);
@@ -526,7 +549,7 @@ void wTelemetryDump(void)
 	}
 
 	/* 2. Write Human-Readable Log */
-	flog = fopen(path_log, "w");
+	flog = open_private(path_log, O_WRONLY | O_CREAT | O_TRUNC);
 	if (flog) {
 		time_t cal_now = time(NULL);
 		struct tm tm_now;
