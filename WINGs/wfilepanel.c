@@ -649,8 +649,10 @@ out:
 		wfree(dirName);
 	if (directory)
 		wfree(directory);
-	if (file)
-		wfree(file);
+	/* file is allocated with wmalloc() before the first goto out, so the
+	 * test that used to stand here came after two dereferences and could
+	 * never fire (Coverity CID 1686064). */
+	wfree(file);
 }
 
 /*
