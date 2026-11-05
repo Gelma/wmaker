@@ -1616,6 +1616,12 @@ Atom xdnd_get_drop (Display * display, XEvent * xevent, Atom * typelist, Atom * 
             *x = i.x;
             *y = i.y;
         }
+
+/* 'dnd' is static and 'i' is about to die with this frame: do not leave the
+ * static context pointing at it (CodeQL: local variable address stored in
+ * non-local memory).  Every entry overwrites the field before use, but the
+ * invariant is too easy to break. */
+        dnd.user_hook1 = NULL;
     }
     return action;
 }
