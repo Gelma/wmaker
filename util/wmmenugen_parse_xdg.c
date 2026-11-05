@@ -197,6 +197,10 @@ void parse_xdg(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 	 * a temporary (Coverity CID 1686052). */
 	init_wm_storage(wm);
 	wfree(wm);
+
+	/* Same for the group being collected (Coverity CID 1686039). */
+	init_xdg_storage(xdg);
+	wfree(xdg);
 }
 
 
@@ -215,10 +219,13 @@ static Bool xdg_to_wm(XDGMenuEntry *xdg, WMMenuEntry *wm)
 	if (xdg->Name) {
 		wm->Name = xdg->Name;
 	} else  {
+		/* Store it in the group as well, so init_xdg_storage() releases
+		 * it (Coverity CID 1686039). */
 		if (xdg->TryExec)
-			wm->Name = wstrdup(xdg->TryExec);
+			xdg->Name = wstrdup(xdg->TryExec);
 		else /* xdg->Exec */
-			wm->Name = wstrdup(xdg->Exec);
+			xdg->Name = wstrdup(xdg->Exec);
+		wm->Name = xdg->Name;
 
 		p = strchr(wm->Name, ' ');
 		if (p)
