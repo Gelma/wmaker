@@ -16,6 +16,9 @@ and the full event path.
 88 defects: **30 High**, **44 Medium**, **14 Low**. 83 were first seen in the 2026-11-04 run;
 5 are old ones (2013-2014) that were still open.
 
+One more arrived on **2026-11-05** as `cid_1686136.json` alone (no CSV row): a resource leak in
+`src/main.c` introduced by the guard added for CID 1686037, fixed the same day - see §8.
+
 | area | defects |
 |---|---|
 | `src/` (WM core) | 37 |
@@ -123,7 +126,7 @@ are independent of each other and are committed separately; batch 5 is optional.
 |---|---|---|---|
 | 1 - crash safety | 16 | NULL guards, save-before-free, `wtokensplit()`, bag renumbering, `__wmessage` | low, but touches `WINGs/wtext.c`, `WINGs/error.c`, `src/icon.c`, `src/menu.c` |
 | 2 - integer arithmetic | 7 | signed offsets, clamps, one cast | very low, no behaviour change intended |
-| 3 - leaks | 16 | free what is overwritten, release PL strings, free on error paths | low |
+| 3 - leaks | 17 | free what is overwritten, release PL strings, free on error paths | low |
 | 4 - checked returns and bounds | 14 | check Xlib/libc results, bound the inotify loop | low |
 | 5 - hygiene and intent | 15 | remove dead code, make the modifier macro honest | very low, optional |
 | suppressed | 20 | `/* coverity[...] */` comments + model | none |
@@ -293,6 +296,11 @@ Three things the report did not have, found while implementing:
 CID 1686055 no longer exists as reported: `WMEraseFromBag()` goes through `treeDeleteNode()`,
 so there is no post-delete access to test.
 
+A ninth leak (CID 1686136) arrived on 2026-11-05, after this plan was closed, and is part of the
+same work: the `argc == 0` guard added for CID 1686037 returned without freeing `command`, the
+`wtokenjoin()` buffer that the function owns. Coverity reported `argv` (NULL by construction);
+the real leak was the string. Both are freed now, without relying on the invariant.
+
 ## 9. Appendix - item by item
 
 Every cid of the export, grouped by batch. "sev" and "type" are Coverity's, "location" is
@@ -341,10 +349,11 @@ Every cid of the export, grouped by batch. "sev" and "type" are Coverity's, "loc
 | 1686038 | High | Overflowed integer argument | `WINGs/wsplitview.c`:363 (handleViewResized) | **fix** - Same as 1686031, in handleViewResized. `9551b85a` |
 | 1686031 | High | Overflowed integer argument | `WINGs/wsplitview.c`:484 (dragDivider) | **fix** - Make the offset signed: `(int)_GetSplitViewSize() - getTotalSize(sPtr)`. The unsigned subtraction wraps when contents are larger than the view, and the conversion back to int is implementation-defined. `c474a605` |
 
-### Batch 3 - leaks (16)
+### Batch 3 - leaks (17)
 
 | cid | sev | type | location | action | commit |
 |---|---|---|---|---|---|
+| 1686136 | n/a | Resource leak | `src/main.c`:384 (RelaunchWindow) | **fix** - free `command` and the (empty) token array on the `argc == 0` return; the guard added for CID 1686037 leaked the command string. | `d7e12fed` |
 | 1686109 | High | Resource leak | `WPrefs.app/TexturePanel.c`:Various (GetTexturePanelTexture) | **fix** - Same pattern as 1686094, in GetTexturePanelTexture(). `fd77e85e` |
 | 1686104 | High | Resource leak | `src/screen.c`:751 (wScreenInit) | **fix** - Free scr->randr_state on the abort_no_context path. `cb518d4f` |
 | 1686101 | verify, then fix | **false positive**: the reported path needs a texture type that is `...pixmap` and `solid` at the same time. Annotated in place. |
