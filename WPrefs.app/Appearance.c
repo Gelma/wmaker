@@ -2014,7 +2014,10 @@ static void createPanel(Panel * p)
 		const int available_height = parent_height - 7 - 20 - 7 - 7;
 		const int widget_size = 22;
 
-		const int nb_x = (int) round(sqrt(wlengthof(sample_colors) * available_width / available_height));
+		/* The product must be computed in double: as integers the
+		 * division truncates before sqrt() sees it (Coverity CID
+		 * 1686087). */
+		const int nb_x = (int) round(sqrt((double)wlengthof(sample_colors) * available_width / available_height));
 		const int nb_y = (wlengthof(sample_colors) + nb_x - 1) / nb_x;
 
 		const int offset_x = (parent_width / 2) + (available_width - nb_x * widget_size) / 2;
