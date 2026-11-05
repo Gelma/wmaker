@@ -1287,6 +1287,7 @@ void ScreenCapture(WScreen *scr, int mode)
 {
 	time_t s;
 	short i = 0;
+	struct tm tm_info_buf;
 	struct tm *tm_info;
 	char filename_date_part[256];
 	char filename[256];
@@ -1318,7 +1319,7 @@ void ScreenCapture(WScreen *scr, int mode)
 	}
 
 	s = time(NULL);
-	tm_info = localtime(&s);
+	tm_info = localtime_r(&s, &tm_info_buf);
 	if (!tm_info || strftime(filename_date_part, sizeof(filename_date_part),
 	                         wPreferences.screenshot_filename_template ? wPreferences.screenshot_filename_template : "screenshot_%Y%m%d_%H%M%S",
 	                         tm_info) == 0) {

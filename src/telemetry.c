@@ -388,10 +388,13 @@ void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart
 		FILE *fspike = get_spike_file();
 		if (fspike) {
 			time_t now = time(NULL);
+			struct tm tm_now;
 			char timestr[64];
 			char line[512];
 			int len;
-			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+			localtime_r(&now, &tm_now);
+			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", &tm_now);
 			format_event_context(event, ctx, sizeof(ctx));
 			len = snprintf(line, sizeof(line),
 			               "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms%s",
@@ -526,8 +529,11 @@ void wTelemetryDump(void)
 	flog = fopen(path_log, "w");
 	if (flog) {
 		time_t cal_now = time(NULL);
+		struct tm tm_now;
 		char timestr[64];
-		strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", localtime(&cal_now));
+
+		localtime_r(&cal_now, &tm_now);
+		strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", &tm_now);
 
 		fprintf(flog, "================================================================================\n");
 		fprintf(flog, "Window Maker Runtime Telemetry Report (%s)\n", timestr);

@@ -1260,14 +1260,13 @@ void wShowInfoPanel(WScreen *scr)
 	int pwidth, pheight;
 	int current_year = 2020;
 	time_t s;
-	struct tm *current_time;
+	struct tm current_time;
 	struct utsname uts;
 
 	s = time(NULL);
-	if (s) {
-		current_time = localtime(&s);
-		if (current_time->tm_year > (current_year - 1900))
-			current_year = current_time->tm_year + 1900;
+	if (s && localtime_r(&s, &current_time)) {
+		if (current_time.tm_year > (current_year - 1900))
+			current_year = current_time.tm_year + 1900;
 	}
 
 	if (infoPanel) {
