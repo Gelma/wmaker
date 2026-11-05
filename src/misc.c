@@ -471,7 +471,11 @@ static char *getTextSelection(WScreen * screen, Atom selection)
 			pfd.fd = ConnectionNumber(dpy);
 			pfd.events = POLLIN;
 			pfd.revents = 0;
-			poll(&pfd, 1, wait_ms);
+			/* EINTR is expected and the loop re-checks the deadline
+			 * anyway; anything else is worth a diagnostic instead of
+			 * a silent busy wait (Coverity CID 1686062). */
+			if (poll(&pfd, 1, wait_ms) < 0 && errno != EINTR)
+				wwarning("poll() on the X connection failed: %s", strerror(errno));
 		}
 
 		if (timeout) {
