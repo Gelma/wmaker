@@ -72,7 +72,7 @@ typedef struct _TextBlock {
 	unsigned int underlined:1;	/* underlined or not */
 	unsigned int selected:1;	/* selected or not */
 	unsigned int nsections:8;	/* over how many "lines" a TextBlock wraps */
-	int script:8;		/* script in points: negative for subscript */
+	signed int script:8;	/* script in points: negative for subscript */
 	unsigned int marginN:8;	/* which of the margins in the tPtr to use */
 	unsigned int nClicks:2;	/* single, double, triple clicks */
 	unsigned int RESERVED:7;
