@@ -356,8 +356,15 @@ static void handle_inotify_events(void)
 
 	/* check what events occurred */
 	/* Should really check wd here too, but for now we only have one watch! */
-	while (i < eventQLength) {
+	while (i + sizeof(struct inotify_event) <= (size_t)eventQLength) {
 		struct inotify_event *pevent = (struct inotify_event *)&buff[i];
+
+		/* The kernel always delivers complete events, but the bound makes
+		 * the name access provable (Coverity CID 1686058, 1686112). */
+		if (i + sizeof(struct inotify_event) + pevent->len > (size_t)eventQLength) {
+			wwarning(_("inotify: truncated event in the queue, ignoring the rest"));
+			break;
+		}
 
 		/*
 		 * see inotify.h for event types.
