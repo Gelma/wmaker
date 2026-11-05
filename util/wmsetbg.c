@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -36,6 +37,7 @@
 #include <pwd.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <ctype.h>
 
 #ifdef USE_XINERAMA
@@ -1033,18 +1035,38 @@ static noreturn void helperLoop(RContext * rc)
 	}
 }
 
+/* wdwrite as a child process, with no shell in between: 'domain' comes from
+ * the -d option and would otherwise be interpreted by /bin/sh (CodeQL error:
+ * "Uncontrolled data used in OS command"). */
+static int runWdwrite(const char *arg1, const char *arg2, const char *arg3)
+{
+	pid_t pid;
+	int status;
+
+	pid = fork();
+	if (pid == 0) {
+		execlp("wdwrite", "wdwrite", arg1, arg2, arg3, NULL);
+		_exit(127);
+	}
+	if (pid < 0)
+		return -1;
+
+	while (waitpid(pid, &status, 0) < 0) {
+		if (errno != EINTR)
+			return -1;
+	}
+
+	return (WIFEXITED(status) && WEXITSTATUS(status) == 0) ? 0 : -1;
+}
+
 static void updateDomain(const char *domain, const char *key, const char *texture)
 {
 	int result;
 	char *program = "wdwrite";
-	char cmd_smooth[1024];
 
-	snprintf(cmd_smooth, sizeof(cmd_smooth),
-	         "wdwrite %s SmoothWorkspaceBack %s",
-	         domain, smooth ? "YES" : "NO");
-	result = system(cmd_smooth);
-	if (result == -1)
-		werror("error executing system(\"%s\")", cmd_smooth);
+	result = runWdwrite(domain, "SmoothWorkspaceBack", smooth ? "YES" : "NO");
+	if (result != 0)
+		werror("could not run \"%s\" for domain %s", program, domain);
 
 	execlp(program, program, domain, key, texture, NULL);
 	wwarning("warning could not run \"%s\"", program);
