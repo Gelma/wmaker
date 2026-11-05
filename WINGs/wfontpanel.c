@@ -694,7 +694,11 @@ static void typefaceClick(WMWidget * w, void *data)
 	osize = WMGetTextFieldText(panel->sizT);
 
 	item = WMGetListSelectedItem(panel->typLs);
+	if (!item)
+		return;
 	face = (Typeface *) item->clientData;
+	if (!face)
+		return;
 
 	WMClearList(panel->sizLs);
 
@@ -736,6 +740,8 @@ static void sizeClick(WMWidget * w, void *data)
 	(void) w;
 
 	item = WMGetListSelectedItem(panel->sizLs);
+	if (!item)
+		return;
 	WMSetTextFieldText(panel->sizT, item->text);
 
 	WMSelectTextFieldRange(panel->sizT, wmkrange(0, strlen(item->text)));
@@ -765,8 +771,12 @@ static void setFontPanelFontName(FontPanel * panel, const char *family, const ch
 	WMClearList(panel->typLs);
 
 	item = WMGetListSelectedItem(panel->famLs);
+	if (!item)
+		return;
 
 	fam = (Family *) item->clientData;
+	if (!fam)
+		return;
 	WM_ITERATE_ARRAY(fam->typefaces, face, i) {
 		char buffer[256];
 		int top = 0;
@@ -791,8 +801,12 @@ static void setFontPanelFontName(FontPanel * panel, const char *family, const ch
 	WMSelectListItem(panel->typLs, stlrow);
 
 	item = WMGetListSelectedItem(panel->typLs);
+	if (!item)
+		return;
 
 	face = (Typeface *) item->clientData;
+	if (!face)
+		return;
 
 	WMClearList(panel->sizLs);
 
