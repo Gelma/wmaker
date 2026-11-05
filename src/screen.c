@@ -748,6 +748,9 @@ WScreen *wScreenInit(int screen_number)
 		wfree(scr->totalUsableArea);
 		wfree(scr->usableArea);
 		WMFreeBag(scr->stacking_list);
+		/* The RandR state was allocated earlier on this path and the
+		 * teardown is NULL-safe (Coverity CID 1686104). */
+		wRandRTeardown(scr);
 		wfree(scr);
 		return NULL;
 	}
