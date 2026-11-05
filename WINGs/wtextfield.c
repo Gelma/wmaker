@@ -430,6 +430,13 @@ void WMDeleteTextFieldRange(WMTextField * tPtr, WMRange range)
 	tPtr->textLen -= range.count;
 	tPtr->cursorPosition = range.position;
 
+	/* The deleted range may have left the visible window past the new end
+	 * (Coverity CID 1686082). */
+	if (tPtr->viewPosition > tPtr->textLen)
+		tPtr->viewPosition = tPtr->textLen;
+	else if (tPtr->viewPosition < 0)
+		tPtr->viewPosition = 0;
+
 	decrToFit(tPtr);
 
 	/* Ensure cursor is visible after deletion */
