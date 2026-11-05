@@ -3597,7 +3597,8 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		/* select/unselect icon */
 		entry = dock->menu->entries[++index];
 		entry->clientdata = aicon;
-		entry->flags.indicator_on = aicon->icon->selected;
+		/* Clip and drawer icons have no WIcon (Coverity CID 1686080). */
+		entry->flags.indicator_on = aicon->icon ? aicon->icon->selected : 0;
 		wMenuSetEnabled(dock->menu, index, aicon != scr->clip_icon && !wIsADrawer(aicon));
 
 		/* select/unselect all icons */
