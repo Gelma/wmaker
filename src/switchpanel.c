@@ -127,6 +127,11 @@ static void changeImage(WSwitchPanel *panel, int idecks, int selected, Bool dim,
 		return;
 
 	icon = WMGetFromArray(panel->icons, idecks);
+	if (!icon) {
+		/* The panel can be rebuilt while an entry is gone (Coverity
+		 * CID 1686054). */
+		return;
+	}
 	image = WMGetFromArray(panel->images, idecks);
 	flags = (int) (uintptr_t) WMGetFromArray(panel->flags, idecks);
 
