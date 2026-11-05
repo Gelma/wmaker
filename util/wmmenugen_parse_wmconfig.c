@@ -159,6 +159,7 @@ void parse_wmconfig(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 	 * here is a temporary (Coverity CID 1686043). */
 	init_wmconfig_storage(&wmc);
 	wfree(wm);
+	wfree(wmc);
 }
 
 /* an example to illustrate validateFilename.
