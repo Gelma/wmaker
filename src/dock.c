@@ -821,6 +821,8 @@ static void hideCallback(WMenu *menu, WMenuEntry *entry)
 	(void) menu;
 
 	wapp = wApplicationOf(btn->icon->owner->main_window);
+	if (!wapp)
+		return;
 
 	if (wapp->flags.hidden) {
 		wWorkspaceChange(btn->icon->core->screen_ptr, wapp->last_workspace);
