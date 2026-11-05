@@ -68,7 +68,7 @@ Anyway, nights are going letting Gemini and DeepSeek arguing each other as a cra
 Also, [Coverity Scan](https://scan.coverity.com/projects/gelma-wmaker) fixes are in, right now. I left all the analysis and related files in dir [CoverityReport](https://github.com/Gelma/wmaker/blob/master/CoverityReport), for a few reasons: easy way to access them for the [main project](http://windowmaker.org) - just in case - and track the approach differences between Gemini and DeepSeek to implement fixes.
 Fun fact the relation chain of: open tools finding issues, Coverity finding much more, Gemini/DeepSeek extrapolate the false positive finding real root case, and while patching 'em, find two more issues not saw by Coverity!
 
-Landed right now the GitHub QLCode report and fixes!
+Landed right now the GitHub QLCode report/fixes, together with Semgrep Code scan!
 
 You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker/blob/master/SpecAI.md) and [git log](https://github.com/Gelma/wmaker/commits/master/), of course.
 
