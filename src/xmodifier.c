@@ -152,13 +152,13 @@ static void x_reset_modifier_mapping(Display * display)
 			modbarf(key_name, "ModControl"); \
 		} else if (sym == XK_Mode_switch) { \
 			mode_bit = modifier_index; \
-		} else if (modifier_index == meta_bit && *(old_mod) != meta_bit) { \
+		} else if (modifier_index == meta_bit && old_mod != &meta_bit) { \
 			modwarn(key_name, meta_bit, "Meta"); \
-		} else if (modifier_index == super_bit && *(old_mod) != super_bit) { \
+		} else if (modifier_index == super_bit && old_mod != &super_bit) { \
 			modwarn(key_name, super_bit, "Super"); \
-		} else if (modifier_index == hyper_bit && *(old_mod) != hyper_bit) { \
+		} else if (modifier_index == hyper_bit && old_mod != &hyper_bit) { \
 			modwarn(key_name, hyper_bit, "Hyper"); \
-		} else if (modifier_index == alt_bit && *(old_mod) != alt_bit) { \
+		} else if (modifier_index == alt_bit && old_mod != &alt_bit) { \
 			modwarn(key_name, alt_bit, "Alt"); \
 		} else { \
 			*(old_mod) = modifier_index; \
