@@ -388,6 +388,13 @@ static WPixmap *make3Dots(WScreen * scr)
 	XFreeGC(dpy, gc2);
 
 	wpix = wPixmapCreate(pix, mask);
+	if (!wpix) {
+		/* XGetGeometry() failed inside wPixmapCreate(): the pixmap pair
+		 * cannot be wrapped (CodeQL error). */
+		XFreePixmap(dpy, pix);
+		XFreePixmap(dpy, mask);
+		return NULL;
+	}
 	wpix->shared = 1;
 
 	return wpix;
