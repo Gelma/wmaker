@@ -713,12 +713,14 @@ static void listIconPaths(WMList * lPtr)
 {
 	char *paths;
 	char *path;
+	char *save = NULL;
 
 	paths = wstrdup(wPreferences.icon_path);
 
-	path = strtok(paths, ":");
-
-	do {
+	/* strtok_r keeps the state local, and the loop no longer runs once on a
+	 * NULL token when IconPath is empty (Semgrep: insecure strtok). */
+	for (path = strtok_r(paths, ":", &save); path != NULL;
+	     path = strtok_r(NULL, ":", &save)) {
 		char *tmp;
 
 		tmp = wexpandpath(path);
@@ -727,7 +729,7 @@ static void listIconPaths(WMList * lPtr)
 		if (access(tmp, X_OK) == 0)
 			WMAddListItem(lPtr, path);
 		wfree(tmp);
-	} while ((path = strtok(NULL, ":")) != NULL);
+	}
 
 	wfree(paths);
 }
@@ -1203,11 +1205,13 @@ char *getPrettyOSName(void)
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
 		if (strncmp(line, "PRETTY_NAME", strlen("PRETTY_NAME")) == 0) {
+			char *save = NULL;
+
 			line[strcspn(line, "\r\n")] = 0;
-			token = strtok(line, s);
+			token = strtok_r(line, s, &save);
 			if (token) {
 				//get straight to the second part of the line
-				token = strtok(NULL, s);
+				token = strtok_r(NULL, s, &save);
 				if (token) {
 					//removing potential quotes
 					char *dst = token;
