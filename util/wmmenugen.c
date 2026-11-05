@@ -349,6 +349,7 @@ static int menuSortFunc(const void *left, const void *right)
 static WMTreeNode *findPositionInMenu(const char *submenu)
 {
 	char *q;
+	char *save = NULL;
 	WMMenuEntry *wm;
 	WMTreeNode *node, *pnode;
 	char buf[1024];
@@ -360,7 +361,7 @@ static WMTreeNode *findPositionInMenu(const char *submenu)
 	/* start at the root */
 	node = menu;
 
-	q = strtok(buf, "/");
+	q = strtok_r(buf, "/", &save);
 	while (q) {
 		pnode = node;
 		node = WMFindInTreeWithDepthLimit(pnode, nodeFindSubMenuByNameFunc, q, 1);
@@ -372,7 +373,7 @@ static WMTreeNode *findPositionInMenu(const char *submenu)
 			wm->SubMenu = NULL;
 			node = WMAddNodeToTree(pnode, WMCreateTreeNode(wm));
 		}
-		q = strtok(NULL, "/");
+		q = strtok_r(NULL, "/", &save);
 	}
 
 	return node;
