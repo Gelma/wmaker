@@ -37,7 +37,7 @@ if [[ "${TOOL}" == "callgrind" ]]; then
         --callgrind-out-file="${LOG_DIR}/callgrind-wmaker-${TIMESTAMP}-%p.out"
         --collect-jumps=yes
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
         --log-file="${VALGRIND_LOG}"
     )
 # Promemoria (SpecAI 130): per sapere cosa costa davvero Alt+1..6, avviare con
@@ -48,14 +48,14 @@ elif [[ "${TOOL}" == "cachegrind" ]]; then
         --tool=cachegrind
         --cachegrind-out-file="${LOG_DIR}/cachegrind-wmaker-${TIMESTAMP}-%p.out"
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
         --log-file="${VALGRIND_LOG}"
     )
 elif [[ "${TOOL}" == "helgrind" ]]; then
     VALGRIND_OPTS=(
         --tool=helgrind
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
         --log-file="${VALGRIND_LOG}"
     )
 elif [[ "${TOOL}" == "massif" ]]; then
@@ -69,14 +69,14 @@ elif [[ "${TOOL}" == "massif" ]]; then
         --threshold=0.5
         --pages-as-heap=yes
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
     )
 elif [[ "${TOOL}" == "dhat" ]]; then
     VALGRIND_OPTS=(
         --tool=dhat
         --dhat-out-file="${LOG_DIR}/dhat-wmaker-${TIMESTAMP}-%p.out"
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
     )
 else
     VALGRIND_OPTS=(
@@ -86,7 +86,7 @@ else
         --track-origins=yes
         --track-fds=yes
         --trace-children=yes
-        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
         --read-var-info=yes
         --num-callers=30
         --log-file="${VALGRIND_LOG}"
