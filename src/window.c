@@ -1003,6 +1003,10 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 		/* // only enter here if PropGetWMClass() succeeds */
 		PropGetWMClass(wwin->main_window, &class, &instance);
 		if (!class || class[0] == '\0') {
+			/* An empty class from the property still owns its
+			 * storage: release it before replacing it (Coverity CID
+			 * 1686075). */
+			free(class);
 			if (wwin->wm_class && wwin->wm_class[0] != '\0')
 				class = strdup(wwin->wm_class);
 			else
