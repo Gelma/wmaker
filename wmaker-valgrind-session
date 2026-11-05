@@ -40,6 +40,9 @@ if [[ "${TOOL}" == "callgrind" ]]; then
         --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,!${WM_PREFIX}/bin/wmaker"
         --log-file="${VALGRIND_LOG}"
     )
+# Promemoria (SpecAI 130): per sapere cosa costa davvero Alt+1..6, avviare con
+# --callgrind --instr-atstart=no, poi callgrind_control -i on <pid>, cambiare
+# workspace (xdotool key alt+2), callgrind_control --dump=ws e annotare <out>.1.
 elif [[ "${TOOL}" == "cachegrind" ]]; then
     VALGRIND_OPTS=(
         --tool=cachegrind
