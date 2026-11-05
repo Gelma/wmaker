@@ -153,8 +153,12 @@ void parse_wmconfig(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 
 	if (wmc_to_wm(&wmc, &wm)) {
 		(*addWMMenuEntryCallback)(wm);
-		init_wmconfig_storage(&wmc);
 	}
+
+	/* The callback copies the strings it keeps, so the entry assembled
+	 * here is a temporary (Coverity CID 1686043). */
+	init_wmconfig_storage(&wmc);
+	wfree(wm);
 }
 
 /* an example to illustrate validateFilename.
@@ -310,5 +314,10 @@ static void init_wmconfig_storage(WMConfigMenuEntry **wmc)
 	if ((*wmc)->Restart)
 		wfree((*wmc)->Restart);
 	(*wmc)->Restart = NULL;
+	/* Exec was handed to the menu entry, which copies it; clearing it here
+	 * also stops the next entry from inheriting the previous command. */
+	if ((*wmc)->Exec)
+		wfree((*wmc)->Exec);
+	(*wmc)->Exec = NULL;
 	(*wmc)->Flags = 0;
 }
