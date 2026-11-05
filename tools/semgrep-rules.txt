@@ -1,0 +1,22 @@
+# Semgrep rules used by `tools/static-analysis.sh semgrep`.
+#
+# These are the eleven rule ids of the 2026-11-05 platform export for this
+# tree (see SpecAI.md 129).  They are pulled from the registry by id, so a run
+# needs network access the first time and a Semgrep that knows the Pro rules
+# (a rule that cannot be fetched makes Semgrep exit non-zero; the wrapper
+# reports it and prints whatever the other rules produced).
+#
+# One id per line, '#' starts a comment.  To follow a newer export, replace
+# this list with the ids from its SARIF/CSV - the wrapper does the rest.
+#
+c.lang.security.insecure-use-strtok-fn.insecure-use-strtok-fn
+cpp.lang.security.filesystem.path-manipulation.path-manipulation
+cpp.lang.security.filesystem.file-access-before-action.file-access-before-action
+cpp.lang.security.system-command.dont-call-system.dont-call-system
+cpp.lang.security.system-command.command-injection-path.command-injection-path
+cpp.lang.security.strings.unbounded-copy-to-stack-buffer.unbounded-copy-to-stack-buffer
+cpp.lang.security.memory.deallocation.double-free.double-free
+cpp.lang.security.use-after-free.local-variable-malloc-free.local-variable-malloc-free
+cpp.lang.security.memory.allocation.tainted-allocation-size.tainted-allocation-size
+cpp.lang.security.memory.unvalidated-array-index.unvalidated-array-index
+bash.lang.security.ifs-tampering.ifs-tampering

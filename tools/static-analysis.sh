@@ -5,6 +5,8 @@
 #   tools/static-analysis.sh cppcheck    severity summary (the project scan)
 #   tools/static-analysis.sh tidy        clang-tidy, analyzer + bugprone checks
 #   tools/static-analysis.sh fanalyzer   gcc -fanalyzer over wrlib/
+#   tools/static-analysis.sh semgrep     the platform rule ids over the tree,
+#                                        with file:line (needs the registry)
 #   tools/static-analysis.sh check       run everything and compare with the
 #                                        baseline in tools/static-analysis.txt
 #   tools/static-analysis.sh update      rewrite that baseline
@@ -118,6 +120,69 @@ fanalyzer_summary() {
 	grep -c 'warning:' "$log" | sed 's/^/fanalyzer total /'
 }
 
+semgrep_summary() {
+	local sg rules_file=$TOP_DIR/tools/semgrep-rules.txt
+	local log=$OUT_DIR/semgrep.log json=$OUT_DIR/semgrep.json
+	local -a rules=() args=()
+	local r
+
+	sg=$(find_tool semgrep) || die "semgrep not installed"
+	command -v python3 >/dev/null 2>&1 || die "python3 not installed"
+	[[ -f $rules_file ]] || die "no $rules_file"
+
+	mapfile -t rules < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$rules_file" | grep -v '^$')
+	(( ${#rules[@]} > 0 )) || die "$rules_file lists no rule"
+
+	note "semgrep ($sg, ${#rules[@]} rules from $(basename "$rules_file"))"
+	for r in "${rules[@]}"; do
+		args+=(--config="r/$r")
+	done
+
+	# One invocation, not one per rule: the engine is shared and the rule
+	# download is the slow part.  A rule that cannot be fetched (Pro rules
+	# without a login) makes semgrep exit non-zero and still writes what the
+	# other rules found, so the exit status is reported, not honoured.
+	"$sg" "${args[@]}" --metrics=off --quiet --json --output "$json" \
+		"$TOP_DIR/src" "$TOP_DIR/WINGs" "$TOP_DIR/util" "$TOP_DIR/wrlib" \
+		"$TOP_DIR/WPrefs.app" "$TOP_DIR/test" >"$log" 2>&1 || {
+			echo "  semgrep exited non-zero, see $log" >&2
+		}
+
+	python3 - "$json" "$TOP_DIR" <<'PYEOF'
+import collections
+import json
+import os
+import sys
+
+path = sys.argv[1]
+top = sys.argv[2]
+if not os.path.exists(path):
+    print("semgrep total 0")
+    raise SystemExit(0)
+
+try:
+    with open(path, encoding="utf-8") as f:
+        results = json.load(f).get("results", [])
+except Exception as exc:  # noqa: BLE001 - a broken file is a result too
+    print("semgrep total 0")
+    print(f"  {path} unreadable: {exc}")
+    raise SystemExit(0)
+
+print(f"semgrep total {len(results)}")
+for rule, n in collections.Counter(r["check_id"] for r in results).most_common():
+    print(f"semgrep {rule.split('.')[-1]} {n}")
+
+if results:
+    def severity(r):
+        return r.get("extra", {}).get("metadata", {}).get("confidence", "LOW")
+
+    print("  findings:")
+    for r in sorted(results, key=lambda x: (severity(x), x["path"], x["start"]["line"])):
+        where = os.path.relpath(r["path"], top)
+        print(f"    {where}:{r['start']['line']}  {r['check_id'].split('.')[-1]}")
+PYEOF
+}
+
 run_all() {
 	mkdir -p "$OUT_DIR"
 	cppcheck_summary >"$OUT_DIR/counts.new"
@@ -140,6 +205,10 @@ tidy)
 fanalyzer)
 	mkdir -p "$OUT_DIR"
 	fanalyzer_summary
+	;;
+semgrep)
+	mkdir -p "$OUT_DIR"
+	semgrep_summary
 	;;
 check)
 	run_all >/dev/null
