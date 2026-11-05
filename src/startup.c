@@ -557,10 +557,26 @@ void StartUp(Bool defaultScreenOnly)
 	 */
 
 	if (pipe(sig_pipe) == 0) {
-		fcntl(sig_pipe[0], F_SETFD, FD_CLOEXEC);
-		fcntl(sig_pipe[1], F_SETFD, FD_CLOEXEC);
-		fcntl(sig_pipe[0], F_SETFL, fcntl(sig_pipe[0], F_GETFL) | O_NONBLOCK);
-		fcntl(sig_pipe[1], F_SETFL, fcntl(sig_pipe[1], F_GETFL) | O_NONBLOCK);
+		int flags;
+
+		/* The descriptor flags decide whether the handler can block or
+		 * leak into children: report a failure instead of ignoring it
+		 * (Coverity CID 1686076). */
+		if (fcntl(sig_pipe[0], F_SETFD, FD_CLOEXEC) == -1 ||
+		    fcntl(sig_pipe[1], F_SETFD, FD_CLOEXEC) == -1)
+			wwarning("could not set FD_CLOEXEC on the signal self-pipe: %s",
+			         strerror(errno));
+
+		flags = fcntl(sig_pipe[0], F_GETFL);
+		if (flags == -1 || fcntl(sig_pipe[0], F_SETFL, flags | O_NONBLOCK) == -1)
+			wwarning("could not make the signal self-pipe non-blocking: %s",
+			         strerror(errno));
+
+		flags = fcntl(sig_pipe[1], F_GETFL);
+		if (flags == -1 || fcntl(sig_pipe[1], F_SETFL, flags | O_NONBLOCK) == -1)
+			wwarning("could not make the signal self-pipe non-blocking: %s",
+			         strerror(errno));
+
 		sig_handler_id = WMAddInputHandler(sig_pipe[0], WIReadMask, sig_pipe_input_proc, NULL);
 	} else {
 		wfatal("could not create signal self-pipe");
