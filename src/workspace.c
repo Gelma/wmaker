@@ -940,14 +940,22 @@ void wWorkspaceRestoreState(WScreen *scr)
 		if (i >= scr->workspace_count)
 			wWorkspaceNew(scr);
 
-		if (scr->workspace_menu) {
-			wfree(scr->workspace_menu->entries[i + MC_WORKSPACE1]->text);
-			scr->workspace_menu->entries[i + MC_WORKSPACE1]->text = wstrndup(WMGetFromPLString(pstr), MAX_WORKSPACENAME_WIDTH);
-			scr->workspace_menu->flags.realized = 0;
-		}
+		/* A malformed WMState entry has no name to restore: keep the
+		 * current one instead of dereferencing NULL (Coverity CID
+		 * 1686084). */
+		if (pstr && WMIsPLString(pstr)) {
+			const char *name = WMGetFromPLString(pstr);
 
-		wfree(scr->workspaces[i]->name);
-		scr->workspaces[i]->name = wstrndup(WMGetFromPLString(pstr), MAX_WORKSPACENAME_WIDTH);
+			if (scr->workspace_menu) {
+				wfree(scr->workspace_menu->entries[i + MC_WORKSPACE1]->text);
+				scr->workspace_menu->entries[i + MC_WORKSPACE1]->text =
+				    wstrndup(name, MAX_WORKSPACENAME_WIDTH);
+				scr->workspace_menu->flags.realized = 0;
+			}
+
+			wfree(scr->workspaces[i]->name);
+			scr->workspaces[i]->name = wstrndup(name, MAX_WORKSPACENAME_WIDTH);
+		}
 		if (!wPreferences.flags.noclip) {
 			int added_omnipresent_icons = 0;
 
