@@ -116,16 +116,32 @@ void parse_wmconfig(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 		}
 
 		if (key && value) {
-			if (strcmp(key, "name") == 0)
+			int stored = 1;
+
+			/* A field can be repeated in a wmconfig file: release the
+			 * value it replaces (Coverity CID 1686051). */
+			if (strcmp(key, "name") == 0) {
+				wfree(wmc->Name);
 				wmc->Name = value;
-			else if (strcmp(key, "exec") == 0)
+			} else if (strcmp(key, "exec") == 0) {
+				wfree(wmc->Exec);
 				wmc->Exec = value;
-			else if (strcmp(key, "group") == 0)
+			} else if (strcmp(key, "group") == 0) {
+				wfree(wmc->Category);
 				wmc->Category = value;
-			else if (strcmp(key, "restart") == 0)
+			} else if (strcmp(key, "restart") == 0) {
+				wfree(wmc->Restart);
 				wmc->Restart = value;
-			else if (strcmp(key, "terminal") == 0)
+			} else if (strcmp(key, "terminal") == 0) {
 				wmc->Flags |= F_TERMINAL;
+				stored = 0;
+			} else {
+				/* key we do not understand: value is unused */
+				stored = 0;
+			}
+
+			if (!stored)
+				wfree(value);
 		}
 
 		wfree(key);
