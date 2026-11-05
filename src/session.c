@@ -273,8 +273,9 @@ static WMPropList *makeWindowState(WWindow * wwin, WApplication * wapp)
 		free(instance);
 	if (class)
 		free(class);
-	if (command)
-		wfree(command);
+	/* command is non-NULL from here on: the function returned early
+	 * otherwise (Coverity CID 1686107). */
+	wfree(command);
 
 	return win_state;
 }
