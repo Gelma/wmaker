@@ -3599,6 +3599,12 @@ static RImage *chopOffImage(RImage * image, int x, int y, int w, int h)
 {
 	RImage *img = RCreateImage(w, h, image->format == RRGBAFormat);
 
+	if (!img) {
+		/* The caller stores the result and checks for NULL before
+		 * using it (Coverity CID 1686079). */
+		return NULL;
+	}
+
 	RCopyArea(img, image, x, y, w, h, 0, 0);
 
 	return img;
