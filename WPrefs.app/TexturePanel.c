@@ -19,6 +19,7 @@
  *  with this program; if not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1002,6 +1003,27 @@ char *GetTexturePanelTextureName(TexturePanel *panel)
 
 }
 
+/* WMCreatePLArray() retains its arguments, so the strings built here have to
+ * be released once the array owns them (Coverity CID 1686109).  The argument
+ * list is NULL-terminated, like the WMCreatePLArray() call it replaces. */
+static WMPropList *newTextureProp(const char *first, ...)
+{
+	WMPropList *array = WMCreatePLArray(NULL, NULL);
+	va_list ap;
+	const char *str;
+
+	va_start(ap, first);
+	for (str = first; str; str = va_arg(ap, const char *)) {
+		WMPropList *item = WMCreatePLString(str);
+
+		WMAddToPLArray(array, item);
+		WMReleasePropList(item);
+	}
+	va_end(ap);
+
+	return array;
+}
+
 WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 {
 	WMPropList *prop = NULL;
@@ -1015,7 +1037,7 @@ WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 	case TYPE_SOLID:
 		color = WMGetColorWellColor(panel->defcW);
 		str = WMGetColorRGBDescription(color);
-		prop = WMCreatePLArray(WMCreatePLString("solid"), WMCreatePLString(str), NULL);
+		prop = newTextureProp("solid", str, NULL);
 		wfree(str);
 
 		break;
@@ -1026,24 +1048,19 @@ WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 
 		switch (WMGetPopUpButtonSelectedItem(panel->arrP)) {
 		case PTYPE_SCALE:
-			prop = WMCreatePLArray(WMCreatePLString("spixmap"),
-					       WMCreatePLString(panel->imageFile), WMCreatePLString(str), NULL);
+			prop = newTextureProp("spixmap", panel->imageFile, str, NULL);
 			break;
 		case PTYPE_MAXIMIZE:
-			prop = WMCreatePLArray(WMCreatePLString("mpixmap"),
-					       WMCreatePLString(panel->imageFile), WMCreatePLString(str), NULL);
+			prop = newTextureProp("mpixmap", panel->imageFile, str, NULL);
 			break;
 		case PTYPE_FILL:
-			prop = WMCreatePLArray(WMCreatePLString("fpixmap"),
-					       WMCreatePLString(panel->imageFile), WMCreatePLString(str), NULL);
+			prop = newTextureProp("fpixmap", panel->imageFile, str, NULL);
 			break;
 		case PTYPE_CENTER:
-			prop = WMCreatePLArray(WMCreatePLString("cpixmap"),
-					       WMCreatePLString(panel->imageFile), WMCreatePLString(str), NULL);
+			prop = newTextureProp("cpixmap", panel->imageFile, str, NULL);
 			break;
 		case PTYPE_TILE:
-			prop = WMCreatePLArray(WMCreatePLString("tpixmap"),
-					       WMCreatePLString(panel->imageFile), WMCreatePLString(str), NULL);
+			prop = newTextureProp("tpixmap", panel->imageFile, str, NULL);
 			break;
 		}
 		wfree(str);
@@ -1059,20 +1076,11 @@ WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 		sprintf(buff, "%i", WMGetSliderValue(panel->topaS));
 
 		if (WMGetButtonSelected(panel->dirdB)) {
-			prop = WMCreatePLArray(WMCreatePLString("tdgradient"),
-					       WMCreatePLString(panel->imageFile),
-					       WMCreatePLString(buff),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("tdgradient", panel->imageFile, buff, str, str2, NULL);
 		} else if (WMGetButtonSelected(panel->dirvB)) {
-			prop = WMCreatePLArray(WMCreatePLString("tvgradient"),
-					       WMCreatePLString(panel->imageFile),
-					       WMCreatePLString(buff),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("tvgradient", panel->imageFile, buff, str, str2, NULL);
 		} else {
-			prop = WMCreatePLArray(WMCreatePLString("thgradient"),
-					       WMCreatePLString(panel->imageFile),
-					       WMCreatePLString(buff),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("thgradient", panel->imageFile, buff, str, str2, NULL);
 		}
 		wfree(str);
 		wfree(str2);
@@ -1086,14 +1094,11 @@ WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 		str2 = WMGetColorRGBDescription(color);
 
 		if (WMGetButtonSelected(panel->dirdB)) {
-			prop = WMCreatePLArray(WMCreatePLString("dgradient"),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("dgradient", str, str2, NULL);
 		} else if (WMGetButtonSelected(panel->dirvB)) {
-			prop = WMCreatePLArray(WMCreatePLString("vgradient"),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("vgradient", str, str2, NULL);
 		} else {
-			prop = WMCreatePLArray(WMCreatePLString("hgradient"),
-					       WMCreatePLString(str), WMCreatePLString(str2), NULL);
+			prop = newTextureProp("hgradient", str, str2, NULL);
 		}
 		wfree(str);
 		wfree(str2);
@@ -1104,11 +1109,11 @@ WMPropList *GetTexturePanelTexture(TexturePanel *panel)
 		str = WMGetColorRGBDescription(color);
 
 		if (WMGetButtonSelected(panel->dirdB))
-			prop = WMCreatePLArray(WMCreatePLString("mdgradient"), WMCreatePLString(str), NULL);
+			prop = newTextureProp("mdgradient", str, NULL);
 		else if (WMGetButtonSelected(panel->dirvB))
-			prop = WMCreatePLArray(WMCreatePLString("mvgradient"), WMCreatePLString(str), NULL);
+			prop = newTextureProp("mvgradient", str, NULL);
 		else
-			prop = WMCreatePLArray(WMCreatePLString("mhgradient"), WMCreatePLString(str), NULL);
+			prop = newTextureProp("mhgradient", str, NULL);
 		wfree(str);
 
 		for (i = 0; i < WMGetListNumberOfRows(panel->gcolL); i++) {
