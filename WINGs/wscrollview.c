@@ -452,6 +452,7 @@ void WMSetScrollViewHasVerticalScroller(WMScrollView * sPtr, Bool flag)
 		WMDestroyWidget(sPtr->vScroller);
 		sPtr->vScroller = NULL;
 
+            /* coverity[false_positive] CID 1686106: flags.hasVScroller is cleared above */
 		reorganizeInterior(sPtr);
 	}
 }
