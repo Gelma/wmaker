@@ -346,7 +346,7 @@ static  WMPixmap *get_mini_workspace(WWorkspaceMap *wsmap, int index)
 
 static void create_mini_workspace(WScreen *scr, WWorkspaceMap *wsmap, W_WorkspaceMap *wsmap_array)
 {
-	unsigned short workspace_index;
+	int workspace_index;
 	int mini_workspace_cnt;
 	char name[6];
 	WMButton *mini_workspace_btn;
