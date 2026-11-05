@@ -252,6 +252,7 @@ static void storeData(_Panel * panel)
 	WMPropList *arr;
 	WMPropList *x, *y;
 	char buf[16];
+	int sel;
 
 	SetBoolForKey(WMGetButtonSelected(panel->miconB), "NoWindowOverIcons");
 	SetBoolForKey(WMGetButtonSelected(panel->mdockB), "NoWindowOverDock");
@@ -260,7 +261,12 @@ static void storeData(_Panel * panel)
 	SetBoolForKey(WMGetButtonSelected(panel->opaqresizeB), "OpaqueResize");
 	SetBoolForKey(WMGetButtonSelected(panel->opaqkeybB), "OpaqueMoveResizeKeyboard");
 
-	SetStringForKey(window_placements[WMGetPopUpButtonSelectedItem(panel->placP)].db_value, "WindowPlacement");
+	/* WMGetPopUpButtonSelectedItem() returns -1 when nothing is selected
+	 * (Coverity CID 1686046). */
+	sel = WMGetPopUpButtonSelectedItem(panel->placP);
+	if (sel < 0)
+		sel = 0;
+	SetStringForKey(window_placements[sel].db_value, "WindowPlacement");
 	sprintf(buf, "%i", WMGetSliderValue(panel->hsli));
 	x = WMCreatePLString(buf);
 	sprintf(buf, "%i", WMGetSliderValue(panel->vsli));
@@ -272,7 +278,10 @@ static void storeData(_Panel * panel)
 
 	SetIntegerForKey(WMGetSliderValue(panel->resS), "EdgeResistance");
 
-	SetStringForKey(drag_maximized_window_options[WMGetPopUpButtonSelectedItem(panel->dragmaxP)].db_value,
+	sel = WMGetPopUpButtonSelectedItem(panel->dragmaxP);
+	if (sel < 0)
+		sel = 0;
+	SetStringForKey(drag_maximized_window_options[sel].db_value,
 	                "DragMaximizedWindow");
 
 	SetIntegerForKey(WMGetSliderValue(panel->resizeS), "ResizeIncrement");

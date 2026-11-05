@@ -432,6 +432,7 @@ static void createPanel(Panel * p)
 static void storeData(_Panel * panel)
 {
 	int i;
+	int sel;
 
 	SetBoolForKey(WMGetButtonSelected(panel->arrB), "AutoArrangeIcons");
 	SetBoolForKey(WMGetButtonSelected(panel->omnB), "StickyIcons");
@@ -458,7 +459,12 @@ static void storeData(_Panel * panel)
 		SetIntegerForKey(i, "MiniPreviewSize");
 	}
 
-	SetStringForKey(icon_animation[WMGetPopUpButtonSelectedItem(panel->animP)].db_value, "IconificationStyle");
+	/* WMGetPopUpButtonSelectedItem() returns -1 when nothing is selected
+	 * (Coverity CID 1686046). */
+	sel = WMGetPopUpButtonSelectedItem(panel->animP);
+	if (sel < 0)
+		sel = 0;
+	SetStringForKey(icon_animation[sel].db_value, "IconificationStyle");
 }
 
 Panel *InitIcons(WMWidget *parent)
