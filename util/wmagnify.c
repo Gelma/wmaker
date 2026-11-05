@@ -205,6 +205,8 @@ static void updateImage(BufferData * data, int rx, int ry)
 	}
 
 	image = XGetImage(vdpy, DefaultRootWindow(vdpy), gx, gy, gw, gh, AllPlanes, ZPixmap);
+	if (!image)
+		return;	/* the geometry stopped being valid (CodeQL error) */
 
 	for (y = 0; y < data->height; y++) {
 		for (x = 0; x < data->width; x++) {
