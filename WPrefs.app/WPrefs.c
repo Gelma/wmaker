@@ -22,6 +22,9 @@
 
 #include "WPrefs.h"
 #include <assert.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <X11/Xatom.h>
 
 #ifdef HAVE_STDNORETURN
@@ -605,11 +608,55 @@ WMWindow *GetWindow(void)
 	return WPrefs.win;
 }
 
+/* Run 'program arg' and copy its first output line into 'out', with no shell
+ * in between: 'path' comes from WMAKER_BIN_NAME, so popen() would run whatever
+ * the environment says (Semgrep: command-injection-path).  Returns False when
+ * the program cannot be started or prints nothing. */
+static Bool runAndReadLine(const char *program, const char *arg, char *out, size_t size)
+{
+	int fds[2];
+	pid_t pid;
+	FILE *f;
+	Bool ok = False;
+
+	if (pipe(fds) != 0)
+		return False;
+
+	pid = fork();
+	if (pid == 0) {
+		close(fds[0]);
+		if (dup2(fds[1], STDOUT_FILENO) < 0)
+			_exit(127);
+		close(fds[1]);
+		execlp(program, program, arg, NULL);
+		_exit(127);
+	}
+
+	close(fds[1]);
+	if (pid < 0) {
+		close(fds[0]);
+		return False;
+	}
+
+	f = fdopen(fds[0], "r");
+	if (f) {
+		if (fgets(out, (int)size, f))
+			ok = True;
+		fclose(f);
+	} else {
+		close(fds[0]);
+	}
+
+	while (waitpid(pid, NULL, 0) < 0 && errno == EINTR)
+		;
+
+	return ok;
+}
+
 static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 {
 	WMPropList *db, *gdb;
 	char *path;
-	FILE *file;
 	char buffer[1024];
 	char mbuf[2048]; /* buffer is 1024 bytes and every format is translated */
 	int v1, v2, v3;
@@ -633,14 +680,7 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 	path = getenv("WMAKER_BIN_NAME");
 	if (!path)
 		path = "wmaker";
-	{
-		char *command;
-
-		command = wstrconcat(path, " --version");
-		file = popen(command, "r");
-		wfree(command);
-	}
-	if (!file || !fgets(buffer, 1023, file)) {
+	if (!runAndReadLine(path, "--version", buffer, sizeof(buffer))) {
 		werror(_("could not extract version information from Window Maker"));
 		wfatal(_("Make sure wmaker is in your search path."));
 
@@ -650,8 +690,6 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 				_("OK"), NULL, NULL);
 		exit(1);
 	}
-	if (file)
-		pclose(file);
 
 	if (sscanf(buffer, "Window Maker %i.%i.%i", &v1, &v2, &v3) != 3
 	    && sscanf(buffer, "WindowMaker %i.%i.%i", &v1, &v2, &v3) != 3) {
@@ -677,26 +715,19 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 		WMRunAlertPanel(scr, mainw, _("Warning"), mbuf, _("OK"), NULL, NULL);
 	}
 
-	{
-		char *command;
-
-		command = wstrconcat(path, " --global_defaults_path");
-		file = popen(command, "r");
-		wfree(command);
-	}
-	if (!file || !fgets(buffer, 1023, file)) {
+	if (!runAndReadLine(path, "--global_defaults_path", buffer, sizeof(buffer))) {
 		werror(_("could not run \"%s --global_defaults_path\"."), path);
 		exit(1);
-	} else {
+	}
+
+	{
 		char *ptr;
+
 		ptr = strchr(buffer, '\n');
 		if (ptr)
 			*ptr = 0;
-		strcat(buffer, "/WindowMaker");
+		wstrlcat(buffer, "/WindowMaker", sizeof(buffer));
 	}
-
-	if (file)
-		pclose(file);
 
 	gdb = WMReadPropListFromFile(buffer);
 
