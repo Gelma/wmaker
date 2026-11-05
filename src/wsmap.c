@@ -111,9 +111,15 @@ static void workspace_map_unslide(WWorkspaceMap *wsmap)
 static void workspace_map_destroy(WWorkspaceMap *wsmap)
 {
 	workspace_map_unslide(wsmap);
-	WMUnmapWidget(wsmap->win);
 
-	if (wsmap->win) {
+	/* WMUnmapWidget() dereferences its argument, so the test has to come
+	 * first (Coverity CID 1686060). */
+	if (!wsmap->win) {
+		wfree(wsmap);
+		return;
+	}
+
+	{
 		Window info_win = wsmap->scr->info_window;
 		XEvent ev;
 
@@ -125,7 +131,6 @@ static void workspace_map_destroy(WWorkspaceMap *wsmap)
 		ev.xclient.data.l[0] = True;
 
 		XSendEvent(dpy, info_win, True, EnterWindowMask, &ev);
-		WMUnmapWidget(wsmap->win);
 
 		ev.xclient.data.l[0] = False;
 		XSendEvent(dpy, info_win, True, EnterWindowMask, &ev);
