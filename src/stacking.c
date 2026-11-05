@@ -489,13 +489,14 @@ void MoveInStackListAbove(WCoreWindow * next, WCoreWindow * frame)
 		WCoreWindow *above = NULL;
 		WMBagIterator iter;
 
-		for (above = WMBagIteratorAtIndex(scr->stacking_list, index + 1, &iter);
-		     above != NULL; above = WMBagNext(scr->stacking_list, &iter)) {
-
+		/* Only the first window above is considered: the loop that used
+		 * to walk the bag always broke after one iteration (Coverity CID
+		 * 1686047). */
+		above = WMBagIteratorAtIndex(scr->stacking_list, index + 1, &iter);
+		if (above != NULL) {
 			/* can't optimize */
 			while (above->stacking->under)
 				above = above->stacking->under;
-			break;
 		}
 		if (above == NULL) {
 			XRaiseWindow(dpy, frame->window);
