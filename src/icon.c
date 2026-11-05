@@ -932,6 +932,10 @@ static void miniwindowMouseDown(WObjDescriptor *desc, XEvent *event)
 	if (XGrabPointer(dpy, icon->core->window, False, ButtonMotionMask
 			 | ButtonReleaseMask | ButtonPressMask, GrabModeAsync,
 			 GrabModeAsync, None, None, CurrentTime) != GrabSuccess) {
+		/* Without the grab the loop below would wait for motion and
+		 * release events the WM is not receiving (CodeQL: empty branch
+		 * of conditional). */
+		return;
 	}
 	while (1) {
 		WMMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask | ButtonPressMask
