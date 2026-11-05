@@ -484,9 +484,16 @@ static void handle_event(WWorkspaceMap *wsmap, W_WorkspaceMap *wsmap_array)
 	KeyCode escKey = XKeysymToKeycode(dpy, XK_Escape);
 
 	XGrabKeyboard(dpy, WMWidgetXID(wsmap->win), False, GrabModeAsync, GrabModeAsync, CurrentTime);
-	XGrabPointer(dpy, WMWidgetXID(wsmap->win), True,
-	             ButtonMotionMask | ButtonReleaseMask | ButtonPressMask,
-	             GrabModeAsync, GrabModeAsync, WMWidgetXID(wsmap->win), None, CurrentTime);
+	if (XGrabPointer(dpy, WMWidgetXID(wsmap->win), True,
+	                 ButtonMotionMask | ButtonReleaseMask | ButtonPressMask,
+	                 GrabModeAsync, GrabModeAsync, WMWidgetXID(wsmap->win), None, CurrentTime) != GrabSuccess) {
+		/* Without the pointer grab the map would show but not track the
+		 * mouse: back out instead (Coverity CID 1686088). */
+		wwarning(_("could not grab the pointer for the workspace map"));
+		XUngrabKeyboard(dpy, CurrentTime);
+		workspace_map_destroy(wsmap);
+		return;
+	}
 
 	w_global.process_workspacemap_event = True;
 	while (w_global.process_workspacemap_event) {
