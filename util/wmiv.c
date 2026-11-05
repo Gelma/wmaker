@@ -1539,7 +1539,8 @@ void *slideshow(void *arg)
 */
 link_t *connect_dir(char *dirpath, linked_list_t *list)
 {
-	struct dirent **dir;
+	/* scandir() only writes the list on success (Coverity CID 1686103). */
+	struct dirent **dir = NULL;
 	int dv, idx;
 	char path[PATH_MAX] = "";
 
