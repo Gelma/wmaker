@@ -405,6 +405,12 @@ int main(int argc, char **argv)
 				/* NOTREACHED */
 			case 0:
 				if (ignflag) {
+					/* coverity[dead_error_line]
+					 * CID 1686086 calls this unreachable; it is
+					 * reachable with MAX_OPTIONS --ignore arguments,
+					 * the checker just cannot see getopt counting
+					 * them.  Keeping the guard is what stops the
+					 * array overflow. */
 					if (ignoreCount >= MAX_OPTIONS) {
 						printf("Maximum %d `ignore' arguments\n", MAX_OPTIONS);
 						return 1;
