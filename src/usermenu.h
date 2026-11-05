@@ -19,13 +19,14 @@
  *  with this program; if not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifdef USER_MENU
-
 #ifndef _WUSERMENU_H_
 #define _WUSERMENU_H_
+
+#ifdef USER_MENU
 
 WMenu *wUserMenuGet(WScreen *scr, WWindow *wwin);
 void wUserMenuRefreshInstances(WMenu *menu, WWindow *wwin);
 
-#endif
 #endif /* USER_MENU */
+
+#endif /* _WUSERMENU_H_ */
