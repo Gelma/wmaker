@@ -624,6 +624,7 @@ const char *WMSetBrowserPath(WMBrowser * bPtr, const char *path)
 	int i;
 	char *str;
 	char *tmp;
+	char *save = NULL;
 	const char *retPtr = NULL;
 	int item;
 	WMListItem *listItem;
@@ -640,7 +641,7 @@ const char *WMSetBrowserPath(WMBrowser * bPtr, const char *path)
 
 	i = 0;
 	str = wstrdup(path);
-	tmp = strtok(str, bPtr->pathSeparator);
+	tmp = strtok_r(str, bPtr->pathSeparator, &save);
 	while (tmp) {
 		/* select it in the column */
 		item = WMFindRowOfListItemWithTitle(bPtr->columns[i], tmp);
@@ -661,7 +662,7 @@ const char *WMSetBrowserPath(WMBrowser * bPtr, const char *path)
 
 		loadColumn(bPtr, i + 1);
 
-		tmp = strtok(NULL, bPtr->pathSeparator);
+		tmp = strtok_r(NULL, bPtr->pathSeparator, &save);
 
 		i++;
 	}
