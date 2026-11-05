@@ -360,7 +360,10 @@ static void handleViewResized(void *self, WMNotification * notification)
 	checkSizes(sPtr);
 
 	if (sPtr->constrainProc || sPtr->flags.subviewsWereManuallyMoved) {
-		distributeOffsetFormEnd(sPtr, _GetSplitViewSize() - getTotalSize(sPtr));
+		/* Signed subtraction: the view size is unsigned and the contents
+		 * can be larger than it, which would wrap (Coverity CID
+		 * 1686038). */
+		distributeOffsetFormEnd(sPtr, (int)_GetSplitViewSize() - getTotalSize(sPtr));
 		checkPositions(sPtr);
 		updateSubviewsGeom(sPtr);
 	} else
