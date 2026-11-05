@@ -193,6 +193,10 @@ void parse_xdg(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 	if (InGroup && xdg_to_wm(xdg, wm))
 		(*addWMMenuEntryCallback)(wm);
 
+	/* The callback copies the strings it keeps: the entry assembled here is
+	 * a temporary (Coverity CID 1686052). */
+	init_wm_storage(wm);
+	wfree(wm);
 }
 
 
