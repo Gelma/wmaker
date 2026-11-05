@@ -370,14 +370,14 @@ static Bool sendEnterMessage(WMDraggingInfo * info)
 	WMScreen *scr = sourceScreen(info);
 	unsigned long version;
 
-	if (XDND_DEST_VERSION(info) > 2) {
-		if (XDND_DEST_VERSION(info) < XDND_VERSION)
-			version = XDND_DEST_VERSION(info);
-		else
-			version = XDND_VERSION;
-	} else {
+	/* Negotiate down to the destination version, never above ours.  With
+	 * XDND_VERSION == 3 the old nested if had a branch that could never
+	 * fire (Coverity CID 1686111); the ternary says the same thing without
+	 * the dead statement and survives a future version bump. */
+	if (XDND_DEST_VERSION(info) > 2)
+		version = (XDND_DEST_VERSION(info) < XDND_VERSION) ? XDND_DEST_VERSION(info) : XDND_VERSION;
+	else
 		version = 3;
-	}
 
 	return sendDnDClientMessage(info, scr->xdndEnterAtom, (version << 24) | 1,	/* 1: support of type list */
 				    XDND_3_TYPES(info)[0], XDND_3_TYPES(info)[1], XDND_3_TYPES(info)[2]);
