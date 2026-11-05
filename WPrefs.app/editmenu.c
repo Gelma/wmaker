@@ -651,6 +651,8 @@ void WEditMenuShowAt(WEditMenu * menu, int x, int y)
 	XSizeHints *hints;
 
 	hints = XAllocSizeHints();
+	if (!hints)
+		return;
 
 	hints->flags = USPosition;
 	hints->x = x;
