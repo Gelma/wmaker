@@ -2002,7 +2002,8 @@ int main(int argc, char **argv)
 			if (xdnd_get_drop(dpy, &e, typelist, actionlist, &dropBuffer, &length, &type, &x, &y)) {
 				char *handled_uri_header = "file://";
 				char *filename_separator = "\n";
-				char *ptr = strtok((char *)dropBuffer, filename_separator);
+				char *save = NULL;
+				char *ptr = strtok_r((char *)dropBuffer, filename_separator, &save);
 
 				if (WMIV_DEBUG)
 					fprintf(stderr, "Dropped data: %s\n", (char *)dropBuffer);
@@ -2023,7 +2024,7 @@ int main(int argc, char **argv)
 						if (connect_dir(tmp_file, &list))
 							find_one_file = True;
 					}
-					ptr = strtok(NULL, filename_separator);
+					ptr = strtok_r(NULL, filename_separator, &save);
 				}
 				free(dropBuffer);
 
