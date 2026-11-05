@@ -52,8 +52,8 @@ WMMenu *WMMenuCreate(WMAppContext * app, char *title)
 	menu->entryline = malloc(strlen(title) + 32);
 	menu->entryline2 = malloc(32);
 	if (!menu->entryline || !menu->entryline2) {
-		if (menu->entryline)
-			free(menu->entryline);
+		free(menu->entryline);
+		free(menu->entryline2);
 		free(menu);
 		return NULL;
 	}
