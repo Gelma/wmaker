@@ -294,7 +294,10 @@
 #define SHADE_DELAY_US		10
 
 /* workspace name on switch display */
-#define WORKSPACE_NAME_FADE_DELAY 30
+#define WORKSPACE_NAME_FADE_STEPS 5
+/* Five steps of 60 ms: the same 300 ms fade the ten 30 ms steps gave, with
+ * half the blending.  See SpecAI 130 for the cachegrind numbers. */
+#define WORKSPACE_NAME_FADE_DELAY 60
 #define WORKSPACE_NAME_DELAY     400
 
 /* Delay when cycling colors of selected icons. */

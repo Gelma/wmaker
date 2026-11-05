@@ -209,12 +209,28 @@ Bool wWorkspaceDelete(WScreen * scr, int workspace)
 }
 
 typedef struct WorkspaceNameData {
-	int count;
+	int count;                /* frames still to show */
 	RImage *back;
 	RImage *text;
-	RImage *render_buf;
+	/* The fade is a fixed sequence of blends of the same two images, so the
+	 * whole sequence is built once, when the name appears, and the timer only
+	 * switches pixmaps (SpecAI 130). */
+	Pixmap frames[WORKSPACE_NAME_FADE_STEPS];
+	int frames_valid;
 	time_t timeout;
 } WorkspaceNameData;
+
+static void freeWorkspaceNameFrames(WorkspaceNameData *data)
+{
+	int i;
+
+	if (!data)
+		return;
+
+	for (i = 0; i < data->frames_valid; i++)
+		XFreePixmap(dpy, data->frames[i]);
+	data->frames_valid = 0;
+}
 
 void wWorkspaceResetName(WScreen *scr)
 {
@@ -224,12 +240,11 @@ void wWorkspaceResetName(WScreen *scr)
 	}
 
 	if (scr->workspace_name_data) {
+		freeWorkspaceNameFrames(scr->workspace_name_data);
 		if (scr->workspace_name_data->back)
 			RReleaseImage(scr->workspace_name_data->back);
 		if (scr->workspace_name_data->text)
 			RReleaseImage(scr->workspace_name_data->text);
-		if (scr->workspace_name_data->render_buf)
-			RReleaseImage(scr->workspace_name_data->render_buf);
 		wfree(scr->workspace_name_data);
 		scr->workspace_name_data = NULL;
 	}
@@ -244,41 +259,27 @@ static void hideWorkspaceName(void *data)
 		XUnmapWindow(dpy, scr->workspace_name);
 
 		if (scr->workspace_name_data) {
+			freeWorkspaceNameFrames(scr->workspace_name_data);
 			RReleaseImage(scr->workspace_name_data->back);
 			RReleaseImage(scr->workspace_name_data->text);
-			if (scr->workspace_name_data->render_buf)
-				RReleaseImage(scr->workspace_name_data->render_buf);
 			wfree(scr->workspace_name_data);
 
 			scr->workspace_name_data = NULL;
 		}
 		scr->workspace_name_timer = NULL;
 	} else {
-		RImage *img = scr->workspace_name_data->render_buf;
-		Pixmap pix;
-		size_t data_len;
+		WorkspaceNameData *name_data = scr->workspace_name_data;
 
-		if (!img) {
-			img = RCloneImage(scr->workspace_name_data->back);
-			scr->workspace_name_data->render_buf = img;
-		} else {
-			data_len = (size_t)img->width * img->height * (img->format == RRGBAFormat ? 4 : 3);
-			memcpy(img->data, scr->workspace_name_data->back->data, data_len);
-		}
-
-		scr->workspace_name_timer = WMAddTimerHandler(WORKSPACE_NAME_FADE_DELAY, hideWorkspaceName, scr);
-
-		RCombineImagesWithOpaqueness(img, scr->workspace_name_data->text,
-					     scr->workspace_name_data->count * 255 / 10);
-
-		RConvertImage(scr->rcontext, img, &pix);
-
-		XSetWindowBackgroundPixmap(dpy, scr->workspace_name, pix);
+		/* No image work in the timer: the frames were blended once. */
+		XSetWindowBackgroundPixmap(dpy, scr->workspace_name,
+		                           name_data->frames[name_data->frames_valid - name_data->count]);
 		XClearWindow(dpy, scr->workspace_name);
-		XFreePixmap(dpy, pix);
 		XFlush(dpy);
 
-		scr->workspace_name_data->count--;
+		name_data->count--;
+
+		scr->workspace_name_timer = WMAddTimerHandler(WORKSPACE_NAME_FADE_DELAY,
+		                                              hideWorkspaceName, scr);
 	}
 }
 
@@ -309,17 +310,17 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	scr->workspace_name_timer = WMAddTimerHandler(WORKSPACE_NAME_DELAY, hideWorkspaceName, scr);
 
 	if (scr->workspace_name_data) {
+		freeWorkspaceNameFrames(scr->workspace_name_data);
 		RReleaseImage(scr->workspace_name_data->back);
 		RReleaseImage(scr->workspace_name_data->text);
-		if (scr->workspace_name_data->render_buf)
-			RReleaseImage(scr->workspace_name_data->render_buf);
 		wfree(scr->workspace_name_data);
 	}
 
 	data = wmalloc(sizeof(WorkspaceNameData));
+	data->count = 0;
 	data->back = NULL;
 	data->text = NULL;
-	data->render_buf = NULL;
+	data->frames_valid = 0;
 
 	w = WMWidthOfString(scr->workspace_name_font, name, len);
 	h = WMFontHeight(scr->workspace_name_font);
@@ -441,10 +442,36 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 		goto erro;
 	}
 
-	data->count = 10;
+	/* Build the whole fade now: the same blends the timer used to compute one
+	 * per tick, but outside the timer (so the fade cannot stutter under load)
+	 * and half as many steps (SpecAI 130). */
+	{
+		RImage *img = RCloneImage(data->back);
+
+		data->frames_valid = 0;
+		if (img) {
+			size_t len = (size_t)data->back->width * data->back->height *
+			    (data->back->format == RRGBAFormat ? 4 : 3);
+			int i;
+
+			for (i = 0; i < WORKSPACE_NAME_FADE_STEPS; i++) {
+				memcpy(img->data, data->back->data, len);
+				RCombineImagesWithOpaqueness(img, data->text,
+				                             (WORKSPACE_NAME_FADE_STEPS - i) * 255 /
+				                             WORKSPACE_NAME_FADE_STEPS);
+				if (!RConvertImage(scr->rcontext, img, &data->frames[i]))
+					break;
+				data->frames_valid++;
+			}
+			RReleaseImage(img);
+		}
+	}
+
+	data->count = data->frames_valid;
 
 	/* set a timeout for the effect */
-	data->timeout = time(NULL) + 2 + (WORKSPACE_NAME_DELAY + WORKSPACE_NAME_FADE_DELAY * data->count) / 1000;
+	data->timeout = time(NULL) + 2 + (WORKSPACE_NAME_DELAY +
+	                                  WORKSPACE_NAME_FADE_DELAY * data->count) / 1000;
 
 	scr->workspace_name_data = data;
 
@@ -454,6 +481,7 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	if (scr->workspace_name_timer)
 		WMDeleteTimerHandler(scr->workspace_name_timer);
 
+	freeWorkspaceNameFrames(data);
 	if (data->text)
 		RReleaseImage(data->text);
 	if (data->back)
@@ -463,7 +491,8 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	scr->workspace_name_data = NULL;
 
 	scr->workspace_name_timer = WMAddTimerHandler(WORKSPACE_NAME_DELAY +
-						      10 * WORKSPACE_NAME_FADE_DELAY, hideWorkspaceName, scr);
+	                                              WORKSPACE_NAME_FADE_STEPS * WORKSPACE_NAME_FADE_DELAY,
+	                                              hideWorkspaceName, scr);
 }
 
 void wWorkspaceChange(WScreen *scr, int workspace)
