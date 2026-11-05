@@ -898,8 +898,12 @@ Atom xdnd_drag (DndClass * dnd, Window from, Atom action, Atom * typelist)
     float x_mouse, y_mouse;
     int result = 0, dnd_aware;
 
-    if (!typelist)
+    if (!typelist) {
         dnd_warning ("xdnd_drag() called with typelist = 0");
+        /* A drag without types has nothing to negotiate: bail out instead
+         * of walking a NULL list (Coverity CID 1686045). */
+        return 0;
+    }
 
 /* first wait until the mouse moves more than five pixels */
     do {
