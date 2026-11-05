@@ -64,6 +64,18 @@ void w_syslog_close(void)
 }
 #endif
 
+/* Append to the message buffer without recomputing "linemax - 1 - strlen()"
+ * at every call site: that subtraction can only be trusted once the buffer is
+ * known to be terminated, and the compiler cannot prove it. */
+static void message_append(char *buf, size_t size, const char *text)
+{
+	size_t used = strlen(buf);
+
+	if (used + 1 >= size)
+		return;
+	strncat(buf, text, size - used - 1);
+}
+
 void __wmessage(const char *func, const char *file, int line, int type, const char *msg, ...)
 {
 	va_list args;
@@ -91,29 +103,32 @@ void __wmessage(const char *func, const char *file, int line, int type, const ch
 	}
 
 	buf = wmalloc(linemax);
+	/* wmalloc() does not zero: strncat() would walk this buffer looking for
+	 * a terminator (Coverity CID 1686071). */
+	buf[0] = '\0';
 
 	fflush(stdout);
 
 	/* message format: <wings_progname>(function(file:line): <type?>: <message>"\n" */
-	strncat(buf, _WINGS_progname ? _WINGS_progname : "WINGs", linemax - 1);
-	snprintf(buf + strlen(buf), linemax - strlen(buf), "(%s(%s:%d))", func, file, line);
-	strncat(buf, ": ", linemax - 1 - strlen(buf));
+	message_append(buf, (size_t)linemax, _WINGS_progname ? _WINGS_progname : "WINGs");
+	snprintf(buf + strlen(buf), (size_t)linemax - strlen(buf), "(%s(%s:%d))", func, file, line);
+	message_append(buf, (size_t)linemax, ": ");
 
 	switch (type) {
 		case WMESSAGE_TYPE_FATAL:
-			strncat(buf, _("fatal: "), linemax - 1 - strlen(buf));
+			message_append(buf, (size_t)linemax, _("fatal: "));
 #ifdef HAVE_SYSLOG
 			syslog_priority = LOG_CRIT;
 #endif
 		break;
 		case WMESSAGE_TYPE_ERROR:
-			strncat(buf, _("error: "), linemax - 1 - strlen(buf));
+			message_append(buf, (size_t)linemax, _("error: "));
 #ifdef HAVE_SYSLOG
 			syslog_priority = LOG_ERR;
 #endif
 		break;
 		case WMESSAGE_TYPE_WARNING:
-			strncat(buf, _("warning: "), linemax - 1 - strlen(buf));
+			message_append(buf, (size_t)linemax, _("warning: "));
 #ifdef HAVE_SYSLOG
 			syslog_priority = LOG_WARNING;
 #endif
@@ -125,7 +140,8 @@ void __wmessage(const char *func, const char *file, int line, int type, const ch
 	}
 
 	va_start(args, msg);
-	if (vsnprintf(buf + strlen(buf), linemax - strlen(buf), msg, args) >= linemax - strlen(buf))
+	if (vsnprintf(buf + strlen(buf), (size_t)linemax - strlen(buf), msg, args)
+	    >= (int)((size_t)linemax - strlen(buf)))
 		truncated = 1;
 
 	va_end(args);
