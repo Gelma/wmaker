@@ -16,6 +16,10 @@ void WMSetApplicationIconWindow(WMScreen * scr, Window window)
 		XWMHints *hints;
 
 		hints = XGetWMHints(scr->display, scr->groupLeader);
+		if (!hints)
+			hints = XAllocWMHints();
+		if (!hints)
+			return;
 		hints->flags |= IconWindowHint;
 		hints->icon_window = window;
 
@@ -62,6 +66,10 @@ void WMSetApplicationIconPixmap(WMScreen * scr, WMPixmap * icon)
 		XWMHints *hints;
 
 		hints = XGetWMHints(scr->display, scr->groupLeader);
+		if (!hints)
+			hints = XAllocWMHints();
+		if (!hints)
+			return;
 		hints->flags |= IconPixmapHint | IconMaskHint;
 		hints->icon_pixmap = (icon != NULL ? icon->pixmap : None);
 		hints->icon_mask = (icon != NULL ? icon->mask : None);
