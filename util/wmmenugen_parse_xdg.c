@@ -671,6 +671,7 @@ static Bool compare_matchlevel(int *current_level, const char *found_locale)
 static void  getMenuHierarchyFor(char **xdgmenuspec)
 {
 	char *category, *p;
+	char *save = NULL;
 	char buf[1024];
 
 	if (!*xdgmenuspec || !**xdgmenuspec)
@@ -680,7 +681,7 @@ static void  getMenuHierarchyFor(char **xdgmenuspec)
 	wfree(*xdgmenuspec);
 	memset(buf, 0, sizeof(buf));
 
-	p = strtok(category, ";");
+	p = strtok_r(category, ";", &save);
 	while (p) {		/* get a known category */
 		if (strcmp(p, "AudioVideo") == 0) {
 			snprintf(buf, sizeof(buf), "%s", _("Audio & Video"));
@@ -735,7 +736,7 @@ static void  getMenuHierarchyFor(char **xdgmenuspec)
 			snprintf(buf, sizeof(buf), "%s", _("Shell"));
 			break;
 		}
-		p = strtok(NULL, ";");
+		p = strtok_r(NULL, ";", &save);
 	}
 
 	wfree(category);
