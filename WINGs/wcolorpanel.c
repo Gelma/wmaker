@@ -3124,7 +3124,8 @@ static void customPaletteMenuRename(W_ColorPanel * panel)
 				/* "No" = 0, "Yes" = 1 */
 				int items = WMGetPopUpButtonNumberOfItems(panel->customPaletteHistoryBtn);
 
-				remove(toPath);
+				if (remove(toPath) != 0)
+					werror(_("could not remove %s: %s"), toPath, strerror(errno));
 
 				/* Remove from History list too */
 				index = 1;
