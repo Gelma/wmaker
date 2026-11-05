@@ -767,6 +767,30 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - **What I will implement** (one commit per item, message starting with `qlcode:`): the injection, the two `sprintf` buffer classes, the ten null checks, the xdnd clear, the dock/appmenu/icon initialisation, the bitfield, the wsmap counter, `localtime_r`, the header guard, the `WPrefs.c` `snprintf`, the four loader `size_t` casts and the telemetry `0600`. Everything else is documented above as deliberate.
       - **Implemented (2026-11-05)**: 25 commits, `93c09b96`..`eaff7952` plus the `tools/static-analysis.txt` re-baseline (`1323793f`); every message starts with `qlcode:` and names the rule CodeQL used, following the Coverity convention one commit per finding. The `wsmap.c` counter change needed one follow-up (`eaff7952`): turning `unsigned short` into `int` left `%hu` in the `snprintf`, which cppcheck caught immediately and which would have printed garbage. Nothing was re-baselined upward: cppcheck 926 -> 925, tidy 394 -> 393.
 
+129. **Semgrep Code Security Scan Audit (`/tmp/Semgrep_Code_Combined_Findings_2026_11_05.csv`)**:
+    - **Origin & Scope**: Scan executed on 2026-11-05 against the `gelma` branch via Semgrep Code (ruleset combining Community rules and Semgrep Pro Rules, report generated at `/tmp/Semgrep_Code_Combined_Findings_2026_11_05.csv`). The report recorded 50 total security findings across 11 rules: 17 High, 27 Medium, and 6 Low severity.
+    - **Breakdown by Rule**:
+      - `c.lang.security.insecure-use-strtok-fn`: 14 findings (Medium) — use of non-thread-safe and non-reentrant `strtok()` modifying input buffers in-place.
+      - `cpp.lang.security.filesystem.path-manipulation`: 7 findings (High) — file path constructions from external inputs.
+      - `cpp.lang.security.system-command.dont-call-system`: 6 findings (Low) — calls to `system()` instead of restrictive process APIs.
+      - `cpp.lang.security.strings.unbounded-copy-to-stack-buffer`: 5 findings (Medium) — use of `sprintf` without explicit destination size bounds.
+      - `cpp.lang.security.memory.deallocation.double-free`: 4 findings (High) — static detection of multiple `free()` paths on variables (`buf`, `ptr`).
+      - `cpp.lang.security.use-after-free.local-variable-malloc-free`: 4 findings (High) — potential use-after-free paths.
+      - `cpp.lang.security.memory.allocation.tainted-allocation-size`: 3 findings (Medium) — external data influencing allocation sizing.
+      - `cpp.lang.security.system-command.command-injection-path`: 2 findings (High) — unvalidated input in command execution paths.
+      - `bash.lang.security.ifs-tampering`: 2 findings (Medium) — global manipulation of `IFS` in shell scripts.
+      - `cpp.lang.security.memory.unvalidated-array-index`: 2 findings (Medium) — unvalidated indexing into fixed arrays.
+      - `cpp.lang.security.filesystem.file-access-before-action`: 1 finding (Medium) — TOCTOU pattern (`access()` followed by file open).
+    - **Technical Evaluation & Triaged Assessment**:
+      - **No New Live Exploits**: Cross-referencing against the recently completed Coverity (§127) and CodeQL (§128) remediation batches demonstrates that the critical real-world vulnerabilities have already been solved in the tree:
+        - The OS command injection vulnerability in `util/wmsetbg.c` was completely eliminated via `fork()` + `execlp()` without a shell.
+        - The remaining `system()` calls in `src/main.c` (`wmaker.inst`, autostart/exitscript) intentionally run the user's private configuration scripts and are accepted by design (§128).
+        - Real memory hazards (UAF in `bagtree.c` and `wtext.c`, uninitialized pointers in `wmgenmenu.c` and `wmiv.c`) were already verified and eliminated under Valgrind and ASan+UBSan. The Semgrep double-free/UAF findings in `util/wxcopy.c` and `WINGs/memory.c` are syntactic false positives on mutually exclusive error-exit branches.
+      - **Actionable Hardening Opportunities Identified**:
+        1. **`strtok()` to `strtok_r()` (14 sites)**: Located in `WINGs/wbrowser.c`, `src/dialog.c`, `src/main.c`, `util/wmiv.c`, `util/wmmenugen.c`, and `util/wmmenugen_parse_xdg.c`. Replacing `strtok` with POSIX `strtok_r` eliminates internal static state, guarantees thread/reentrancy safety, and clears 28% of the Semgrep findings in one step.
+        2. **`sprintf()` to `snprintf()`**: Modernizing fixed-buffer formatting to explicit length bounds prevents future truncation or stack overflow bugs as data types evolve.
+        3. **Bash `IFS` Scoping**: In `util/wm-oldmenu2new`, localize `IFS` inside the helper function (`local IFS=":"`) to avoid global environment leakage, adhering to project Bash robustness guidelines.
+
 ---
 
 ## Verification Status
