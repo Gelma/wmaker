@@ -772,6 +772,18 @@ static void paintTextField(TextField * tPtr)
 	if (!view->flags.realized || !view->flags.mapped)
 		return;
 
+	/* The key handler can paint while a position is one step stale
+	 * (Coverity CID 1686059): both indices are clamped before use. */
+	if (tPtr->viewPosition < 0)
+		tPtr->viewPosition = 0;
+	else if (tPtr->viewPosition > tPtr->textLen)
+		tPtr->viewPosition = tPtr->textLen;
+
+	if (tPtr->cursorPosition < 0)
+		tPtr->cursorPosition = 0;
+	else if (tPtr->cursorPosition > tPtr->textLen)
+		tPtr->cursorPosition = tPtr->textLen;
+
 	if (!tPtr->flags.bordered) {
 		bd = 0;
 	} else {
