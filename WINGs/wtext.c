@@ -1191,9 +1191,9 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 		tPtr->tpos = (pos < tb->used) ? pos : tb->used;
 	}
  _doNothing:
-	if (!tb)
-		return;
-
+	/* The only jump to this label sets tb = hold, which is non-NULL: the
+	 * test that used to stand here ran after tb had already been
+	 * dereferenced (Coverity CID 1686032). */
 	tPtr->currentTextBlock = tb;
 	tPtr->cursor.h = tb->sections[s].h;
 	tPtr->cursor.y = tb->sections[s]._y;
