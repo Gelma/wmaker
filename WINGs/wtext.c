@@ -1044,6 +1044,12 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 		}
 	}
 
+	if (!tb) {
+		/* the walk above can end without a block (Coverity CID 1686070) */
+		tPtr->tpos = 0;
+		return;
+	}
+
 	if (s < 0 || s >= tb->nsections) {
 		s = (dir ? tb->nsections - 1 : 0);
 	}
