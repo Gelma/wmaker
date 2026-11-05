@@ -7,6 +7,7 @@
 
 #include "wconfig.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -273,7 +274,10 @@ static void rotate_spike_file(void)
 	fclose(spike_file);
 	spike_file = NULL;
 	spike_bytes = 0;
-	rename(path, old);
+	if (rename(path, old) != 0)
+		/* Rotation is best effort: the log keeps growing if this fails
+		 * (Coverity CID 1686093). */
+		wwarning("could not rotate %s: %s", path, strerror(errno));
 }
 
 static void close_spike_file(void)
