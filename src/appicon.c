@@ -678,6 +678,8 @@ static void iconDblClick(WObjDescriptor *desc, XEvent *event)
 	assert(aicon->icon->owner != NULL);
 
 	wapp = wApplicationOf(aicon->icon->owner->main_window);
+	if (!wapp)
+		return;
 
 	if (event->xbutton.state & ControlMask) {
 		relaunchApplication(wapp);
