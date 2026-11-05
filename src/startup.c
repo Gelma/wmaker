@@ -829,7 +829,13 @@ static void manageAllWindows(WScreen * scr, int crashRecovery)
 	WWindow *wwin;
 
 	XGrabServer(dpy);
-	XQueryTree(dpy, scr->root_win, &root, &parent, &children, &nchildren);
+	if (!XQueryTree(dpy, scr->root_win, &root, &parent, &children, &nchildren)) {
+		/* children and nchildren are undefined when the query fails
+		 * (Coverity CID 1686061). */
+		wwarning(_("could not query the root window children"));
+		XUngrabServer(dpy);
+		return;
+	}
 
 	scr->flags.startup = 1;
 
