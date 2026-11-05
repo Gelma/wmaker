@@ -654,7 +654,12 @@ void wIconUpdate(WIcon *icon)
 {
 	WWindow *wwin = NULL;
 
-	if (icon && icon->owner)
+	/* Callers can reach this while the icon is not attached to a window yet
+	 * (Coverity CID 1686033). */
+	if (!icon)
+		return;
+
+	if (icon->owner)
 		wwin = icon->owner;
 
 	if (wwin && WFLAGP(wwin, always_user_icon)) {
