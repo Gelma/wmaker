@@ -729,6 +729,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       4. Step 4: Configuration App & Library Cleanups (`WPrefs.app`, `wmlib`, `wrlib`).
       5. Step 5: Verification & Baseline Update (Re-run `make exit-test`, sanitizer build, and static analysis baseline).
 
+127. **Coverity Triage, Second Pass (`CoverityDeepseek.md`)**:
+    - **What**: the same 88-defect export was re-triaged against the current tree, every reported line read in place, and the result written to [`CoverityDeepseek.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityDeepseek.md) (commit `7ea9ae58`). Verdicts: 16 crash-safety fixes, 7 integer-arithmetic, 16 leaks, 14 hardening, 15 hygiene, **20 suppressed with the reason written down**; every cid has its own row and a concrete change.
+    - **Where it disagrees with §126**: `WINGs/bagtree.c` cid 1686055 is a false positive (`rbTreeDelete()` updates `tree->root`, so `self->root` is never the freed node) — but it exposed a real bug: `WMEraseFromBag()` does not renumber the successors' `index` the way `treeDeleteNode()` does. `WINGs/wcolorpanel.c` `getShift()` is not an infinite loop (the loop is bounded by `value >>= 1`); it is an `unsigned char` counter that only works by wrapping. The inotify pair (1686058/1686112) is well-formed kernel data, so it is hardening, not an out-of-bounds bug.
+    - **Root causes found while reading** (not in the Coverity export): `wtokensplit()` leaves `*argv` stale for a command that tokenises to nothing (which is what 1686037 and 240602 actually are); `WMCreatePLArray()` retains instead of consuming, so every inline `WMCreatePLArray(WMCreatePLString(...))` leaks; four `RCreateImage()` results are dereferenced unchecked; and `__wmessage()` appends into a `wmalloc()` buffer that is never zeroed — cid 1686071 is filed as an integer overflow but is a heap-overflow risk with an uninitialised read in front of it.
+    - **Status**: plan only, nothing implemented yet; §7 of the file defines done (per-batch verification plus the next export with zero open High).
+
 ---
 
 ## Verification Status
