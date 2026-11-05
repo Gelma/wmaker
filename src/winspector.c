@@ -1439,6 +1439,9 @@ static void create_tab_app_specific(WWindow *wwin, InspectorPanel *panel, int fr
 	if (wwin->main_window != None) {
 		WApplication *wapp = wApplicationOf(wwin->main_window);
 
+		if (!wapp)
+			return;
+
 		panel->appFrm = WMCreateFrame(panel->win);
 		WMSetFrameTitle(panel->appFrm, _("Application Attributes"));
 		WMMoveWidget(panel->appFrm, 15, 50);
