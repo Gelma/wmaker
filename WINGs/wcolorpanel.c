@@ -2804,6 +2804,11 @@ static void customRenderSpectrum(W_ColorPanel * panel)
 	CPColor cpColor = {};
 
 	spectrum = RCreateImage(SPECTRUM_WIDTH, SPECTRUM_HEIGHT, False);
+	if (!spectrum) {
+		/* No spectrum is better than a crash in the colour panel
+		 * (Coverity CID 1686053). */
+		return;
+	}
 
 	ptr = spectrum->data;
 
