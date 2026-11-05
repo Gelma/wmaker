@@ -97,6 +97,12 @@ void wtokensplit(char *command, char ***argv, int *argc)
 	char *token, *line;
 	int count;
 
+	/* A command that tokenises to nothing must not leave the caller with a
+	 * stale pointer: an empty string has no token, so the loop below never
+	 * assigns *argv (Coverity CID 1686037, 240602). */
+	*argv = NULL;
+	*argc = 0;
+
 	count = 0;
 	line = command;
 	do {

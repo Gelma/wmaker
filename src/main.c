@@ -378,6 +378,11 @@ Bool RelaunchWindow(WWindow *wwin)
 	} else
 		wtokensplit(command, &argv, &argc);
 
+	if (argc == 0) {
+		/* the command tokenises to nothing: nothing to exec (CID 1686037) */
+		werror("cannot relaunch the application because its command line is empty");
+		return False;
+	}
 
 	pid_t pid = fork();
 

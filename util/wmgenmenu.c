@@ -410,6 +410,12 @@ static void find_and_write(const char *group, char *list[][2], int this_is_termi
 	while (list[i][0]) {
 		/* Before checking if app exists, split its options */
 		wtokensplit(list[i][1], &argv, &argc);
+		if (argc == 0) {
+			/* empty command: wtokensplit() left argv at NULL (CID 1686037) */
+			wtokenfree(argv, argc);
+			i++;
+			continue;
+		}
 		t = wfindfile(path, argv[0]);
 		if (t) {
 			/* find a terminal to be used for cmnds that need a terminal */
