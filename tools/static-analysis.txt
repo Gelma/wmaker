@@ -1,11 +1,11 @@
-cppcheck total 926
+cppcheck total 925
 cppcheck error 6
 cppcheck portability 10
-cppcheck style 908
+cppcheck style 907
 cppcheck warning 2
-tidy total 394
+tidy total 393
 tidy bugprone-branch-clone 2
-tidy bugprone-implicit-widening-of-multiplication-result 68
+tidy bugprone-implicit-widening-of-multiplication-result 67
 tidy bugprone-macro-parentheses 18
 tidy bugprone-narrowing-conversions 67
 tidy bugprone-reserved-identifier 4
