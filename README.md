@@ -1,6 +1,6 @@
 # What's this?
 
-*Short answer:* AI-Powered [Window Maker](https://www.windowmaker.org)
+**Short answer:** AI-Powered [Window Maker](https://www.windowmaker.org)
 
 Well, let's start from the beginning.
 
@@ -16,7 +16,9 @@ I'm not such a good programmer, so I've never been able
 to contribute, but - nowadays - my contribution is
 about telling AI what to do, in which way, and
 much more (much more than this...) test it extensively
-because - again - I always use [WMaker](https://www.windowmaker.org), every day.
+because - again - I always use [WMaker](https://www.windowmaker.org), every day
+(and more than this... long sessione, seldom laptop reboot, usually suspend/resume for
+weeks).
 
 So, what's this?
 
@@ -25,13 +27,12 @@ little issues I had (nothing really important, but why
 not try to fix 'em?), then moving to optimization,
 refactoring, and so on.
 
-There's no reason to merge this mess as is, it's a mess. My only point is:
+There's no reason to merge this repo as is, it's a mess. My only point is:
 I use this tree for my job, every day. If there's something
 good for the real developers, I would be happy to
 contribute just by saying: it works for me!
 
-If there's something good to cherry-pick, I would be very
-glad and happy.
+If someone is going to cherry-picking, I am glad and happy.
 
 ## Short change history
 
@@ -62,7 +63,10 @@ It's good, so tell him to rewrite/refactor codebase based on the output of `perf
 
 At the moment, it's keeping a little bit of telemetry in `/tmp/wmaker_runtime_logs/` to evaluate later, and adding some stress tests to speed up finding bugs related to recent changes.
 
-Anyway, nights are going letting Gemini and DeepSeek arguing each other as a crazy wedding.
+Anyway, nights are going letting Gemini and DeepSeek arguing each other as a crazy wedding or, as they call it, doing *Reflection*.
+
+Also, [Coverity Scan](https://scan.coverity.com/projects/gelma-wmaker) fixes are in, right now. I left all the analysis and related files in dir [CoverityReport](https://github.com/Gelma/wmaker/blob/master/CoverityReport), for a few reasons: easy way to access them for the [main project](http://windowmaker.org) - just in case - and track the approach differences between Gemini and DeepSeek to implement fixes.
+Fun fact the relation chain of: open tools finding issues, Coverity finding much more, Gemini/DeepSeek extrapolate the false positive finding real root case, and while patching 'em, find two more issues not saw by Coverity!
 
 You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker/blob/master/SpecAI.md) and [git log](https://github.com/Gelma/wmaker/commits/master/), of course.
 
