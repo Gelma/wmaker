@@ -1290,6 +1290,11 @@ void wMenuUnmap(WMenu * menu)
 {
 	int i;
 
+	/* keyboardMenu() and the cascade walk can reach this with nothing to
+	 * unmap (Coverity CID 1686091). */
+	if (!menu)
+		return;
+
 	XUnmapWindow(dpy, menu->frame->core->window);
 	if (menu->flags.titled && menu->flags.buttoned) {
 		wFrameWindowHideButton(menu->frame, WFF_RIGHT_BUTTON);
@@ -1304,7 +1309,7 @@ void wMenuUnmap(WMenu * menu)
 		menu->flags.shaded = 0;
 	}
 
-	for (i = 0; i < menu->cascade_no; i++) {
+	for (i = 0; menu->cascades && i < menu->cascade_no; i++) {
 		if (menu->cascades[i] != NULL
 		    && menu->cascades[i]->flags.mapped && !menu->cascades[i]->flags.buttoned) {
 
