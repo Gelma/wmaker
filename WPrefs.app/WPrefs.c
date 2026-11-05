@@ -611,7 +611,7 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 	char *path;
 	FILE *file;
 	char buffer[1024];
-	char mbuf[1069]; /* Size of buffer and extra characters for the sprintfs */
+	char mbuf[2048]; /* buffer is 1024 bytes and every format is translated */
 	int v1, v2, v3;
 
 	path = wdefaultspathfordomain("WindowMaker");
@@ -622,11 +622,11 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 		if (!WMIsPLDictionary(db)) {
 			WMReleasePropList(db);
 			db = NULL;
-			sprintf(mbuf, _("Window Maker domain (%s) is corrupted!"), path);
+			snprintf(mbuf, sizeof(mbuf), _("Window Maker domain (%s) is corrupted!"), path);
 			WMRunAlertPanel(scr, mainw, _("Error"), mbuf, _("OK"), NULL, NULL);
 		}
 	} else {
-		sprintf(mbuf, _("Could not load Window Maker domain (%s) from defaults database."), path);
+		snprintf(mbuf, sizeof(mbuf), _("Could not load Window Maker domain (%s) from defaults database."), path);
 		WMRunAlertPanel(scr, mainw, _("Error"), mbuf, _("OK"), NULL, NULL);
 	}
 
@@ -663,14 +663,14 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 		exit(1);
 	}
 	if (v1 == 0 && (v2 < 18 || v3 < 0)) {
-		sprintf(mbuf, _("WPrefs only supports Window Maker 0.18.0 or newer.\n"
+		snprintf(mbuf, sizeof(mbuf), _("WPrefs only supports Window Maker 0.18.0 or newer.\n"
 				"The version installed is %i.%i.%i\n"), v1, v2, v3);
 		WMRunAlertPanel(scr, mainw, _("Error"), mbuf, _("OK"), NULL, NULL);
 		exit(1);
 
 	}
 	if (v1 > 1 || (v1 == 1 && (v2 > 0))) {
-		sprintf(mbuf,
+		snprintf(mbuf, sizeof(mbuf),
 			_
 			("Window Maker %i.%i.%i, which is installed in your system, is not fully supported by this version of WPrefs."),
 			v1, v2, v3);
@@ -704,11 +704,11 @@ static void loadConfigurations(WMScreen * scr, WMWindow * mainw)
 		if (!WMIsPLDictionary(gdb)) {
 			WMReleasePropList(gdb);
 			gdb = NULL;
-			sprintf(mbuf, _("Window Maker domain (%s) is corrupted!"), buffer);
+			snprintf(mbuf, sizeof(mbuf), _("Window Maker domain (%s) is corrupted!"), buffer);
 			WMRunAlertPanel(scr, mainw, _("Error"), mbuf, _("OK"), NULL, NULL);
 		}
 	} else {
-		sprintf(mbuf, _("Could not load global Window Maker domain (%s)."), buffer);
+		snprintf(mbuf, sizeof(mbuf), _("Could not load global Window Maker domain (%s)."), buffer);
 		WMRunAlertPanel(scr, mainw, _("Error"), mbuf, _("OK"), NULL, NULL);
 	}
 
