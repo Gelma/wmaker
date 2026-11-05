@@ -1658,6 +1658,12 @@ static int getInt(WScreen * scr, WDefaultEntry * entry, WMPropList * value, void
 
 	GET_STRING_OR_DEFAULT("Integer", val);
 
+	/* An empty value means "not set", not "wrong": use the default without
+	 * warning.  The 2026-11-05 session logged eight of these at every start
+	 * for four empty ClipAuto*Delay keys. */
+	if (!*val)
+		val = WMGetFromPLString(entry->plvalue);
+
 	if (sscanf(val, "%i", &data) != 1) {
 		wwarning(_("can't convert \"%s\" to integer for key \"%s\""), val, entry->key);
 		val = WMGetFromPLString(entry->plvalue);
