@@ -3550,15 +3550,12 @@ static RColor ulongToRColor(WMScreen * scr, unsigned long value)
 
 static unsigned char getShift(unsigned char value)
 {
-	unsigned char i = -1;
+	/* The counter used to be an unsigned char starting at -1, which only
+	 * produced the right shift count by wrapping (Coverity CID 1686065). */
+	unsigned int i = 0;
 
-	if (value == 0)
-		return 0;
-
-	while (value) {
-		value >>= 1;
+	while (value >>= 1)
 		i++;
-	}
 
-	return i;
+	return (unsigned char)i;
 }
