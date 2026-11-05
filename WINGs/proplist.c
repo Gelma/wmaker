@@ -1785,6 +1785,7 @@ int wmkdirhier(const char *path)
 			;
 
 		strncpy(buf, thePath, p);
+		/* coverity[toctou] CID 1686097: defaults hierarchy owned by the same user */
 		if (mkdir(buf, 0777) == -1 && errno == EEXIST &&
 		    stat(buf, &st) == 0 && !S_ISDIR(st.st_mode)) {
 			werror(_("Could not create component %s"), buf);
@@ -1862,6 +1863,7 @@ int wrmdirhier(const char *path)
 	wfree(udefpath);
 
 	/* Shortcut if it doesn't exist to begin with */
+	/* coverity[toctou] CID 1686102: removal of the user own defaults directory */
 	if (stat(path, &st) == -1)
 		return ENOENT;
 

@@ -704,6 +704,7 @@ static void deleteFile(WMWidget *widget, void *p_panel)
 
 	normalizePath(file);
 
+	/* coverity[toctou] CID 1686069: delete dialog on the user own tree */
 	if (stat(file, &filestat) == -1) {
 		snprintf(buffer, sizeof(buffer),
 		         _("Can not find %s: %s"),

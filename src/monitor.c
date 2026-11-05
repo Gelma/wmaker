@@ -157,6 +157,7 @@ int MonitorLoop(int argc, char **argv)
 			char exit_sentinel[64];
 
 			snprintf(exit_sentinel, sizeof(exit_sentinel), "/tmp/.wmaker-exit-%d", (int)pid);
+			/* coverity[toctou] CID 1686042: the sentinel is created and consumed by the same user in /tmp */
 			if (access(exit_sentinel, F_OK) == 0) {
 				unlink(exit_sentinel);
 				break;

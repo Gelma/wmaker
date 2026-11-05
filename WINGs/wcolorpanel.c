@@ -3030,6 +3030,7 @@ static void customPaletteMenuNewFromFile(W_ColorPanel * panel)
 
 		/* Check for duplicate files, and rename it if there are any */
 		tmp = wstrconcat(panel->configurationPath, filename);
+		/* coverity[toctou] CID 1686041: same-user palette directory, no privilege boundary */
 		while (access(tmp, F_OK) == 0) {
 			char *newName;
 
@@ -3116,6 +3117,7 @@ static void customPaletteMenuRename(W_ColorPanel * panel)
 		fromPath = wstrconcat(panel->configurationPath, fromName);
 		toPath = wstrconcat(panel->configurationPath, toName);
 
+		/* coverity[toctou] CID 1686074: rename dialog re-checks with an alert panel before overwriting */
 		if (access(toPath, F_OK) == 0) {
 			/* Careful, this palette exists already */
 			if (WMRunAlertPanel(scr, panel->win, _("Warning"),

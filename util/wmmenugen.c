@@ -157,6 +157,7 @@ int main(int argc, char **argv)
 		        prog_name, get_parser_name(), argv[i]);
 #endif
 
+		/* coverity[toctou] CID 1686044: stat of a path given on the command line, same user */
 		if (stat(argv[i], &st) == -1) {
 			fprintf(stderr, "%s: unable to stat \"%s\", %s\n",
 			        prog_name, argv[i], strerror(errno));

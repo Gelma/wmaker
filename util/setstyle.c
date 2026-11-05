@@ -443,6 +443,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* coverity[toctou] CID 1686089: theme path given by the user */
 	if (stat(file, &st) < 0) {
 		perror(file);
 		return 1;

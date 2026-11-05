@@ -1854,6 +1854,7 @@ static void createPanel(Panel * p)
 
 	panel->fprefix = wstrconcat(wuserdatapath(), "/" PACKAGE_TARNAME);
 
+	/* coverity[toctou] CID 1686073: WPrefs creates its own configuration directory under $HOME */
 	if (access(panel->fprefix, F_OK) != 0) {
 		if (-1 == mkdir(panel->fprefix, 0755) && errno != EEXIST) {
 			werror("%s", panel->fprefix);
