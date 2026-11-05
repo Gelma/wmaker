@@ -232,6 +232,38 @@ static void freeWorkspaceNameFrames(WorkspaceNameData *data)
 	data->frames_valid = 0;
 }
 
+/* The plaque depends only on the name and the font, so the last one drawn is
+ * kept: switching back to the same workspace used to reshape the text and
+ * draw it twenty-six times per switch (SpecAI 131). */
+static struct {
+	WScreen *screen;
+	WMFont *font;
+	char *name;
+	RImage *image;
+} nameTextCache;
+
+static void freeNameTextCache(void)
+{
+	if (nameTextCache.image)
+		RReleaseImage(nameTextCache.image);
+	if (nameTextCache.name)
+		wfree(nameTextCache.name);
+	memset(&nameTextCache, 0, sizeof(nameTextCache));
+}
+
+static void rememberNameText(WScreen *scr, const char *name, RImage *image)
+{
+	if (nameTextCache.image)
+		RReleaseImage(nameTextCache.image);
+	if (nameTextCache.name)
+		wfree(nameTextCache.name);
+
+	nameTextCache.screen = scr;
+	nameTextCache.font = scr->workspace_name_font;
+	nameTextCache.name = wstrdup(name);
+	nameTextCache.image = RRetainImage(image);
+}
+
 void wWorkspaceResetName(WScreen *scr)
 {
 	if (scr->workspace_name_timer) {
@@ -248,6 +280,9 @@ void wWorkspaceResetName(WScreen *scr)
 		wfree(scr->workspace_name_data);
 		scr->workspace_name_data = NULL;
 	}
+
+	if (nameTextCache.screen == scr)
+		freeNameTextCache();
 }
 
 static void hideWorkspaceName(void *data)
@@ -385,6 +420,15 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	XResizeWindow(dpy, scr->workspace_name, w + 4, h + 4);
 	XMoveWindow(dpy, scr->workspace_name, px, py);
 
+	/* Same workspace and same font: the plaque is already drawn, and the
+	 * window still carries its shape from last time. */
+	if (nameTextCache.screen == scr
+	    && nameTextCache.font == scr->workspace_name_font
+	    && nameTextCache.name && strcmp(nameTextCache.name, name) == 0) {
+		data->text = RRetainImage(nameTextCache.image);
+		goto have_text;
+	}
+
 	text = XCreatePixmap(dpy, scr->w_win, w + 4, h + 4, scr->w_depth);
 	mask = XCreatePixmap(dpy, scr->w_win, w + 4, h + 4, 1);
 
@@ -421,6 +465,10 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	XFreePixmap(dpy, text);
 	XFreePixmap(dpy, mask);
 
+	if (data->text)
+		rememberNameText(scr, name, data->text);
+
+ have_text:
 	if (!data->text) {
 		XMapRaised(dpy, scr->workspace_name);
 		XFlush(dpy);
@@ -468,6 +516,12 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	}
 
 	data->count = data->frames_valid;
+
+	if (data->frames_valid > 0) {
+		XSetWindowBackgroundPixmap(dpy, scr->workspace_name, data->frames[0]);
+		XClearWindow(dpy, scr->workspace_name);
+		XFlush(dpy);
+	}
 
 	/* set a timeout for the effect */
 	data->timeout = time(NULL) + 2 + (WORKSPACE_NAME_DELAY +

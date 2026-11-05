@@ -22,11 +22,13 @@ WM_STDOUT_LOG="${LOG_DIR}/wmaker-${TIMESTAMP}.log"
 #TOOL="${VALGRIND_TOOL:-callgrind}"
 TOOL="${VALGRIND_TOOL:-massif}"
 
-# Supporta anche il passaggio del tool tramite argomento CLI (es. --callgrind o --tool=callgrind)
+# Supporta anche il passaggio del tool tramite argomento CLI (es. --callgrind o --tool=callgrind).
+# --callgrind-lazy registra solo dopo callgrind_control -i on <pid>: e' la modalita' per
+# profilare un singolo scenario (20 cambi workspace) senza l'avvio dentro il dump.
 if [[ "${1:-}" =~ ^--tool=(.*)$ ]]; then
     TOOL="${BASH_REMATCH[1]}"
     shift
-elif [[ "${1:-}" =~ ^--(callgrind|massif|dhat|memcheck|cachegrind|helgrind)$ ]]; then
+elif [[ "${1:-}" =~ ^--(callgrind|callgrind-lazy|massif|dhat|memcheck|cachegrind|helgrind)$ ]]; then
     TOOL="${BASH_REMATCH[1]}"
     shift
 fi
@@ -43,6 +45,18 @@ if [[ "${TOOL}" == "callgrind" ]]; then
 # Promemoria (SpecAI 130): per sapere cosa costa davvero Alt+1..6, avviare con
 # --callgrind --instr-atstart=no, poi callgrind_control -i on <pid>, cambiare
 # workspace (xdotool key alt+2), callgrind_control --dump=ws e annotare <out>.1.
+# same as callgrind, but collection starts only on callgrind_control -i on:
+# nothing is recorded until then, so the dump holds the scenario alone.
+elif [[ "${TOOL}" == "callgrind-lazy" ]]; then
+    VALGRIND_OPTS=(
+        --tool=callgrind
+        --callgrind-out-file="${LOG_DIR}/callgrind-wmaker-${TIMESTAMP}-%p.out"
+        --instr-atstart=no
+        --collect-jumps=yes
+        --trace-children=yes
+        --trace-children-skip="/bin/*,/sbin/*,/usr/*,/tmp/*,/var/*,/home/*,/etc/*,/lib*,/opt/*,!${WM_PREFIX}/bin/wmaker"
+        --log-file="${VALGRIND_LOG}"
+    )
 elif [[ "${TOOL}" == "cachegrind" ]]; then
     VALGRIND_OPTS=(
         --tool=cachegrind
