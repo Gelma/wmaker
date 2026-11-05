@@ -67,6 +67,7 @@ int main(int argc, char **argv)
 	int buf_len = 0;
 	int limit_check = 1;
 	int clear_selection = 0;
+	int failed;
 
 	prog_name = argv[0];
 	for (i = 1; i < argc; i++) {
@@ -235,6 +236,11 @@ int main(int argc, char **argv)
 	XCloseDisplay(dpy);
 	if (file != stdin)
 		fclose(file);
+	/* Evaluate the status before releasing the buffer: reading a freed
+	 * pointer to compare it with NULL is undefined behaviour, and the
+	 * compiler is free to see the assignment as dead (Semgrep: use
+	 * after free). */
+	failed = (buf == NULL || errno != 0);
 	free(buf);
-	exit(buf == NULL || errno != 0);
+	exit(failed);
 }
