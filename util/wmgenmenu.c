@@ -37,6 +37,23 @@ char *path, *terminal = NULL;
 
 WMPropList *RMenu, *L1Menu, *L2Menu, *L3Menu, *L4Menu;
 
+/* WMCreatePLArray() retains its arguments, so the temporaries have to be
+ * released once the array owns them (Coverity CID 1686094, 1686100). */
+static WMPropList *makeMenuEntry(const char *name, const char *command, const char *data)
+{
+	WMPropList *a = WMCreatePLString(name);
+	WMPropList *b = WMCreatePLString(command);
+	WMPropList *c = data ? WMCreatePLString(data) : NULL;
+	WMPropList *array = WMCreatePLArray(a, b, c, NULL);
+
+	WMReleasePropList(a);
+	WMReleasePropList(b);
+	if (c)
+		WMReleasePropList(c);
+
+	return array;
+}
+
 int main(int argc, char *argv[])
 {
 	char *t;
@@ -491,12 +508,7 @@ static void other_window_managers(void)
 		if (t) {
 			snprintf(buf, sizeof(buf), _("Start %s"), _(other_wm[i][0]));
 			/* Root -> Other Window Managers -> <other window manager> */
-			L2Menu = WMCreatePLArray(
-				WMCreatePLString(buf),
-				WMCreatePLString("RESTART"),
-				WMCreatePLString(other_wm[i][1]),
-				NULL
-			);
+			L2Menu = makeMenuEntry(buf, "RESTART", other_wm[i][1]);
 			if (!L1Menu)
 				L1Menu = WMCreatePLArray(
 					WMCreatePLString(_("Other Window Managers")),
