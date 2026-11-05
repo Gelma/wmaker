@@ -2363,4 +2363,8 @@ static void OpenExtractPanelFor(_Panel *panel)
 	WMRealizeWidget(epanel->win);
 
 	WMMapWidget(epanel->win);
+
+	/* Nothing keeps a reference to this bookkeeping structure: the widgets
+	 * are owned by the panel window (Coverity CID 1686098). */
+	wfree(epanel);
 }
