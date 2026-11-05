@@ -4980,9 +4980,15 @@ static WDock * drawerRestoreState(WScreen *scr, WMPropList *drawer_state)
 	if (!value || !WMIsPLString(value))
 		COMPLAIN("Position");
 	else {
-		int x, y, y_index;
-		if (sscanf(WMGetFromPLString(value), "%i,%i", &x, &y) != 2)
+		/* COMPLAIN() only logs: without the initialisers a malformed
+		 * position leaves x and y undefined and y_index is computed from
+		 * garbage (CodeQL: unchecked sscanf). */
+		int x = 0, y = 0, y_index = 0;
+		if (sscanf(WMGetFromPLString(value), "%i,%i", &x, &y) != 2) {
 			COMPLAIN("Position");
+			x = scr->dock->x_pos;
+			y = scr->dock->y_pos;
+		}
 
 		/* check position sanity */
 		if (x != scr->dock->x_pos) {
