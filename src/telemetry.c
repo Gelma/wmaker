@@ -298,7 +298,11 @@ void wTelemetryInit(void)
 	 * be excluded from event handler latency. */
 	WMEventWaitHook = telemetryEventWaitHook;
 
-	mkdir(get_telemetry_dir(), 0755);
+	/* Telemetry directory creation is best effort: if it fails the dump
+	 * below is the one that reports the missing file (Coverity CID
+	 * 1686099). */
+	if (mkdir(get_telemetry_dir(), 0755) != 0 && errno != EEXIST)
+		wwarning("could not create %s: %s", get_telemetry_dir(), strerror(errno));
 
 	/* Dump stats every 60 seconds (60,000 ms) */
 	telemetry_timer_id = WMAddPersistentTimerHandler(60000, timer_callback, NULL);
