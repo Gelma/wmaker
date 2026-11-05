@@ -356,6 +356,11 @@ RImage *wTextureRenderImage(WTexture * texture, int width, int height, int relie
 	switch (texture->any.type) {
 	case WTEX_SOLID:
 		image = RCreateImage(width, height, False);
+		if (!image) {
+			/* Out of memory: callers already handle a NULL texture
+			 * (Coverity CID 1686078). */
+			return NULL;
+		}
 
 		color1.red = texture->solid.normal.red >> 8;
 		color1.green = texture->solid.normal.green >> 8;
