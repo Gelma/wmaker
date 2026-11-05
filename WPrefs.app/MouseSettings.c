@@ -407,7 +407,7 @@ static void fillModifierPopUp(WMPopUpButton * pop)
 			ptr = strstr(tmp, "_R");
 			if (ptr)
 				*ptr = 0;
-			sprintf(buffer, "%s (%s)", modifierNames[j], tmp);
+			snprintf(buffer, sizeof(buffer), "%s (%s)", modifierNames[j], tmp);
 			/*sprintf(buffer, "%s", tmp); */
 			WMAddPopUpButtonItem(pop, buffer);
 			for (i = k + 1; i < a; i++) {
@@ -731,7 +731,7 @@ static void storeData(_Panel * panel)
 			tmp = wstrdup("4");
 		}
 
-		sprintf(buffer, XSET " m %i/%i %s\n", (int)(panel->acceleration * 10), 10, tmp);
+		snprintf(buffer, sizeof(buffer), XSET " m %i/%i %s\n", (int)(panel->acceleration * 10), 10, tmp);
 		storeCommandInScript(XSET " m", buffer);
 
 		wfree(tmp);
