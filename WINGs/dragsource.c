@@ -733,7 +733,10 @@ static Window findDestination(WMDraggingInfo * info, WMPoint * mousePos)
 		return scr->rootWin;
 
 	/* exclude drag icon (and upper) from search */
-	for (i = nchildren - 1; i >= 0; i--) {
+	/* nchildren is unsigned: cast before subtracting, or the empty-children
+	 * case becomes an implementation-defined conversion (Coverity CID
+	 * 1686050). */
+	for (i = (int)nchildren - 1; i >= 0; i--) {
 		if (children[i] == XDND_DRAG_ICON(info)) {
 			i--;
 			break;
