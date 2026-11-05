@@ -373,7 +373,7 @@ static void createPanel(Panel *p)
 
 		case OPTION_WMAKER_INT:
 		{
-			char tmp[10];
+			char tmp[32];
 			WMButton *up, *down;
 			WMLabel *label;
 
@@ -408,7 +408,7 @@ static void createPanel(Panel *p)
 			else
 				state = expert_options[i].def_state;
 
-			sprintf(tmp, "%d", state);
+			snprintf(tmp, sizeof(tmp), "%d", state);
 			WMSetTextFieldText(panel->textfield[i], tmp);
 
 			break;
