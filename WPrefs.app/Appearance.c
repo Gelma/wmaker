@@ -588,6 +588,8 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 		str2rcolor(rc, str, &rcolor);
 
 		image = RCreateImage(width, height, False);
+		if (!image)
+			return None;
 		RClearImage(image, &rcolor);
 	} else if (strcasecmp(type, "igradient") == 0) {
 		int t1, t2;
