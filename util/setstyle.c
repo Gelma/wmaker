@@ -114,6 +114,22 @@ static Bool isFontOption(const char *option)
  * that qualifies the external references to be absolute, possibly
  * pending further expansion
  */
+/* prefix + "/" + name in a fixed buffer, refusing to truncate: a silently
+ * truncated path would point at a different file (Semgrep: unbounded copy to a
+ * stack buffer).  Returns False when the result does not fit. */
+static Bool buildTexturePath(char *dst, size_t size, const char *prefix, const char *name)
+{
+	if (!name)
+		name = "";
+
+	if (snprintf(dst, size, "%s/%s", prefix, name) >= (int)size) {
+		werror(_("path too long: %s/%s"), prefix, name);
+		return False;
+	}
+
+	return True;
+}
+
 static void hackPathInTexture(WMPropList * texture, const char *prefix)
 {
 	WMPropList *type;
@@ -138,7 +154,8 @@ static void hackPathInTexture(WMPropList * texture, const char *prefix)
 
 		/* get pixmap file path */
 		file = WMGetFromPLArray(texture, 1);
-		sprintf(buffer, "%s/%s", prefix, WMGetFromPLString(file));
+		if (!buildTexturePath(buffer, sizeof(buffer), prefix, WMGetFromPLString(file)))
+			return;
 		/* replace path with full path */
 		WMDeleteFromPLArray(texture, 1);
 		WMInsertInPLArray(texture, 1, WMCreatePLString(buffer));
@@ -149,14 +166,16 @@ static void hackPathInTexture(WMPropList * texture, const char *prefix)
 
 		/* get bitmap file path */
 		file = WMGetFromPLArray(texture, 1);
-		sprintf(buffer, "%s/%s", prefix, WMGetFromPLString(file));
+		if (!buildTexturePath(buffer, sizeof(buffer), prefix, WMGetFromPLString(file)))
+			return;
 		/* replace path with full path */
 		WMDeleteFromPLArray(texture, 1);
 		WMInsertInPLArray(texture, 1, WMCreatePLString(buffer));
 
 		/* get mask file path */
 		file = WMGetFromPLArray(texture, 2);
-		sprintf(buffer, "%s/%s", prefix, WMGetFromPLString(file));
+		if (!buildTexturePath(buffer, sizeof(buffer), prefix, WMGetFromPLString(file)))
+			return;
 		/* replace path with full path */
 		WMDeleteFromPLArray(texture, 2);
 		WMInsertInPLArray(texture, 2, WMCreatePLString(buffer));
