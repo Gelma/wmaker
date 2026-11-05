@@ -484,7 +484,8 @@ static void dragDivider(WMSplitView * sPtr, int clickX, int clickY)
 	if (sPtr->constrainProc) {
 		updateConstraints(sPtr);
 		checkSizes(sPtr);
-		distributeOffsetFormEnd(sPtr, _GetSplitViewSize() - getTotalSize(sPtr));
+		/* Signed, as in handleViewResized() (Coverity CID 1686031). */
+		distributeOffsetFormEnd(sPtr, (int)_GetSplitViewSize() - getTotalSize(sPtr));
 		checkPositions(sPtr);
 		updateSubviewsGeom(sPtr);
 	}
