@@ -423,7 +423,9 @@ static void changePage(WMWidget *bPtr, void *client_data)
 	} else if (page == 3) {
 		WMMapWidget(panel->iconFrm);
 		WMMapWidget(panel->wsFrm);
-	} else {
+	} else if (panel->appFrm) {
+		/* The application page only exists for application windows
+		 * (Coverity CID 1686096). */
 		WMMapWidget(panel->appFrm);
 	}
 
