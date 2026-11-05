@@ -372,7 +372,7 @@ static void create_mini_workspace(WScreen *scr, WWorkspaceMap *wsmap, W_Workspac
 			WMReleasePixmap(icon);
 		}
 
-		snprintf(name, sizeof(name), "%hu", workspace_index);
+		snprintf(name, sizeof(name), "%d", workspace_index);
 		WMSetButtonText(mini_workspace_btn, name);
 		WMSetButtonAction(mini_workspace_btn, selected_workspace_callback, wsmap);
 	}
