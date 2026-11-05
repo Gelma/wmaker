@@ -439,12 +439,7 @@ static void find_and_write(const char *group, char *list[][2], int this_is_termi
 			if (this_is_terminals && !terminal)
 				terminal = wstrdup(list[i][1]);
 			if (*(argv[argc-1]) != '!') {
-				L3Menu = WMCreatePLArray(
-					WMCreatePLString(_(list[i][0])),
-					WMCreatePLString("EXEC"),
-					WMCreatePLString(list[i][1]),
-					NULL
-				);
+				L3Menu = makeMenuEntry(_(list[i][0]), "EXEC", list[i][1]);
 			} else {
 				char comm[PATH_MAX - 9], *ptr;
 
@@ -464,12 +459,7 @@ static void find_and_write(const char *group, char *list[][2], int this_is_termi
 				snprintf(buf, sizeof(buf), "%s -e %s", terminal ? terminal : "xterm" , comm);
 
 				/* Root -> Applications -> <category> -> <application> */
-				L3Menu = WMCreatePLArray(
-					WMCreatePLString(_(list[i][0])),
-					WMCreatePLString("EXEC"),
-					WMCreatePLString(buf),
-					NULL
-				);
+				L3Menu = makeMenuEntry(_(list[i][0]), "EXEC", buf);
 			}
 			if (!L2Menu)
 				L2Menu = WMCreatePLArray(
