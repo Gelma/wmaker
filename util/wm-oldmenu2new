@@ -64,6 +64,7 @@ which1()
     # script with IFS=":" and a trimmed PATH (Semgrep: ifs-tampering).
     local _w1_path="$PATH"
     local _w1_found=""
+    # local: the caller gets its IFS back when which1 returns
     local IFS=":"
     local PATH="/bin:/usr/bin:/usr/local/bin"
 

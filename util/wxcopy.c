@@ -204,6 +204,9 @@ int main(int argc, char **argv)
 		}
 		if (!nbuf) {
 			fprintf(stderr, "%s: out of memory\n", prog_name);
+			/* exit() does not return: the free is the last use of buf,
+			 * which is why the double-free/use-after-free rules see a loop
+			 * that cannot happen (see SpecAI 129). */
 			free(buf);
 			exit(1);
 		}
@@ -219,6 +222,9 @@ int main(int argc, char **argv)
 			    (stderr,
 			     "%s: too much data in input - more than %d bytes\n"
 			     "  use the -nolimit argument to remove the limit check.\n", prog_name, MAXDATA);
+			/* exit() does not return: the free is the last use of buf,
+			 * which is why the double-free/use-after-free rules see a loop
+			 * that cannot happen (see SpecAI 129). */
 			free(buf);
 			exit(1);
 		}
