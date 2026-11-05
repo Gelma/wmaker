@@ -1154,7 +1154,7 @@ void wDefaultsCheckDomains(void* arg)
 		if (dict) {
 			if (!WMIsPLDictionary(dict)) {
 				WMReleasePropList(dict);
-				dict = NULL;
+				/* dict is reassigned before its next use */
 				wwarning(_("Domain %s (%s) of defaults database is corrupted!"),
 					 "WMWindowAttributes", w_global.domain.window_attr->path);
 			} else {
