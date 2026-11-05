@@ -219,21 +219,35 @@ the next export shows them as intentional rather than as a growing backlog.
 
 ## 6. Coverity model (so the next run is quieter and sharper)
 
-`tools/coverity-model.c`, loaded through the analysis settings, should teach the checker the three
-conventions it currently guesses wrong:
+`tools/coverity-model.c` is the delivered file (load it as a modeling file in the analysis
+settings; it is not part of the build). After writing it, the honest expectation is **small**: the
+checker already infers allocation from the `w…alloc`/`w…dup` names, and every leak it reported in
+this export was real - the code was fixed instead of teaching it otherwise. What the model does is
+make four statements that are literally true in the tree:
 
 ```c
-/* allocation and ownership of the WINGs layer */
-void *wmalloc(size_t n);                                  /* never returns NULL */
-void  wfree(void *p);
-WMPropList *WMCreatePLArray(WMPropList *elem, ...);       /* retains each argument */
-void WMAddToPLArray(WMPropList *array, WMPropList *item); /* retains item */
+void *wmalloc(unsigned long size);              /* fresh block of `size`     */
+char *wstrdup(const char *s);                   /* fresh copy, unknown size  */
+char *wstrndup(const char *s, unsigned long n); /* fresh block of at most n+1 */
+void  wfree(void *p);                           /* releases p, NULL accepted */
 ```
 
-With that, the real leak class (§3.2) becomes visible at *every* site instead of the three Coverity
-happened to reach, and the false "leak" noise from arrays that own their elements disappears.
+The value is precision, not suppression: the same obligations at every call site instead of the few
+the heuristics happened to understand. Measure it - one analysis with the file, one without, compare
+the per-checker counts; anything that appears *only* with the model is a modelling error.
 
-Also worth recording: `RCreateImage()` may return NULL, and the `WMBag` index semantics behind §3.3.
+What the file deliberately leaves out, because a "more complete" model would be worse than none:
+
+| left out | why |
+|---|---|
+| `wrealloc(p, n)` | a model can say "frees p and allocates" (invents a use-after-free when realloc fails and keeps the block) or "allocates, keeps p" (invents a leak on every success) |
+| `WMReleasePropList()`, `RReleaseImage()`, `WMDestroyWidget()` | reference counted: they free only at zero, so modelling them as free produces a use-after-free for every released-but-still-referenced object |
+| `WMCreatePLArray()`, `WMCreatePLString()` factories | the interesting property is that they *retain*; a model cannot express that without also hiding the real leak (§3.2), which was fixed in the code |
+| `Exit()`, `wAbort()`, `EventLoop()` | already declared `noreturn` in the headers |
+
+Two things are therefore not delegated to the model: `RCreateImage()` may return NULL (the callers
+check it, §3.4) and the `WMBag` index semantics behind §3.3 are a code invariant, not an API
+contract a model could express.
 
 ## 7. Definition of done
 
