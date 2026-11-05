@@ -738,6 +738,11 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 		}
 	}
 
+	/* coverity[leaked_storage]
+	 * CID 1686101 needs a texture whose type is both "...pixmap" and
+	 * "solid/mgradient": timage is only loaded for the first, and every
+	 * branch that can then run releases it.  The reported path combines two
+	 * mutually exclusive strcasecmp() results. */
 	if (!image)
 		return None;
 
