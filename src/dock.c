@@ -218,6 +218,7 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	wretain(icon);
 	icon->editing = 1;
 
+	/* coverity[false_positive] CID 1686081: WCHECK_STATE(NORMAL) then WCHANGE_STATE(MODAL) is the intended idiom */
 	WCHANGE_STATE(WSTATE_MODAL);
 
 	/* strip away dir names */

@@ -406,6 +406,7 @@ void WMSetScrollViewHasHorizontalScroller(WMScrollView * sPtr, Bool flag)
 			WMRealizeWidget(sPtr->hScroller);
 		}
 
+		/* coverity[false_positive] CID 1686067: the caller clears flags.hasHScroller first, so the scroller block is skipped */
 		reorganizeInterior(sPtr);
 
 		WMMapWidget(sPtr->hScroller);
