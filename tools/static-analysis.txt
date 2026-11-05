@@ -1,7 +1,7 @@
-cppcheck total 930
+cppcheck total 926
 cppcheck error 6
 cppcheck portability 10
-cppcheck style 912
+cppcheck style 908
 cppcheck warning 2
 tidy total 394
 tidy bugprone-branch-clone 2
