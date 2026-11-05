@@ -670,9 +670,9 @@ static void constructMenu(WMenu * menu, WMenuEntry * entry)
 				wfree(path[i]);
 				lpath = getLocalizedMenuFile(tmp);
 				if (lpath) {
+					/* ownership moved to path[i] */
 					wfree(tmp);
 					path[i] = lpath;
-					lpath = NULL;
 				} else {
 					path[i] = tmp;
 				}
