@@ -735,6 +735,20 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Root causes found while reading** (not in the Coverity export): `wtokensplit()` leaves `*argv` stale for a command that tokenises to nothing (which is what 1686037 and 240602 actually are); `WMCreatePLArray()` retains instead of consuming, so every inline `WMCreatePLArray(WMCreatePLString(...))` leaks; four `RCreateImage()` results are dereferenced unchecked; and `__wmessage()` appends into a `wmalloc()` buffer that is never zeroed — cid 1686071 is filed as an integer overflow but is a heap-overflow risk with an uninitialised read in front of it.
     - **Status (2026-11-05)**: **implemented**, one commit per CID, hashes in the plan's appendix. 67 of the 89 closed by a change (16 crash-safety, 7 integer, 17 leaks, 14 hardening, 15 hygiene, and the two root-cause helpers `wtokensplit()` and `WMEraseFromBag()`; the 89th, CID 1686136, arrived on 2026-11-05 and is the leak the 1686037 guard introduced), 20 suppressed with a `/* coverity[...] */` comment and the reason, 2 verdicts corrected on implementation (1686101 is a false positive; 1686086's bound is reachable). Verification: build 0/0, `make exit-test` and its `--valgrind` variant pass, `wrlib_blend_test` / `wings_bag_test` / `wrlib_xpm_test` pass (the last two fail on the pre-fix code, which is the point), `tools/static-analysis.sh check` re-baselined 930 → 926.
 
+128. **GitHub CodeQL Analysis & Remediation Plan (`QLCODEReport.md`)**:
+    - **What**: Comprehensive static analysis of the codebase using GitHub CodeQL (database in `QLCodeAnalysis/wmaker-db`, CSV/SARIF in `QLCodeAnalysis/wmaker-results.{csv,sarif}`). The run identified 563 findings: 53 errors, 179 warnings, and 331 recommendations, cataloged and triaged in [`QLCODEReport.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/QLCODEReport.md).
+    - **Breakdown by Component**: `src/` (211: 13 err, 67 warn, 131 rec), `WINGs/` (148: 28 err, 29 warn, 91 rec), `util/` (85: 3 err, 25 warn, 57 rec), `WPrefs.app/` (79: 7 err, 38 warn, 34 rec), `wrlib/` (38: 2 err, 20 warn, 16 rec), `wmlib/` (2: 0 err, 0 warn, 2 rec).
+    - **Key Critical Findings & Security Hazards**:
+      - *CWE-078 (OS Command Injection)*: `util/wmsetbg.c:1045` passes user-supplied `domain` via `snprintf` to `system()` without shell isolation.
+      - *CWE-120 / CWE-787 (Buffer Overrun)*: `WINGs/wcolorpanel.c` (17 instances of `char tmp[4]` formatted with `%d`), `WPrefs.app/Expert.c:411` (`char tmp[10]` with `%d`), and `WPrefs.app/WPrefs.c:707, 711` (`sprintf` into fixed `mbuf`).
+      - *CWE-476 (NULL Pointer Dereference)*: Missing return checks on `XGetWMHints` (`WINGs/wappresource.c:18, 64`), `WMGetListSelectedItem` (`WINGs/wfontpanel.c:696, 738, 767, 793`), `wApplicationOf` (`src/winspector.c:1440`, `src/dock.c:823`), `XAllocSizeHints` (`WPrefs.app/editmenu.c:653`), and `XGetImage` (`util/wmagnify.c:207`).
+      - *CWE-562 (Dangling Stack Escape)*: `util/xdnd.c:1596` stores the address of a local stack frame variable into global static context `dnd.user_hook1`.
+      - *CWE-252 (Unchecked `sscanf`)*: `src/dock.c:4986, 4989` logs warning via `COMPLAIN` on parse failure but proceeds to read uninitialized stack variables `x` and `y`.
+      - *Logic Flaw / Infinite Loop Hazard*: `src/icon.c:932` has an empty block on `XGrabPointer` failure, immediately entering an infinite event loop `while (1)`.
+      - *CWE-190 (Integer Overflow)*: 25 instances of 32-bit `width * height * channels` products passed to `malloc`/`memcpy` in `wrlib` and `src/properties.c`.
+      - *CWE-197 (Ambiguously Signed Bitfield)*: `WINGs/wtext.c:75` uses plain `int script:8;` intended for negative subscript values.
+    - **Remediation Roadmap**: Structured into a 4-tier action plan (P1: Critical security & crash fixes, P2: Logic integrity & integer overflow casts, P3: Bounded string/file I/O hardening, P4: Code hygiene & redundant conditional elimination).
+
 ---
 
 ## Verification Status
