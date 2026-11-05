@@ -217,12 +217,13 @@ void Restart(char *manager, Bool abortOnFailure)
 {
 	char *prog = NULL;
 	char *argv[MAX_RESTART_ARGS];
+	char *save = NULL;
 	int i;
 
 	if (manager && manager[0] != 0) {
-		prog = argv[0] = strtok(manager, " ");
+		prog = argv[0] = strtok_r(manager, " ", &save);
 		for (i = 1; i < MAX_RESTART_ARGS; i++) {
-			argv[i] = strtok(NULL, " ");
+			argv[i] = strtok_r(NULL, " ", &save);
 			if (argv[i] == NULL) {
 				break;
 			}
