@@ -86,7 +86,7 @@ static WMenu *parseMenuCommand(WScreen * scr, Window win, char **slist, int coun
 {
 	WMenu *menu;
 	int command;
-	int code, pos;
+	int code, pos = 0;   /* %n is not reached if sscanf stops early */
 	char title[300];
 	char rtext[300];
 
