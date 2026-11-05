@@ -452,21 +452,12 @@ int WMEraseFromBag(WMBag * self, int index)
 {
 	W_Node *ptr = treeSearch(self->root, self->nil, index);
 
-	if (ptr != self->nil) {
-
-		self->count--;
-
-		ptr = rbTreeDelete(self, ptr);
-		if (self->destructor)
-			self->destructor(ptr->data);
-		wfree(ptr);
-
-		wassertrv(self->count == 0 || self->root->index >= 0, 1);
-
-		return 1;
-	} else {
-		return 0;
-	}
+	/* Same work as WMDeleteFromBag(): the delete has to renumber the
+	 * successors' index too, otherwise the next lookup by index misses or
+	 * returns the wrong element.  (CID 1686055 reported this line as a
+	 * use-after-free of self->root; that part is a false positive, but the
+	 * missing renumbering is real.) */
+	return treeDeleteNode(self, ptr);
 }
 
 int WMDeleteFromBag(WMBag * self, int index)
