@@ -519,6 +519,7 @@ static void randomPlaceWindow(WWindow *wwin, int *x_ret, int *y_ret,
 		w = 1;
 	if (h < 1)
 		h = 1;
+	/* coverity[weak_crypto] window placement, not a secret */
 	*x_ret = X_ORIGIN + rand() % w;
 	*y_ret = Y_ORIGIN + rand() % h;
 }

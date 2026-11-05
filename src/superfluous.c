@@ -81,6 +81,7 @@ void DoKaboom(WScreen * scr, Window win, int x, int y)
 
 	for (i = 0, k = 0; i < wPreferences.icon_size / ICON_KABOOM_PIECE_SIZE && k < PIECES; i++) {
 		for (j = 0; j < wPreferences.icon_size / ICON_KABOOM_PIECE_SIZE && k < PIECES; j++) {
+			/* coverity[weak_crypto] animation jitter, not a secret */
 			if (rand() % 2) {
 				ax[k] = i;
 				ay[k] = j;

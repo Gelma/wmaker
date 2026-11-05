@@ -1352,6 +1352,7 @@ void animateResize(WScreen *scr, int x, int y, int w, int h, int fx, int fy, int
 		return;
 
 	if (style == WIS_RANDOM)
+		/* coverity[weak_crypto] picks an animation, not a secret */
 		style = rand() % 3;
 
 	switch (style) {
