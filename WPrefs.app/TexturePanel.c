@@ -914,7 +914,13 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 			else
 				str = WMGetFromPLString(p);
 
-			XParseColor(WMScreenDisplay(scr), WMScreenRContext(scr)->cmap, str, &xcolor);
+			if (!XParseColor(WMScreenDisplay(scr), WMScreenRContext(scr)->cmap, str, &xcolor)) {
+				/* Unknown colour name: keep the list entry, use
+				 * black (Coverity CID 1686090). */
+				xcolor.red = 0;
+				xcolor.green = 0;
+				xcolor.blue = 0;
+			}
 
 			rgb = wmalloc(sizeof(RColor));
 			rgb->red = xcolor.red >> 8;
