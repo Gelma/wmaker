@@ -4998,6 +4998,12 @@ static WDock * drawerRestoreState(WScreen *scr, WMPropList *drawer_state)
 
 	/* restore dock properties (applist and others) */
 	dock_state = WMGetFromPLDictionary(drawer_state, dDock);
+	if (!dock_state || !WMIsPLDictionary(dock_state)) {
+		/* A drawer saved by an older version can lack the dock
+		 * dictionary: there is nothing left to restore, but the drawer
+		 * itself is already registered (Coverity CID 1686105). */
+		return drawer;
+	}
 
 	/* restore lowered/raised state: same as scr->dock, no matter what */
 	drawer->lowered = scr->dock->lowered;
