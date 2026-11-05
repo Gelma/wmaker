@@ -1978,11 +1978,9 @@ static void dispatchWKBDCommand(int command, WScreen *scr, WWindow *wwin, XEvent
 			WMAddToArray(list, twin);
 
 		} else if (wwin && ISMAPPED(wwin) && ISFOCUSED(wwin)) {
-			if (scr->shortcutWindows[widx]) {
-				WMFreeArray(scr->shortcutWindows[widx]);
-				scr->shortcutWindows[widx] = NULL;
-			}
-
+			/* Reached only when the slot is empty: the branch above
+			 * takes the non-NULL case, so the free that used to stand
+			 * here was dead code (Coverity CID 1686092). */
 			if (wwin->flags.selected && scr->selected_windows) {
 				scr->shortcutWindows[widx] = WMDuplicateArray(scr->selected_windows);
 				/*WMRemoveFromArray(scr->shortcutWindows[index], wwin);
