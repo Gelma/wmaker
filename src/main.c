@@ -379,8 +379,13 @@ Bool RelaunchWindow(WWindow *wwin)
 		wtokensplit(command, &argv, &argc);
 
 	if (argc == 0) {
-		/* the command tokenises to nothing: nothing to exec (CID 1686037) */
+		/* The command tokenises to nothing: nothing to exec.  command was
+		 * ours on this path and argv is NULL by construction, but free
+		 * both so the cleanup does not depend on that invariant
+		 * (Coverity CID 1686136). */
 		werror("cannot relaunch the application because its command line is empty");
+		wtokenfree(argv, argc);
+		wfree(command);
 		return False;
 	}
 
