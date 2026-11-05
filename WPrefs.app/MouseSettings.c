@@ -300,7 +300,9 @@ static void showData(_Panel * panel)
 	WMSetSliderValue(panel->speedS, (accel - 0.25F) / 0.25F);
 
 	panel->acceleration = accel;
-	sprintf(buffer, "%.2f", (double)accel);
+	/* accel comes from sscanf("%f") on the defaults file and can be huge
+	 * (CodeQL error: float to string conversion into 32 bytes). */
+	snprintf(buffer, sizeof(buffer), "%.2f", (double)accel);
 	WMSetTextFieldText(panel->acceT, buffer);
 
 	 /**/ b = GetIntegerForKey("DoubleClickTime");
