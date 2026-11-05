@@ -210,6 +210,8 @@ static void updateTGradImage(TexturePanel *panel)
 		image = RMakeTiledImage(panel->image, 141, 91);
 	else
 		image = RCloneImage(panel->image);
+	if (!image)
+		return;	/* out of memory: keep the previous preview */
 
 	if (WMGetButtonSelected(panel->dirhB))
 		gradient = RRenderGradient(image->width, image->height, &from, &to, RHorizontalGradient);
