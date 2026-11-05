@@ -196,6 +196,13 @@ static void decrToFit(TextField * tPtr)
 {
 	int vp = tPtr->viewPosition;
 
+	/* The caller may have just deleted text: a stale position would index
+	 * before the buffer or past its end (Coverity CID 1686057). */
+	if (vp < 0)
+		vp = 0;
+	else if (vp > tPtr->textLen)
+		vp = tPtr->textLen;
+
 	while (vp > 0 && (vp += oneUTF8CharBackward(&tPtr->text[vp], vp),
 			  TEXT_WIDTH(tPtr, vp)) < tPtr->usableWidth) {
 		tPtr->viewPosition = vp;
