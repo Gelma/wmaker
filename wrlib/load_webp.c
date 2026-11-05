@@ -145,7 +145,7 @@ RImage *RLoadWEBP(const char *file_name)
 			return NULL;
 		}
 		ret = WebPDecodeRGBAInto(raw_data, raw_data_size, image->data,
-		                         features.width * features.height * 4,
+		                         (size_t)features.width * (size_t)features.height * 4,
 		                         features.width * 4);
 	} else {
 		image = RCreateImage(features.width, features.height, False);
@@ -155,7 +155,7 @@ RImage *RLoadWEBP(const char *file_name)
 			return NULL;
 		}
 		ret = WebPDecodeRGBInto(raw_data, raw_data_size, image->data,
-		                        features.width * features.height * 3,
+		                        (size_t)features.width * (size_t)features.height * 3,
 		                        features.width * 3);
 	}
 

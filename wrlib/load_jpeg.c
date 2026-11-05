@@ -118,7 +118,7 @@ static RImage *do_read_jpeg_file(struct jpeg_decompress_struct *cinfo, const cha
 		goto abort_and_release_resources;
 	}
 
-	buffer[0] = (JSAMPROW) malloc(cinfo->image_width * cinfo->num_components);
+	buffer[0] = (JSAMPROW) malloc((size_t)cinfo->image_width * (size_t)cinfo->num_components);
 	if (!buffer[0]) {
 		RErrorCode = RERR_NOMEMORY;
 		goto abort_and_release_resources;

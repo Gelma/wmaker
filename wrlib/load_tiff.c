@@ -85,9 +85,9 @@ RImage *RLoadTIFF(const char *file, int index)
 
 	/* read data */
 #if TIFFLIB_VERSION < 20210416
-	ptr = data = (uint32 *) _TIFFmalloc(width * height * sizeof(uint32));
+	ptr = data = (uint32 *) _TIFFmalloc((size_t)width * (size_t)height * sizeof(uint32));
 #else
-	ptr = data = (uint32_t *) _TIFFmalloc(width * height * sizeof(uint32_t));
+	ptr = data = (uint32_t *) _TIFFmalloc((size_t)width * (size_t)height * sizeof(uint32_t));
 #endif
 
 	if (!data) {

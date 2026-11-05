@@ -149,7 +149,7 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		rximg->image = XShmCreateImage(context->dpy, visual, depth,
 					       ZPixmap, NULL, &rximg->info, width, height);
 
-		rximg->info.shmid = shmget(IPC_PRIVATE, rximg->image->bytes_per_line * height, IPC_CREAT | 0777);
+		rximg->info.shmid = shmget(IPC_PRIVATE, (size_t)rximg->image->bytes_per_line * (size_t)height, IPC_CREAT | 0777);
 		if (rximg->info.shmid < 0) {
 			context->attribs->use_shared_memory = 0;
 			fprintf(stderr, _("wrlib: could not allocate shared memory segment, %s: %s\n"), "shmget", strerror(errno));
