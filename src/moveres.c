@@ -1379,7 +1379,6 @@ int wKeyboardMoveResizeWindow(WWindow * wwin)
 	}
 
 	XSync(dpy, False);
-	wusleep(10000);
 	XGrabKeyboard(dpy, root, False, GrabModeAsync, GrabModeAsync, CurrentTime);
 
 	if (!wwin->flags.selected) {
