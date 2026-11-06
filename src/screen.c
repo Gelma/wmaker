@@ -1442,6 +1442,43 @@ void wScreenDestroy(WScreen *scr)
 
 	wWorkspaceResetName(scr);
 
+	/* R5: release the shared dock/clip/drawer menus that were otherwise
+	 * leaked at exit. Ownership is subtle: clip_options is a cascade shared
+	 * by the dock, clip and drawer menus, and dock_pos_menu/clip_submenu are
+	 * shared too, so each distinct menu must be destroyed exactly once. The
+	 * top-level menus are destroyed with recurse=False (which only clears the
+	 * cascade->parent links), then the shared submenus once with recurse=True.
+	 * The dock structure itself is left alone: its icons are already detached
+	 * during shutdown, so wDockDestroy() would trip wDockDetach's assert. */
+	if (scr->dock && scr->dock->menu) {
+		wMenuDestroy(scr->dock->menu, False);
+		scr->dock->menu = NULL;
+	}
+	if (scr->clip_menu) {
+		wMenuDestroy(scr->clip_menu, False);
+		scr->clip_menu = NULL;
+	}
+	if (scr->drawer_menu) {
+		wMenuDestroy(scr->drawer_menu, False);
+		scr->drawer_menu = NULL;
+	}
+	if (scr->clip_ws_menu) {
+		wMenuDestroy(scr->clip_ws_menu, True);
+		scr->clip_ws_menu = NULL;
+	}
+	if (scr->dock_pos_menu) {
+		wMenuDestroy(scr->dock_pos_menu, True);
+		scr->dock_pos_menu = NULL;
+	}
+	if (scr->clip_options) {
+		wMenuDestroy(scr->clip_options, True);
+		scr->clip_options = NULL;
+	}
+	if (scr->clip_submenu) {
+		wMenuDestroy(scr->clip_submenu, True);
+		scr->clip_submenu = NULL;
+	}
+
 	if (scr->no_focus_win != None) {
 		XDestroyWindow(dpy, scr->no_focus_win);
 		scr->no_focus_win = None;
