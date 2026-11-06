@@ -888,6 +888,10 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Appended a "Feasibility Assessment" section to `ForTheFuture.md` rating each of the eight community wishlist items for feasibility, likelihood of success, concrete steps and required user input, grounded in the `BreakingToTheFuture.md`/`SpecAI.md` measurements.
     - Verdict summary: **Wayland** → wlmaker, not a wmaker port; **fractional scaling** and **integrated compositing** are the hard items (need XRender/XComposite and real-GPU measurement); **dynamic multi-monitor**, **snapping**, **system tray/SNI**, **dockapp modernization** and **WPrefs/XDG** are incremental and high-likelihood.
 
+141. **System Tray / StatusNotifierItem — Implementation Plan (`SNIHostPlan.md`)**:
+    - Wrote a detailed implementation plan for wishlist item 5 (integrate StatusNotifierItem into the dock) as a repo document `SNIHostPlan.md`; no code written yet.
+    - Key choices: **libdbus** (not GDBus) so the existing WINGs `poll()` loop gains one fd; each SNI item becomes a synthetic `WAppIcon` via `wAppIconCreateForDock()` with a new `sni:1` flag; `IconPixmap`→`RImage`→`WIcon` for the icon; DBusMenu and the XEmbed legacy tray are deferred to later phases. Gated behind `--enable-sni` so the default build stays dependency-free.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
