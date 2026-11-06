@@ -48,3 +48,76 @@ Legacy DockApps (collected on *dockapps.net*) are often based on archaic audio l
 
 * **WPrefs:** The proprietary graphical configuration tool is appreciated for its visual consistency, but is showing its age: it lacks intuitive interfaces for configuring newer EWMH shortcuts introduced in recent releases, lacks full UTF-8 support in certain tabs, and needs modern theme management.  
 * **XDG Standards:** A classic request on the mailing lists is completing the migration to standard `$XDG_CONFIG_HOME` and `$XDG_DATA_HOME` directories, reducing the hardcoded dependency on the legacy `~/GNUstep/Defaults/` directory.
+
+---
+
+## Feasibility Assessment
+
+*Assessment added 2026-11-06, grounded in the measurements already collected in `BreakingToTheFuture.md` and `SpecAI.md` (the WM's own code is ~20.8% of instructions; the hot loops are Pango/HarfBuzz shaping and Xlib round-trips; SIMD and 4-byte-pixel rewrites were measured and rejected). Each item is rated for feasibility, likelihood of success, the concrete steps, and the user input required before starting.*
+
+| # | Request | Feasibility | Likelihood | Effort / Risk |
+|---|---|---|---|---|
+| 1 | Native Wayland | Low (port) / High (wlmaker) | Low (port) | Separate project |
+| 2 | HiDPI / fractional scaling | Medium | Medium (2×), Low (fractional) | Medium |
+| 3 | Dynamic multi-monitor | Medium-High | High | Medium, incremental |
+| 4 | Integrated compositing | Medium | Medium | High, standalone project |
+| 5 | System tray / SNI | High | High | Low, isolated module |
+| 6 | Tiling / snapping | High | High | Low, incremental |
+| 7 | DockApp modernization / PipeWire | High (out of tree) | High | Low per app, ongoing |
+| 8 | WPrefs / XDG | High | High | Medium, incremental |
+
+### 1. Native Wayland Support
+
+- **Feasibility:** Low as a *port*. The core is deeply X11/Xlib (`wWindowFor`, event dispatch, `wcore.c`, `wrlib` all assume `Display *`); a direct rewrite is the whole WM. High as a *separate* project — which already exists: **wlmaker** (Wayland Maker) is the community's answer.
+- **Likelihood of success:** Low for a port inside this tree; High for wlmaker, which is the correct vehicle.
+- **Steps:** none in wmaker. The pragmatic path is (a) keep wmaker as the X11/XWayland WM, (b) document XWayland usage for Wayland sessions, (c) direct Wayland demand to wlmaker.
+- **User input required:** strategic decision — invest in wlmaker (not this repo), or declare wmaker X11-only and stop entertaining the port.
+
+### 2. Native HiDPI and Fractional Scaling
+
+- **Feasibility:** Medium. `wrlib` already scales (nearest `RScaleImage`, smooth `RSmoothScaleImage`); the Dock/Clip tiles and decorations are the hardcoded part (`ICON_SIZE`, fixed 64×64 matrices). Integer 2× is realistic; true fractional scaling (1.25×/1.5×) needs XRender compositing or per-monitor Xft DPI, which is much harder.
+- **Likelihood of success:** Medium for 2×; Low for fractional without a compositor.
+- **Steps:** (a) make Dock/Clip tile and decoration sizes runtime-scalable instead of fixed 64×64, (b) scale fonts/decoration metrics from the Xft DPI, (c) mixed-DPI multi-monitor needs per-output DPI (Xrandr) plus per-monitor icon caches.
+- **User input required:** target priority (integer 2× first, or fractional?); real 2K/4K hardware to verify.
+
+### 3. Advanced Multi-Monitor Management (Dynamic XRandR)
+
+- **Feasibility:** Medium-High. `xinerama.c`/`randr.c` already handle Xrandr; what is missing is hot-plug reaction, per-screen persistence, and per-monitor Dock/Clip.
+- **Likelihood of success:** High (incremental, low architectural risk).
+- **Steps:** (a) verify/listen to `RRScreenChangeNotify` for hot-plug, (b) persist icon/window positions per output in WMState, (c) allow a Dock/Clip per monitor (or duplicate-on-all).
+- **User input required:** laptop + external display to test hot-plug; desired behaviour (Dock on every monitor? Clip per monitor?).
+
+### 4. Integrated Compositing (True Transparency/Shadows)
+
+- **Feasibility:** Medium. Needs `XComposite` redirection, `XDamage` tracking and XRender (or GL) compositing. This is the largest standalone item and overlaps `BreakingToTheFuture.md` step 6, which is already flagged "highest risk, least evidence".
+- **Likelihood of success:** Medium; a minimal XComposite+XRender compositor is achievable but is a project in its own right, and on Xvfb/llvmpipe it is neutral or slower.
+- **Steps:** (a) `XCompositeRedirectSubwindows`, (b) `XDamage` tracking, (c) XRender blend of window pixmaps, (d) alpha/shadow on menus and shaped icons.
+- **User input required:** integrate vs keep picom; scope (shadows/alpha only, or effects?). Decide after measuring on a real GPU.
+
+### 5. System Tray / StatusNotifierItem
+
+- **Feasibility:** High. A native dockapp (or a Dock module) speaking DBus/StatusNotifierItem is an *isolated* component — it does not touch the core.
+- **Likelihood of success:** High (low risk, well-bounded).
+- **Steps:** register on DBus, listen to `StatusNotifierWatcher`, render the icons as a Dock/Clip tile.
+- **User input required:** shape — a standalone dockapp (dockapps.net style) or an integrated Dock module?
+
+### 6. Assisted Tiling and Window Snapping
+
+- **Feasibility:** High. Maximus and horizontal/vertical split already exist; grid snapping is an incremental addition to `moveres.c` (drag-to-edge detection) plus keybindings.
+- **Likelihood of success:** High.
+- **Steps:** (a) define snap zones (half, quadrants, 3-column), (b) Super/Mod4 keybindings, (c) drag-to-edge detection in the move/resize loop.
+- **User input required:** which shortcuts and zones; whether snapping should be opt-in per preference.
+
+### 7. DockApp Ecosystem Modernization and PipeWire
+
+- **Feasibility:** High, but it is **out of tree** — these are external dockapps on dockapps.net, not wmaker code. wmaker needs no change.
+- **Likelihood of success:** High per app; ongoing maintenance burden.
+- **Steps:** fork/release specific dockapps (PipeWire/PulseAudio volume, brightness, NetworkManager) with modern backends.
+- **User input required:** which dockapps to prioritize; whether Andrea wants to curate an official set.
+
+### 8. WPrefs Updates and Full XDG Compliance
+
+- **Feasibility:** High. WPrefs is a separate `WPrefs.app`; XDG is a path migration with a compatibility fallback.
+- **Likelihood of success:** High.
+- **Steps:** (a) WPrefs: UI for new EWMH shortcuts, UTF-8, theme management; (b) migrate defaults/state to `$XDG_CONFIG_HOME/wmaker` with a `~/GNUstep` fallback.
+- **User input required:** priority (WPrefs UI vs XDG first); migration strategy (hard break vs read-both fallback).
