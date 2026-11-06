@@ -878,6 +878,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       2. With `wDockDestroy` removed, `wMenuDestroy` (`menu.c:669`) hits `Invalid free()` on a read-only mapped address: `wfree(menu->entries[i]->text)` frees a **gettext static string**. `dockMenuCreate()` and friends store `entry->text = _("...")` directly (some entries even `wfree(entry->text)` then reassign the static pointer), so the menu entries are not heap-owned.
     - **Correct fix (deferred):** make every dock/clip/drawer menu entry own its text via `wstrdup(_("..."))` (in `dockMenuCreate`, `makeDockPositionMenu`, `makeClipOptionsMenu`, `makeWorkspaceMenu`), then destroy the menus exactly once (top-level with `recurse=False`, shared submenus `dock_pos_menu`/`clip_options`/`clip_submenu` with `recurse=True`). This is a menu-lifecycle change across several files, not a one-line teardown, so it stays open for a dedicated session.
 
+139. **R5 Dock-Menu Fix — Complete (`84fbb852`, `b08d03ef`)**:
+    - **`84fbb852` (dock.c)**: added `setMenuEntryText()` (frees the previous text, stores a `wstrdup()` copy) and routed every `entry->text = _("...")` reassignment in `dockMenuCreate()` and `updateDockMenu()` through it, so the menu entries are heap-owned instead of pointing at gettext static strings.
+    - **`b08d03ef` (screen.c)**: `wScreenDestroy()` now destroys the shared menus exactly once — top-level dock/clip/drawer menus with `recurse=False`, shared submenus `dock_pos_menu`/`clip_options`/`clip_submenu` with `recurse=True` — and leaves the dock structure alone (its icons are already detached, so `wDockDestroy()` would trip `wDockDetach`'s assert).
+    - **Verification**: build 0 warnings; `EXIT_TEST_ARGS=--valgrind make exit-test` passes (SIGTERM/SIGUSR1/SIGUSR2 + "no invalid memory accesses during shutdown"). This closes the §132-E R5 item (the pixmap half was `115340fa`).
+    - **Residual-leak note**: with a throw-away `$HOME` the dock is empty, so `dockMenuCreate()` never runs in the exit test; the remaining `definitely lost` (5,195 bytes / 38 blocks) comes from other sources. This fix removes the *crash*, not every last byte.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
