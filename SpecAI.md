@@ -856,6 +856,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Keyboard move/resize: the `MoveResizeKey` binding fires and the grab engages — after `alt+F7` the `XGrabServer` freezes the display and blocks further XTest injection, which is the expected grab behaviour, not a defect. The end-to-end keyboard case (arrows + Return) cannot be driven by xdotool because XTest requests are not processed while the server is grabbed (a real user's events arrive from the input driver, not the server, so they are not affected).
     - **Note**: `xdotool` is now installed on this machine (`/usr/bin/xdotool`), superseding the earlier "no xdotool" assumption; the keyboard-move/resize grab is still best confirmed interactively because of the XGrabServer/XTest limitation above.
 
+135. **`handleDeadProcess()` per Event — Audited, No Change (closes §132-B)**:
+    - **Claim checked**: §132-B suggested moving `handleDeadProcess()` out of the per-event `DispatchEvent()` (`src/event.c:174`) to an idle/timer handler.
+    - **Finding**: it is already a no-op per event. `handleDeadProcess()` (`src/event.c:539`) only dispatches a queue that the `SIGCHLD` handler populates via `waitpid(-1, &status, WNOHANG)` → `NotifyDeadProcess()` (`src/startup.c:247`, `src/event.c:526`). In steady state `deadProcessPtr == 0`, so the per-event cost is one call plus two branch tests (an empty `for` and `if (!deathHandlers)`), with **no syscall and no allocation**.
+    - **Decision**: keep it in `DispatchEvent`. Moving it to a timer would add timer-management overhead without removing any syscall, and would delay dock/app-icon death updates. The §132-B hypothesis is refuted.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
