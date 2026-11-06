@@ -837,6 +837,16 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - **D — inline telemetry**: 2-3 `clock_gettime` (vDSO, ~60 ns) per event, ~4 ms over the whole session; accepted by design (§104-§107), keep as always-on.
       - **E — non-CPU backlog**: R5 (~5.2 KB deterministic exit leaks), R6 (`make check` has no `TESTS`), Finding 18 (valgrind-session defaults to massif), Finding 16 (`-lpthread` hard-coded in `test/Makefile.am`).
 
+133. **Residual `XSync` Audit — All Sites Are Justified (no code change)**:
+    - **Scope**: every remaining `XSync` call in the hot paths listed in §132-A — 6 in `src/moveres.c` (1381, 1441, 1863, 1931, 1981, 2525), 2 in `src/texture.c` (169/172), 5 in `src/menu.c` (1208/1211/1485/2192/2195) and 2 in `src/misc.c` (815/821) — was read in context to check whether the reply is actually consumed or a plain `XFlush` would do.
+    - **Verdict: all of them are legitimate, none is a wasted round-trip**:
+      - `moveres.c` 1441, 1863, 1931, 1981, 2525 are the classic **grab/draw/ungrab anti-flicker pattern**: the `XSync` after drawing the ghost/transparent frame or after `XUngrabServer` guarantees the pixels are visible before the next transition (re-grab, the real move, or pointer/keyboard release). Replacing them with `XFlush` would risk ghost-frame artifacts during interactive move/resize.
+      - `moveres.c:1381` `XSync` before `XGrabKeyboard` drains the queue so the following `XGrabServer` freezes a clean display. It is paired with a fixed **`wusleep(10000)` (10 ms)** on line 1382 — inherited from `688a56e8` (2009, itself carrying the 1999 pattern) — which is the real per-move/resize latency cost (~100x a round-trip), and the one candidate worth an interactive A/B test (remove or shrink the sleep), not the `XSync`.
+      - `texture.c:169/172` bracket `XFreeColors` with `XSetErrorHandler(dummyErrorHandler)`; the `XSync`s flush pending errors before installing the dummy handler and collect `XFreeColors` errors before restoring the real one. Correct as-is.
+      - `menu.c:1208/1211/2192/2195` are inside the `MENU_BLINK_COUNT` blink loop (each frame must be visible) and `1485` deselects the entry before `wMenuUnmap`; all anti-flicker, and the blink ones are compiled out when `MENU_BLINK_COUNT == 0`.
+      - `misc.c:815/821` bracket `ExecuteShellCommand` around `XGrabPointer`/`XUngrabPointer`: the `XSync`s make the wait cursor appear before the (possibly long-running) command and disappear after, so the pointer feedback is not lost.
+    - **Outcome**: no code change; the §132-A hypothesis ("some `XSync` may be replaceable with `XFlush`") is **refuted by the audit**. The only actionable latency item is the fixed `wusleep(10000)` at `moveres.c:1382`, left for an interactive test because it likely papers over a grab race.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
