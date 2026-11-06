@@ -827,6 +827,16 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Verified**: the plaque renders identically on a cache hit (centre max 254, mean 82, same as the miss) on workspace 1 after 1 -> 0 -> 1; `SIGTERM` exits 0; `make exit-test` and its `--valgrind` variant pass; `tools/static-analysis.sh check` is clean.
     - **Tooling**: `wmaker-valgrind-session` gains a `--callgrind-lazy` mode (`--instr-atstart=no`, collection only after `callgrind_control -i on`) and now skips `/opt/*` except the WM, so TeamViewer - which the 18:37 run instrumented, at 2.26 G and 6.11 G Ir - stays out. Installed in `/opt/wmaker/bin/`; the step-by-step command sheet is `~/Valgrind-WorkspaceSwitch-Test.md` (deliberately outside the repository).
 
+132. **CPU Refactoring Evaluation (2026-11-06)**:
+    - **What was read**: every `*.md` file in the repo root and `/tmp/memory/` (48 project memories), then the hot-path sources were inspected (`src/event.c`, `WINGs/handlers.c`, `src/moveres.c`, `src/placement.c`, `src/window.c`, `wrlib/*`).
+    - **Verdict**: the large CPU wins are already done. Measured across the 2026-11-05 session, the WM's own code is only **20.8%** of 6.80 G Ir; the rest is Xlib/Xft (49.6%), fontconfig (4.6%) and glibc (10%). The caches (4-way window lookup, title strip, workspace plaque, menu texture LRU, XKB layout), the X11-traffic reductions (root key grabs, motion compression, `XGetGeometry` bypass on `PropertyNotify`) and the wrlib decisions (SIMD refused on measurement, 8-bit visuals purged, `ckd_*` sizing) are all in place.
+    - **Remaining targets, in priority order**:
+      - **A — residual synchronous `XSync` round-trips**: 6 in `src/moveres.c` (lines 1381, 1441, 1863, 1931, 1981, 2525) inside the interactive move/resize loop, plus `src/texture.c:169/172`, `src/menu.c:1208/1211/1485/2192/2195` and `src/misc.c:815/821`. Each is a full flush+reply round-trip on the path where perceived latency matters most; audit one by one whether the reply is actually consumed or a plain `XFlush` suffices.
+      - **B — `handleDeadProcess()` per event** (`src/event.c:174`): an O(1) test when the queue is empty, but paid on every dispatch; candidate for an idle/timer handler. Minor, to be confirmed by `perf`.
+      - **C — image pipeline**: `RConvertImage` (7.85%) and `RCombineImagesWithOpaqueness` (4.85%) dominate the WM-only profile, but the session did only ~18 screen-size conversions and ~5 blends in 5 h 20 m (~1 per 18 min), so the pipeline is **not** the steady-state bottleneck; re-count before any change.
+      - **D — inline telemetry**: 2-3 `clock_gettime` (vDSO, ~60 ns) per event, ~4 ms over the whole session; accepted by design (§104-§107), keep as always-on.
+      - **E — non-CPU backlog**: R5 (~5.2 KB deterministic exit leaks), R6 (`make check` has no `TESTS`), Finding 18 (valgrind-session defaults to massif), Finding 16 (`-lpthread` hard-coded in `test/Makefile.am`).
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
