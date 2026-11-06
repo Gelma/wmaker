@@ -1169,7 +1169,12 @@ void WMDestroyScreen(WMScreen *scr)
 		scr->pullDownIndicator, scr->popUpIndicator,
 		scr->checkMark, scr->homeIcon, scr->altHomeIcon,
 		scr->trashcanIcon, scr->altTrashcanIcon,
-		scr->createDirIcon,
+		scr->createDirIcon, scr->altCreateDirIcon,
+		scr->disketteIcon, scr->altDisketteIcon,
+		scr->unmountIcon, scr->altUnmountIcon,
+		scr->magnifyIcon, scr->wheelIcon,
+		scr->grayIcon, scr->rgbIcon, scr->cmykIcon, scr->hsbIcon,
+		scr->customPaletteIcon, scr->colorListIcon,
 		scr->applicationIconPixmap
 	};
 
