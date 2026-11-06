@@ -762,7 +762,7 @@ static void sni_register_item(const char *service_arg, const char *sender)
 			aicon->sni = 1;
 			aicon->lock = 1;
 			if (wDockAttachIcon(scr->dock, aicon, x, y, True)) {
-				if (!scr->dock->collapsed && scr->dock->mapped)
+				if (!scr->dock->collapsed)
 					XMapWindow(dpy, aicon->icon->core->window);
 				it->aicon = aicon;
 			} else {
@@ -1040,6 +1040,7 @@ static void sni_dbus_input_proc(int fd, int mask, void *clientData)
 	while (dbus_connection_get_dispatch_status(sni_state->conn) == DBUS_DISPATCH_DATA_REMAINS) {
 		dbus_connection_dispatch(sni_state->conn);
 	}
+	XFlush(dpy);
 }
 
 static void sni_send_item_coord_method(WAppIcon *aicon, const char *method, int x, int y)
@@ -1220,8 +1221,7 @@ void wSnihostShutdown(WScreen *scr)
 	sni_state->items = NULL;
 	while (it) {
 		next = it->next;
-		/* During screen teardown, detach_dock is False so we don't trip dock teardown */
-		sni_free_item(it, False);
+		sni_free_item(it, True);
 		it = next;
 	}
 
