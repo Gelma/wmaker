@@ -1033,6 +1033,15 @@ static void updateWorkspaceMenu(WMenu *menu, WAppIcon *icon)
 		wMenuRealize(menu);
 }
 
+/* Replace a menu entry's text with an owned copy, freeing the previous one.
+ * Several callbacks reassign entry->text to gettext() static strings, which
+ * would make wMenuDestroy() free read-only memory. */
+static void setMenuEntryText(WMenuEntry *entry, const char *text)
+{
+	wfree(entry->text);
+	entry->text = wstrdup(text);
+}
+
 static WMenu *makeWorkspaceMenu(WScreen *scr)
 {
 	WMenu *menu;
@@ -1298,8 +1307,7 @@ static WMenu *dockMenuCreate(WScreen *scr, int type)
 		  * wMenuInsertCallback) and use gettext's string */
 		if (type == WM_CLIP) {
 			entry = wMenuAddCallback(menu, _("Rename Workspace"), renameCallback, NULL);
-			wfree(entry->text);
-			entry->text = _("Rename Workspace"); /* can be: (Toggle) Omnipresent */
+			setMenuEntryText(entry, _("Rename Workspace")); /* can be: (Toggle) Omnipresent */
 		}
 
 		entry = wMenuAddCallback(menu, _("Selected"), selectCallback, NULL);
@@ -1308,25 +1316,21 @@ static WMenu *dockMenuCreate(WScreen *scr, int type)
 		entry->flags.indicator_type = MI_CHECK;
 
 		entry = wMenuAddCallback(menu, _("Select All Icons"), selectIconsCallback, NULL);
-		wfree(entry->text);
-		entry->text = _("Select All Icons"); /* can be: Unselect all icons */
+		setMenuEntryText(entry, _("Select All Icons")); /* can be: Unselect all icons */
 
 		entry = wMenuAddCallback(menu, _("Keep Icon"), keepIconsCallback, NULL);
-		wfree(entry->text);
-		entry->text = _("Keep Icon"); /* can be: Keep Icons */
+		setMenuEntryText(entry, _("Keep Icon")); /* can be: Keep Icons */
 
 		if (type == WM_CLIP) {
 			entry = wMenuAddCallback(menu, _("Move Icon To"), NULL, NULL);
-			wfree(entry->text);
-			entry->text = _("Move Icon To"); /* can be: Move Icons to */
+			setMenuEntryText(entry, _("Move Icon To")); /* can be: Move Icons to */
 			scr->clip_submenu = makeWorkspaceMenu(scr);
 			if (scr->clip_submenu)
 				wMenuEntrySetCascade(menu, entry, scr->clip_submenu);
 		}
 
 		entry = wMenuAddCallback(menu, _("Remove Icon"), removeIconsCallback, NULL);
-		wfree(entry->text);
-		entry->text = _("Remove Icon"); /* can be: Remove Icons */
+		setMenuEntryText(entry, _("Remove Icon")); /* can be: Remove Icons */
 
 		wMenuAddCallback(menu, _("Attract Icons"), attractIconsCallback, NULL);
 	}
@@ -1336,14 +1340,12 @@ static WMenu *dockMenuCreate(WScreen *scr, int type)
 	wMenuAddCallback(menu, _("Unhide Here"), unhideHereCallback, NULL);
 
 	entry = wMenuAddCallback(menu, _("Hide"), hideCallback, NULL);
-	wfree(entry->text);
-	entry->text = _("Hide"); /* can be: Unhide */
+	setMenuEntryText(entry, _("Hide")); /* can be: Unhide */
 
 	wMenuAddCallback(menu, _("Settings..."), settingsCallback, NULL);
 
 	entry = wMenuAddCallback(menu, _("Kill"), killCallback, NULL);
-	wfree(entry->text);
-	entry->text = _("Kill"); /* can be: Remove drawer */
+	setMenuEntryText(entry, _("Kill")); /* can be: Remove drawer */
 
 	if (type == WM_CLIP)
 		scr->clip_menu = menu;
@@ -3588,18 +3590,18 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 				entry->callback = renameCallback;
 				entry->clientdata = dock;
 				entry->flags.indicator = 0;
-				entry->text = _("Rename Workspace");
+				setMenuEntryText(entry, _("Rename Workspace"));
 			} else {
 				entry->callback = omnipresentCallback;
 				entry->clientdata = aicon;
 				if (n_selected > 0) {
 					entry->flags.indicator = 0;
-					entry->text = _("Toggle Omnipresent");
+					setMenuEntryText(entry, _("Toggle Omnipresent"));
 				} else {
 					entry->flags.indicator = 1;
 					entry->flags.indicator_on = aicon->omnipresent;
 					entry->flags.indicator_type = MI_CHECK;
-					entry->text = _("Omnipresent");
+					setMenuEntryText(entry, _("Omnipresent"));
 				}
 			}
 		}
@@ -3615,9 +3617,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		entry = dock->menu->entries[++index];
 		entry->clientdata = aicon;
 		if (n_selected > 0)
-			entry->text = _("Unselect All Icons");
+			setMenuEntryText(entry, _("Unselect All Icons"));
 		else
-			entry->text = _("Select All Icons");
+			setMenuEntryText(entry, _("Select All Icons"));
 
 		wMenuSetEnabled(dock->menu, index, dock->icon_count > 1);
 
@@ -3625,9 +3627,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		entry = dock->menu->entries[++index];
 		entry->clientdata = aicon;
 		if (n_selected > 1)
-			entry->text = _("Keep Icons");
+			setMenuEntryText(entry, _("Keep Icons"));
 		else
-			entry->text = _("Keep Icon");
+			setMenuEntryText(entry, _("Keep Icon"));
 
 		wMenuSetEnabled(dock->menu, index, dock->icon_count > 1);
 
@@ -3635,9 +3637,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 			/* this is the workspace submenu part */
 			entry = dock->menu->entries[++index];
 			if (n_selected > 1)
-				entry->text = _("Move Icons To");
+				setMenuEntryText(entry, _("Move Icons To"));
 			else
-				entry->text = _("Move Icon To");
+				setMenuEntryText(entry, _("Move Icon To"));
 
 			if (scr->clip_submenu)
 				updateWorkspaceMenu(scr->clip_submenu, aicon);
@@ -3649,9 +3651,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		entry = dock->menu->entries[++index];
 		entry->clientdata = aicon;
 		if (n_selected > 1)
-			entry->text = _("Remove Icons");
+			setMenuEntryText(entry, _("Remove Icons"));
 		else
-			entry->text = _("Remove Icon");
+			setMenuEntryText(entry, _("Remove Icon"));
 
 		wMenuSetEnabled(dock->menu, index, dock->icon_count > 1);
 
@@ -3677,9 +3679,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 	entry = dock->menu->entries[++index];
 	entry->clientdata = aicon;
 	if (wapp && wapp->flags.hidden)
-		entry->text = _("Unhide Here");
+		setMenuEntryText(entry, _("Unhide Here"));
 	else
-		entry->text = _("Bring Here");
+		setMenuEntryText(entry, _("Bring Here"));
 
 	wMenuSetEnabled(dock->menu, index, appIsRunning);
 
@@ -3687,9 +3689,9 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 	entry = dock->menu->entries[++index];
 	entry->clientdata = aicon;
 	if (wapp && wapp->flags.hidden)
-		entry->text = _("Unhide");
+		setMenuEntryText(entry, _("Unhide"));
 	else
-		entry->text = _("Hide");
+		setMenuEntryText(entry, _("Hide"));
 
 	wMenuSetEnabled(dock->menu, index, appIsRunning);
 
@@ -3703,11 +3705,11 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 	entry->clientdata = aicon;
 	if (wIsADrawer(aicon)) {
 		entry->callback = removeDrawerCallback;
-		entry->text = _("Remove drawer");
+		setMenuEntryText(entry, _("Remove drawer"));
 		wMenuSetEnabled(dock->menu, index, True);
 	} else {
 		entry->callback = killCallback;
-		entry->text = _("Kill");
+		setMenuEntryText(entry, _("Kill"));
 		wMenuSetEnabled(dock->menu, index, appIsRunning);
 	}
 
