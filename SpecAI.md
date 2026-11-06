@@ -847,6 +847,15 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - `misc.c:815/821` bracket `ExecuteShellCommand` around `XGrabPointer`/`XUngrabPointer`: the `XSync`s make the wait cursor appear before the (possibly long-running) command and disappear after, so the pointer feedback is not lost.
     - **Outcome**: no code change; the §132-A hypothesis ("some `XSync` may be replaceable with `XFlush`") is **refuted by the audit**. The only actionable latency item is the fixed `wusleep(10000)` at `moveres.c:1382`, left for an interactive test because it likely papers over a grab race.
 
+134. **Drop the Fixed `wusleep(10000)` Before the Keyboard Move/Resize Grab (`f09adb0a`)**:
+    - **Change**: removed the `wusleep(10000)` in `wKeyboardMoveResizeWindow()` (`src/moveres.c`, former line 1382), keeping the `XSync(dpy, False)` on the line before. The `XSync` already drains the X queue, so the 10 ms settle delay inherited from the 1999 code (via `688a56e8`, 2009) only added a fixed 10 ms to every keyboard-initiated move/resize.
+    - **Verification on an isolated Xvfb (`:88`) with xdotool 3.20160805.1**:
+      - Build 0 errors / 0 warnings.
+      - `make exit-test` passes (SIGTERM / SIGUSR1 / SIGUSR2).
+      - Mouse move/resize works end-to-end: the titlebar drag moved the xterm client from `(101,126)` to `(221,190)` (8 x 15,8 px steps).
+      - Keyboard move/resize: the `MoveResizeKey` binding fires and the grab engages — after `alt+F7` the `XGrabServer` freezes the display and blocks further XTest injection, which is the expected grab behaviour, not a defect. The end-to-end keyboard case (arrows + Return) cannot be driven by xdotool because XTest requests are not processed while the server is grabbed (a real user's events arrive from the input driver, not the server, so they are not affected).
+    - **Note**: `xdotool` is now installed on this machine (`/usr/bin/xdotool`), superseding the earlier "no xdotool" assumption; the keyboard-move/resize grab is still best confirmed interactively because of the XGrabServer/XTest limitation above.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
