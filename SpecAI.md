@@ -861,6 +861,13 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Finding**: it is already a no-op per event. `handleDeadProcess()` (`src/event.c:539`) only dispatches a queue that the `SIGCHLD` handler populates via `waitpid(-1, &status, WNOHANG)` → `NotifyDeadProcess()` (`src/startup.c:247`, `src/event.c:526`). In steady state `deadProcessPtr == 0`, so the per-event cost is one call plus two branch tests (an empty `for` and `if (!deathHandlers)`), with **no syscall and no allocation**.
     - **Decision**: keep it in `DispatchEvent`. Moving it to a timer would add timer-management overhead without removing any syscall, and would delay dock/app-icon death updates. The §132-B hypothesis is refuted.
 
+136. **Hygiene Backlog — Finding 16, Finding 18, R6 Done; R5 Partially Done**:
+    - **Finding 16** (`fc7e4108`): `wm_stress_LDADD` uses `@PTHREAD_LIBS@` instead of the hard-coded `-lpthread` (AX_PTHREAD already runs in `configure.ac`).
+    - **R6** (`fc7e4108`): `test/Makefile.am` gains `TESTS = wrlib_blend_test wrlib_xpm_test wings_bag_test`, so `make check` runs the three standalone pass/fail tests that need no X server; `.gitignore` ignores the parallel-tests artifacts (`test-driver`, `test/*.log`, `test/*.trs`, `test/test-suite.log`). Verified `make check` -> 3/3 PASS.
+    - **Finding 18** (`59297c8c`): `wmaker-valgrind-session` defaults to `memcheck` instead of `massif`; the two commented-out `TOOL=` lines were dropped.
+    - **R5 — pixmap half** (`115340fa`): `WMDestroyScreen` now frees the 13 `loadPixmaps()` icons it used to leak (only 5 of the 18 were released). Verified `EXIT_TEST_ARGS=--valgrind make exit-test` passes.
+    - **R5 — dock-menu half: still open.** A first attempt freed `scr->dock` (via `wDockDestroy`) plus the shared `scr->clip_menu`/`scr->drawer_menu`/`scr->clip_ws_menu` in `wScreenDestroy`, but it aborts (SIGABRT, exit 134) under Valgrind, so it was reverted. The menu/dock ownership graph needs a proper analysis before the ~4.8 KB dock-menu leak can be closed safely.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
