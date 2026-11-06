@@ -6,6 +6,10 @@ EXTRA_DIST = notest.c run_exit_test.sh run_stress.sh
 
 noinst_PROGRAMS = wtest wm_fsm_test wm_stress wrlib_blend_test wrlib_scale_bench wrlib_xpm_test wings_bag_test
 
+# Standalone tests with a pass/fail exit code and no X server requirement,
+# run by `make check`.
+TESTS = wrlib_blend_test wrlib_xpm_test wings_bag_test
+
 wtest_SOURCES = wtest.c
 
 wtest_LDADD = $(top_builddir)/wmlib/libWMaker.la @XLFLAGS@ @XLIBS@
@@ -17,7 +21,7 @@ wings_bag_test_LDADD = $(top_builddir)/WINGs/libWUtil.la \
 	$(top_builddir)/wrlib/libwraster.la @XLFLAGS@ @XLIBS@ -lm
 
 wm_stress_SOURCES = wm_stress.c
-wm_stress_LDADD = @XLFLAGS@ @XLIBS@ -lpthread
+wm_stress_LDADD = @XLFLAGS@ @XLIBS@ @PTHREAD_LIBS@
 
 AM_CPPFLAGS = -g -D_DEFAULT_SOURCE -D_GNU_SOURCE @XCFLAGS@ -I$(top_srcdir)/wmlib
 
