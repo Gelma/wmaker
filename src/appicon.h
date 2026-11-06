@@ -66,6 +66,7 @@ typedef struct WAppIcon {
 	unsigned int buggy_app:1;	 /* do not make dock rely on hints
 					  * set by app */
 	unsigned int lock:1;		 /* do not allow to be destroyed */
+	unsigned int sni:1;		 /* StatusNotifierItem system tray icon */
 } WAppIcon;
 
 WAppIcon *wAppIconCreateForDock(WScreen *scr, const char *command, const char *wm_instance,
