@@ -18,9 +18,7 @@ WM_STDOUT_LOG="${LOG_DIR}/wmaker-${TIMESTAMP}.log"
 # - tracciamento errori di memoria e leak
 # - segui i processi figli con --trace-children=yes ma salta i programmi esterni (/bin, /usr)
 #   cosicché sia il processo monitor che il processo wmaker effettivo (--for-real) vengano analizzati
-#TOOL="${VALGRIND_TOOL:-memcheck}"
-#TOOL="${VALGRIND_TOOL:-callgrind}"
-TOOL="${VALGRIND_TOOL:-massif}"
+TOOL="${VALGRIND_TOOL:-memcheck}"
 
 # Supporta anche il passaggio del tool tramite argomento CLI (es. --callgrind o --tool=callgrind).
 # --callgrind-lazy registra solo dopo callgrind_control -i on <pid>: e' la modalita' per
