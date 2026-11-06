@@ -128,3 +128,40 @@ to a simple menu with the item `Title`.
 - No compositing, no transparency (wishlist item 4).
 - No full DBusMenu tree navigation in phase 1.
 - No XEmbed System Tray in phase 1.
+
+---
+
+## Architectural Refinement & Implementation Notes (Gemini Review — 2026-11-06)
+
+Before writing code, five technical refinements were identified by inspecting the exact call sites in `WINGs/` and `src/`:
+
+1. **Event-Loop Integration via `WMAddInputHandler()` (zero changes to `WINGs/`)**:
+   - There is no need to touch `WINGs/handlers.c` (`W_HandleInputEvents`). WINGs already provides the public `WMAddInputHandler(fd, WIReadMask, proc, clientData)` and `WMDeleteInputHandler()` APIs (used by `inotify` in `src/event.c:464` and the signal self-pipe in `src/startup.c:580`).
+   - When integrating `libdbus` with an external `poll()` loop, register watch functions (`dbus_connection_set_watch_functions`) or monitor `dbus_connection_get_unix_fd()`, and drain the internal queue completely after `dbus_connection_read_write(conn, 0)`:
+     ```c
+     while (dbus_connection_get_dispatch_status(conn) == DBUS_DISPATCH_DATA_REMAINS)
+         dbus_connection_dispatch(conn);
+     ```
+     Otherwise, if two D-Bus messages arrive in a single socket read, the second message stays buffered inside `libdbus` while `poll()` no longer sees readable bytes on the file descriptor.
+
+2. **Exclude Synthetic `sni` Icons from `dockSaveState()` (`src/dock.c`)**:
+   - In `src/dock.c:1604`, `dockSaveState()` iterates over `dock->icon_array[i]` and writes every icon where `!btn->attracted` into `~/GNUstep/Defaults/WMState`.
+   - If `btn->sni` is not filtered out, temporary tray icons will be persisted to `WMState` on exit or session save and reappear as dead, commandless ghost tiles on the next startup.
+   - Guard in `dockSaveState()`:
+     ```c
+     if (!btn || btn->attracted || btn->sni)
+         continue;
+     ```
+
+3. **Non-Blocking / Asynchronous D-Bus Calls to Tray Clients**:
+   - If a tray client (e.g., an Electron or Python app) freezes or hangs, calling `dbus_connection_send_with_reply_and_block()` from the WM to read properties (`IconPixmap`, `Title`, `ToolTip`) or invoke methods (`Activate`, `ContextMenu`, `Scroll`) would freeze the entire Window Manager for the D-Bus timeout (up to 25 seconds).
+   - Action calls (`Activate`, `ContextMenu`, `SecondaryActivate`, `Scroll`) must be sent fire-and-forget (`dbus_message_set_no_reply(msg, TRUE)` + `dbus_connection_send()`).
+   - Property queries (`GetAll` / `Get`) must use asynchronous `dbus_connection_send_with_reply()` with `DBusPendingCall` and a completion callback (`dbus_pending_call_set_notify`), or a strict short timeout if synchronous during test harness runs.
+
+4. **`IconPixmap` `a(iiay)` Network Byte Order (Big-Endian ARGB32)**:
+   - The freedesktop `StatusNotifierItem` specification defines `IconPixmap` as `a(iiay)`: an array of `(width, height, bytes)` where each pixel is 4 bytes in **big-endian ARGB32** (`[A, R, G, B]` byte order, regardless of CPU endianness).
+   - `wrlib` `RImage` (`RCreateImage(w, h, True)`) stores RGBA bytes in `[R, G, B, A]` order. Conversion reads each 4-byte sequence `[b0, b1, b2, b3]` as `A=b0, R=b1, G=b2, B=b3` and writes `[R, G, B, A]`, picking the pixmap entry closest to `wPreferences.icon_size` and scaling via `RSmoothScaleImage()` when dimensions differ.
+
+5. **Dual Watcher + Host Advertisement on `org.kde.StatusNotifierWatcher`**:
+   - Many SNI clients check both that `org.kde.StatusNotifierWatcher` is owned on the session bus *and* that its property `IsStatusNotifierHostRegistered` is `true` (and listen for the `StatusNotifierHostRegistered` signal).
+   - Since `snihost.c` acts as both Watcher and Host, it will always return `true` for `IsStatusNotifierHostRegistered`, `0` (int32) for `ProtocolVersion`, and emit `StatusNotifierHostRegistered` immediately upon acquiring the bus name.
