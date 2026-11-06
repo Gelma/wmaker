@@ -1024,6 +1024,28 @@ AS_IF([test "x$enable_usermenu" = "xyes"],
         [define if you want user defined menus for applications])])
 
 
+dnl StatusNotifierItem (SNI) System Tray in the Dock
+dnl ================================================
+m4_divert_push([INIT_PREPARE])dnl
+AC_ARG_ENABLE([sni],
+    [AS_HELP_STRING([--enable-sni], [host StatusNotifierItem icons in the dock via libdbus @<:@default=no@:>@])],
+    [AS_CASE([$enableval],
+        [yes|no], [],
+        [AC_MSG_ERROR([bad value '$enableval' for --enable-sni])])],
+    [enable_sni=no])
+m4_divert_pop([INIT_PREPARE])dnl
+
+AS_IF([test "x$enable_sni" = "xyes"],
+    [PKG_CHECK_MODULES([DBUS], [dbus-1],
+        [AC_DEFINE([USE_SNI], [1],
+            [define if StatusNotifierItem dock support is enabled])
+         supported_core="$supported_core SNI"],
+        [AC_MSG_ERROR([--enable-sni requested, but dbus-1 was not found])])])
+AM_CONDITIONAL([USE_SNI], [test "x$enable_sni" = "xyes"])
+AC_SUBST([DBUS_CFLAGS])
+AC_SUBST([DBUS_LIBS])
+
+
 dnl Support for removing non-public symbols from a library
 dnl ======================================================
 gl_LD_VERSION_SCRIPT

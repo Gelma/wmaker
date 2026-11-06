@@ -119,6 +119,9 @@ endif
 if USE_MWM_HINTS
 wmaker_SOURCES += motif.h motif.c
 endif
+if USE_SNI
+wmaker_SOURCES += snihost.h snihost.c
+endif
 
 if WM_OSDEP_BSD
 wmaker_SOURCES += osdep_bsd.c
@@ -154,7 +157,7 @@ xmodifier.hack_nf.c: xmodifier.c $(top_srcdir)/script/nested-func-to-macro.sh
 endif
 
 
-AM_CFLAGS = @PANGO_CFLAGS@
+AM_CFLAGS = @PANGO_CFLAGS@ @DBUS_CFLAGS@
 
 AM_CPPFLAGS = $(DFLAGS) \
 	-I$(top_builddir)/wrlib \
@@ -172,7 +175,8 @@ wmaker_LDADD = \
 	@LIBXKBFILE@ \
 	@XLIBS@ \
 	@LIBM@ \
-	@INTLIBS@
+	@INTLIBS@ \
+	@DBUS_LIBS@
 
 ######################################################################
 
