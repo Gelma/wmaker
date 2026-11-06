@@ -72,6 +72,8 @@ Landed right now the GitHub QLCode report/fixes, together with Semgrep Code scan
 
 You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker/blob/master/SpecAI.md) and [git log](https://github.com/Gelma/wmaker/commits/master/), of course.
 
+(By the way, playing [Urban Terror](https://www.urbanterror.info/home/) has more or less the same FPS, but a complete different refresh sync on display!)
+
 ---
 ### (Original README)
 ---
