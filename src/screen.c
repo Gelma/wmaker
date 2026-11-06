@@ -56,6 +56,9 @@
 #include "wmspec.h"
 #include "rootmenu.h"
 #include "misc.h"
+#ifdef USE_SNI
+#include "snihost.h"
+#endif
 
 #include "xinerama.h"
 
@@ -846,6 +849,10 @@ WScreen *wScreenInit(int screen_number)
 
 	wScreenUpdateUsableArea(scr);
 
+#ifdef USE_SNI
+	wSnihostInit(scr);
+#endif
+
 	return scr;
 }
 
@@ -1435,6 +1442,10 @@ void wScreenDestroy(WScreen *scr)
 	int i;
 
 	wScreenUngrabKeys(scr);
+
+#ifdef USE_SNI
+	wSnihostShutdown(scr);
+#endif
 
 #ifdef USE_RANDR
 	wRandRTeardown(scr);

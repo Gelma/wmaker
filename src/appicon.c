@@ -448,7 +448,7 @@ void save_appicon(WAppIcon *aicon)
 	if (!aicon)
 		return;
 
-	if (!aicon->docked || aicon->attracted)
+	if (!aicon->docked || aicon->attracted || aicon->sni)
 		return;
 
 	path = wIconStore(aicon->icon);

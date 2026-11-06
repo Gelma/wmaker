@@ -43,6 +43,9 @@
 #include "workspace.h"
 #include "balloon.h"
 #include "misc.h"
+#ifdef USE_SNI
+#include "snihost.h"
+#endif
 
 
 typedef struct _WBalloon {
@@ -517,6 +520,16 @@ static void appiconBalloon(WObjDescriptor *object)
 			wBalloonHide(scr);
 			return;
 		}
+#ifdef USE_SNI
+	} else if (aicon->sni) {
+		const char *sni_text = wSnihostGetBalloonText(aicon);
+		if (sni_text && sni_text[0] != '\0') {
+			scr->balloon->text = wstrdup(sni_text);
+		} else {
+			wBalloonHide(scr);
+			return;
+		}
+#endif
 	} else if (aicon->command && aicon->wm_class) {
 		int len;
 		WApplication *app;

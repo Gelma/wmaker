@@ -47,11 +47,13 @@ POTFILES  = \
 	$(top_srcdir)/src/screen.c \
 	$(top_srcdir)/src/session.c \
 	$(top_srcdir)/src/shutdown.c \
+	$(top_srcdir)/src/snihost.c \
 	$(top_srcdir)/src/stacking.c \
 	$(top_srcdir)/src/startup.c \
 	$(top_srcdir)/src/superfluous.c \
 	$(top_srcdir)/src/switchpanel.c \
 	$(top_srcdir)/src/switchmenu.c \
+	$(top_srcdir)/src/telemetry.c \
 	$(top_srcdir)/src/texture.c \
 	$(top_srcdir)/src/usermenu.c \
 	$(top_srcdir)/src/wcore.c \

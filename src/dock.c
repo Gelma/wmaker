@@ -59,6 +59,9 @@
 #include "placement.h"
 #include "misc.h"
 #include "event.h"
+#ifdef USE_SNI
+#include "snihost.h"
+#endif
 
 /**** Local variables ****/
 #define CLIP_REWIND       1
@@ -1604,7 +1607,7 @@ static WMPropList *dockSaveState(WDock *dock)
 	for (i = (dock->type == WM_DOCK ? 0 : 1); i < dock->max_icons; i++) {
 		WAppIcon *btn = dock->icon_array[i];
 
-		if (!btn || btn->attracted)
+		if (!btn || btn->attracted || btn->sni)
 			continue;
 
 		icon_info = make_icon_state(dock->icon_array[i]);
@@ -2229,7 +2232,7 @@ Bool wDockAttachIcon(WDock *dock, WAppIcon *icon, int x, int y, Bool update_icon
 	if (update_icon)
 		lupdate_icon = True;
 
-	if (icon->command == NULL) {
+	if (icon->command == NULL && !icon->sni) {
 		/* If icon->owner exists, it means the application is running */
 		if (icon->icon->owner) {
 			wwin = icon->icon->owner;
@@ -2372,7 +2375,7 @@ Bool wDockMoveIconBetweenDocks(WDock *src, WDock *dest, WAppIcon *icon, int x, i
 	 * command, the dialog box will not be able to tell us to which of the
 	 * moved icons it applies. -Dan
 	 */
-	if ((dest->type == WM_DOCK /*|| dest->keep_attracted */ ) && icon->command == NULL) {
+	if ((dest->type == WM_DOCK /*|| dest->keep_attracted */ ) && icon->command == NULL && !icon->sni) {
 		/* If icon->owner exists, it means the application is running */
 		if (icon->icon->owner) {
 			wwin = icon->icon->owner;
@@ -2828,6 +2831,45 @@ Bool wDockFindFreeSlot(WDock *dock, int *x_pos, int *y_pos)
 		*x_pos = dock->icon_count * (dock->on_right_side ? -1 : 1);
 		*y_pos = 0;
 		return True;
+	}
+
+	if (dock->type == WM_DOCK) {
+		WDrawerChain *dc;
+		int sig;
+
+		if (dock->icon_count + scr->drawer_count >= dock->max_icons)
+			return False;
+
+		for (sig = 1; sig > -2; sig -= 2) {
+			for (y = sig; sig * y < dock->max_icons; y += sig) {
+				int occupied = 0;
+
+				if (!onScreen(scr, dock->x_pos, dock->y_pos + y * ICON_SIZE))
+					continue;
+
+				for (i = 0; i < dock->max_icons; i++) {
+					if (dock->icon_array[i] != NULL && dock->icon_array[i]->yindex == y) {
+						occupied = 1;
+						break;
+					}
+				}
+				if (occupied)
+					continue;
+
+				for (dc = scr->drawers; dc != NULL; dc = dc->next) {
+					if ((dc->adrawer->y_pos - dock->y_pos) / ICON_SIZE == y) {
+						occupied = 1;
+						break;
+					}
+				}
+				if (!occupied) {
+					*x_pos = 0;
+					*y_pos = y;
+					return True;
+				}
+			}
+		}
+		return False;
 	}
 
 	if (dock->type == WM_CLIP && dock != scr->workspaces[scr->current_workspace]->clip)
@@ -4102,6 +4144,36 @@ static void iconMouseDown(WObjDescriptor *desc, XEvent *event)
 
 	if (dock->menu->flags.mapped)
 		wMenuUnmap(dock->menu);
+
+#ifdef USE_SNI
+	if (aicon->sni) {
+		if (event->xbutton.button == Button1) {
+			Bool hasMoved;
+
+			if (event->xbutton.state & MOD_MASK)
+				wDockLower(dock);
+			else
+				wDockRaise(dock);
+
+			hasMoved = wHandleAppIconMove(aicon, event);
+			if (!hasMoved)
+				wSnihostActivate(aicon, event->xbutton.x_root, event->xbutton.y_root);
+			return;
+		} else if (event->xbutton.button == Button2) {
+			wSnihostSecondaryActivate(aicon, event->xbutton.x_root, event->xbutton.y_root);
+			return;
+		} else if (event->xbutton.button == Button3 && !(event->xbutton.state & MOD_MASK)) {
+			wSnihostContextMenu(aicon, event->xbutton.x_root, event->xbutton.y_root);
+			return;
+		} else if (event->xbutton.button == Button4) {
+			wSnihostScroll(aicon, 120, "vertical");
+			return;
+		} else if (event->xbutton.button == Button5) {
+			wSnihostScroll(aicon, -120, "vertical");
+			return;
+		}
+	}
+#endif
 
 	if (IsDoubleClick(scr, event)) {
 		/* double-click was not in the main clip icon */

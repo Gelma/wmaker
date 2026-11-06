@@ -619,6 +619,10 @@ This feature, disabled by default, allows to add a user-defined custom menu to a
 when choosing an entry of the menu it will send the key combination defined by the user to that
 application. @xref{Application User Menu,,,NEWS,@file{NEWS}} for more information.
 
+@item --enable-sni
+Enable StatusNotifierItem (SNI) system tray host and watcher support in the Dock using @file{libdbus-1}.
+This feature is disabled by default.
+
 @item --with-menu-textdomain=@i{DOMAIN}
 Selection of the domain used for translation of the menus;
 @pxref{Translations for Menus,,,wmaker_i18n,@file{README.i18n}}.
@@ -654,6 +658,10 @@ discuss on the mailing list @value{emailsupport} to get it working.
 @item --enable-native
 Enable native CPU optimizations by adding @option{-march=native} to the compiler flags, tuning the
 generated code for the build machine at the expense of portability.
+
+@item --enable-lto
+Enable Link-Time Optimization (LTO) during compilation and linking.
+This feature is disabled by default.
 
 @item --with-web-repo=@i{PATH}
 Enable generation of HTML documentation to be uploaded to @sc{Window Maker}'s website.
