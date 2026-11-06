@@ -884,6 +884,10 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Verification**: build 0 warnings; `EXIT_TEST_ARGS=--valgrind make exit-test` passes (SIGTERM/SIGUSR1/SIGUSR2 + "no invalid memory accesses during shutdown"). This closes the §132-E R5 item (the pixmap half was `115340fa`).
     - **Residual-leak note**: with a throw-away `$HOME` the dock is empty, so `dockMenuCreate()` never runs in the exit test; the remaining `definitely lost` (5,195 bytes / 38 blocks) comes from other sources. This fix removes the *crash*, not every last byte.
 
+140. **`ForTheFuture.md` — Feasibility Assessment Added (`b1ca0940`)**:
+    - Appended a "Feasibility Assessment" section to `ForTheFuture.md` rating each of the eight community wishlist items for feasibility, likelihood of success, concrete steps and required user input, grounded in the `BreakingToTheFuture.md`/`SpecAI.md` measurements.
+    - Verdict summary: **Wayland** → wlmaker, not a wmaker port; **fractional scaling** and **integrated compositing** are the hard items (need XRender/XComposite and real-GPU measurement); **dynamic multi-monitor**, **snapping**, **system tray/SNI**, **dockapp modernization** and **WPrefs/XDG** are incremental and high-likelihood.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
