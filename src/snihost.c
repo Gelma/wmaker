@@ -68,6 +68,8 @@ typedef struct SNIItem {
 	char *tooltip_title;
 	char *tooltip_body;
 	char *balloon_text;
+	char *resolved_icon_name;
+	char *resolved_icon_path;
 	WAppIcon *aicon;
 	DBusPendingCall *pending;
 	struct SNIItem *next;
@@ -81,6 +83,8 @@ typedef struct SNIHostState {
 	SNIItem *items;
 } SNIHostState;
 
+/* The tray is a per-session singleton: only screen 0 binds the watcher and
+ * runs wSnihostShutdown(); other screens must not create a second host. */
 static SNIHostState *sni_state = NULL;
 
 static const char *sni_watcher_introspect_xml =
@@ -327,11 +331,19 @@ static RImage *sni_try_load_icon_file(WScreen *scr, const char *path)
 	return sni_scale_for_dock(img);
 }
 
-static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const char *theme_path)
+static void sni_cache_resolved(SNIItem *item, const char *icon_name, const char *path)
+{
+	sni_replace_str(&item->resolved_icon_name, icon_name);
+	sni_replace_str(&item->resolved_icon_path, path);
+}
+
+static RImage *sni_resolve_icon_name(SNIItem *item, WScreen *scr, const char *icon_name,
+                                     const char *theme_path)
 {
 	static const char *const sizes[] = { "48x48", "64x64", "32x32", "24x24", "22x22", "16x16" };
-	static const char *const cats[] = { "apps", "status", "panel", "devices", "actions" };
-	static const char *const exts[] = { ".png", ".xpm", ".tiff", "" };
+	/* "status" first: tray icons are almost always status-type */
+	static const char *const cats[] = { "status", "apps", "panel", "devices", "actions" };
+	static const char *const exts[] = { ".png", ".xpm", "" };
 	char candidate[1024];
 	char *found;
 	RImage *img;
@@ -340,11 +352,22 @@ static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const 
 	if (!icon_name || icon_name[0] == '\0')
 		return NULL;
 
+	/* Cache: the lookup below is dozens of access()/RLoadImage attempts, so
+	 * when the icon name has not changed reuse the path found last time. */
+	if (item->resolved_icon_name && item->resolved_icon_path &&
+	    strcmp(item->resolved_icon_name, icon_name) == 0) {
+		img = sni_try_load_icon_file(scr, item->resolved_icon_path);
+		if (img)
+			return img;
+	}
+
 	/* 1. Direct absolute path */
 	if (icon_name[0] == '/') {
 		img = sni_try_load_icon_file(scr, icon_name);
-		if (img)
+		if (img) {
+			sni_cache_resolved(item, icon_name, icon_name);
 			return img;
+		}
 	}
 
 	/* 2. Custom IconThemePath provided by the SNI client */
@@ -352,8 +375,10 @@ static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const 
 		for (e = 0; e < sizeof(exts) / sizeof(exts[0]); e++) {
 			snprintf(candidate, sizeof(candidate), "%s/%s%s", theme_path, icon_name, exts[e]);
 			img = sni_try_load_icon_file(scr, candidate);
-			if (img)
+			if (img) {
+				sni_cache_resolved(item, icon_name, candidate);
 				return img;
+			}
 		}
 		for (s = 0; s < sizeof(sizes) / sizeof(sizes[0]); s++) {
 			for (c = 0; c < sizeof(cats) / sizeof(cats[0]); c++) {
@@ -361,8 +386,10 @@ static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const 
 					snprintf(candidate, sizeof(candidate), "%s/hicolor/%s/%s/%s%s",
 					         theme_path, sizes[s], cats[c], icon_name, exts[e]);
 					img = sni_try_load_icon_file(scr, candidate);
-					if (img)
+					if (img) {
+						sni_cache_resolved(item, icon_name, candidate);
 						return img;
+					}
 				}
 			}
 		}
@@ -374,9 +401,12 @@ static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const 
 		found = FindImage(wPreferences.icon_path, candidate);
 		if (found) {
 			img = sni_try_load_icon_file(scr, found);
-			wfree(found);
-			if (img)
+			if (img) {
+				sni_cache_resolved(item, icon_name, found);
+				wfree(found);
 				return img;
+			}
+			wfree(found);
 		}
 	}
 
@@ -387,16 +417,20 @@ static RImage *sni_resolve_icon_name(WScreen *scr, const char *icon_name, const 
 				snprintf(candidate, sizeof(candidate), "/usr/share/icons/hicolor/%s/%s/%s%s",
 				         sizes[s], cats[c], icon_name, exts[e]);
 				img = sni_try_load_icon_file(scr, candidate);
-				if (img)
+				if (img) {
+					sni_cache_resolved(item, icon_name, candidate);
 					return img;
+				}
 			}
 		}
 	}
 	for (e = 0; e < 2; e++) {
 		snprintf(candidate, sizeof(candidate), "/usr/share/pixmaps/%s%s", icon_name, exts[e]);
 		img = sni_try_load_icon_file(scr, candidate);
-		if (img)
+		if (img) {
+			sni_cache_resolved(item, icon_name, candidate);
 			return img;
+		}
 	}
 
 	return NULL;
@@ -548,7 +582,7 @@ next_entry:
 			final_img = attn_pixmap_img;
 			attn_pixmap_img = NULL;
 		} else if (item->attention_icon_name) {
-			final_img = sni_resolve_icon_name(sni_state->scr, item->attention_icon_name, item->icon_theme_path);
+			final_img = sni_resolve_icon_name(item, sni_state->scr, item->attention_icon_name, item->icon_theme_path);
 		}
 	}
 
@@ -557,7 +591,7 @@ next_entry:
 			final_img = icon_pixmap_img;
 			icon_pixmap_img = NULL;
 		} else if (item->icon_name) {
-			final_img = sni_resolve_icon_name(sni_state->scr, item->icon_name, item->icon_theme_path);
+			final_img = sni_resolve_icon_name(item, sni_state->scr, item->icon_name, item->icon_theme_path);
 		}
 	}
 
@@ -679,6 +713,10 @@ static void sni_free_item(SNIItem *item, Bool detach_dock)
 		wfree(item->tooltip_body);
 	if (item->balloon_text)
 		wfree(item->balloon_text);
+	if (item->resolved_icon_name)
+		wfree(item->resolved_icon_name);
+	if (item->resolved_icon_path)
+		wfree(item->resolved_icon_path);
 
 	wfree(item);
 }
