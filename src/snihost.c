@@ -40,6 +40,7 @@
 #include "stacking.h"
 #include "misc.h"
 #include "menu.h"
+#include "framewin.h"
 #include "snihost.h"
 
 #define SNI_WATCHER_BUS_NAME_KDE "org.kde.StatusNotifierWatcher"
@@ -544,7 +545,8 @@ static void sni_on_get_all_reply(DBusPendingCall *pending, void *user_data)
 			const char *val = NULL;
 			dbus_message_iter_get_basic(&var_iter, &val);
 			sni_replace_str(&item->icon_theme_path, val);
-		} else if (strcmp(key, "Menu") == 0 && vtype == DBUS_TYPE_STRING) {
+		} else if (strcmp(key, "Menu") == 0 &&
+		           (vtype == DBUS_TYPE_STRING || vtype == DBUS_TYPE_OBJECT_PATH)) {
 			const char *val = NULL;
 			dbus_message_iter_get_basic(&var_iter, &val);
 			sni_replace_str(&item->menu_path, val);
@@ -1243,7 +1245,7 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	SNILayoutReq *req = (SNILayoutReq *)user_data;
 	SNIItem *item = req->item;
 	DBusMessage *reply;
-	DBusMessageIter root_iter, outer_iter, layout_iter;
+	DBusMessageIter root_iter, layout_iter;
 
 	reply = dbus_pending_call_steal_reply(pending);
 	dbus_pending_call_unref(pending);
@@ -1254,23 +1256,22 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 
 	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR ||
 	    !dbus_message_iter_init(reply, &root_iter) ||
+	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_UINT32) {
+		dbus_message_unref(reply);
+		wfree(req);
+		return;
+	}
+
+	/* GetLayout returns: u revision, (i id, a{sv} props, av children) layout */
+	if (!dbus_message_iter_next(&root_iter) ||
 	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_STRUCT) {
 		dbus_message_unref(reply);
 		wfree(req);
 		return;
 	}
 
-	/* GetLayout returns: (u revision, (i id, a{sv} props, av children)) */
-	dbus_message_iter_recurse(&root_iter, &outer_iter);
-	if (!dbus_message_iter_next(&outer_iter) ||
-	    dbus_message_iter_get_arg_type(&outer_iter) != DBUS_TYPE_STRUCT) {
-		dbus_message_unref(reply);
-		wfree(req);
-		return;
-	}
-
-	/* outer_iter now points at (i id, a{sv} props, av children) */
-	dbus_message_iter_recurse(&outer_iter, &layout_iter);
+	/* root_iter now points at (i id, a{sv} props, av children) */
+	dbus_message_iter_recurse(&root_iter, &layout_iter);
 	/* skip id */
 	if (!dbus_message_iter_next(&layout_iter) ||
 	    !dbus_message_iter_next(&layout_iter) ||
@@ -1282,13 +1283,33 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	/* layout_iter now points at av children */
 
 	if (item->aicon) {
-		WMenu *menu = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
+		WScreen *scr = item->aicon->icon->core->screen_ptr;
+		WMenu *menu = wMenuCreate(scr, NULL, False);
+		int mx = req->x, my = req->y;
 
 		sni_build_dbusmenu(item, menu, &layout_iter);
+		wMenuRealize(menu);
+
+		/* Keep the menu on-screen: the dock sits on the right edge, so open
+		 * the menu to the left of the pointer when it would overflow. */
+		if (menu->frame) {
+			int mw = menu->frame->core->width;
+			int mh = menu->frame->core->height;
+
+			if (mx + mw > scr->scr_width)
+				mx = scr->scr_width - mw;
+			if (my + mh > scr->scr_height)
+				my = scr->scr_height - mh;
+			if (mx < 0)
+				mx = 0;
+			if (my < 0)
+				my = 0;
+		}
+
 		if (item->menu)
 			wMenuDestroy(item->menu, True);
 		item->menu = menu;
-		wMenuMapAt(menu, req->x, req->y, False);
+		wMenuMapAt(menu, mx, my, False);
 	}
 
 	dbus_message_unref(reply);
