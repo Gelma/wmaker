@@ -39,6 +39,7 @@
 #include "icon.h"
 #include "stacking.h"
 #include "misc.h"
+#include "menu.h"
 #include "snihost.h"
 
 #define SNI_WATCHER_BUS_NAME_KDE "org.kde.StatusNotifierWatcher"
@@ -70,6 +71,8 @@ typedef struct SNIItem {
 	char *balloon_text;
 	char *resolved_icon_name;
 	char *resolved_icon_path;
+	char *menu_path;
+	WMenu *menu;
 	WAppIcon *aicon;
 	DBusPendingCall *pending;
 	struct SNIItem *next;
@@ -541,6 +544,10 @@ static void sni_on_get_all_reply(DBusPendingCall *pending, void *user_data)
 			const char *val = NULL;
 			dbus_message_iter_get_basic(&var_iter, &val);
 			sni_replace_str(&item->icon_theme_path, val);
+		} else if (strcmp(key, "Menu") == 0 && vtype == DBUS_TYPE_STRING) {
+			const char *val = NULL;
+			dbus_message_iter_get_basic(&var_iter, &val);
+			sni_replace_str(&item->menu_path, val);
 		} else if (strcmp(key, "ToolTip") == 0) {
 			sni_parse_tooltip(item, &var_iter);
 		} else if (strcmp(key, "IconPixmap") == 0 && vtype == DBUS_TYPE_ARRAY) {
@@ -717,6 +724,10 @@ static void sni_free_item(SNIItem *item, Bool detach_dock)
 		wfree(item->resolved_icon_name);
 	if (item->resolved_icon_path)
 		wfree(item->resolved_icon_path);
+	if (item->menu_path)
+		wfree(item->menu_path);
+	if (item->menu)
+		wMenuDestroy(item->menu, True);
 
 	wfree(item);
 }
@@ -1107,6 +1118,273 @@ static void sni_send_item_coord_method(WAppIcon *aicon, const char *method, int 
 	dbus_connection_flush(sni_state->conn);
 }
 
+/* --- DBusMenu (com.canonical.dbusmenu) host --- */
+
+#define DBUSMENU_IFACE "com.canonical.dbusmenu"
+
+typedef struct SNIMenuCtx {
+	SNIItem *item;
+	int dbus_id;
+} SNIMenuCtx;
+
+typedef struct SNILayoutReq {
+	SNIItem *item;
+	int x, y;
+} SNILayoutReq;
+
+static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id);
+
+static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
+{
+	SNIMenuCtx *ctx = entry->clientdata;
+
+	(void)menu;
+	if (ctx)
+		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
+}
+
+static void sni_menu_ctx_free(void *data)
+{
+	wfree(data);
+}
+
+static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_out, int *type_out)
+{
+	DBusMessageIter entry_iter;
+
+	*label_out = NULL;
+	*type_out = 0;		/* 0 = standard, 1 = separator */
+
+	dbus_message_iter_recurse(props_iter, &entry_iter);
+	while (dbus_message_iter_get_arg_type(&entry_iter) == DBUS_TYPE_DICT_ENTRY) {
+		DBusMessageIter e_iter, v_iter;
+		const char *key = NULL;
+
+		dbus_message_iter_recurse(&entry_iter, &e_iter);
+		dbus_message_iter_get_basic(&e_iter, &key);
+		if (dbus_message_iter_next(&e_iter) &&
+		    dbus_message_iter_get_arg_type(&e_iter) == DBUS_TYPE_VARIANT) {
+			dbus_message_iter_recurse(&e_iter, &v_iter);
+			if (strcmp(key, "label") == 0 &&
+			    dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
+				const char *v = NULL;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				if (v && v[0])
+					*label_out = wstrdup(v);
+			} else if (strcmp(key, "type") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
+				const char *v = NULL;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				if (v && strcmp(v, "separator") == 0)
+					*type_out = 1;
+			}
+		}
+		dbus_message_iter_next(&entry_iter);
+	}
+}
+
+static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *children_iter)
+{
+	DBusMessageIter elem_iter;
+
+	dbus_message_iter_recurse(children_iter, &elem_iter);
+	while (dbus_message_iter_get_arg_type(&elem_iter) == DBUS_TYPE_VARIANT) {
+		DBusMessageIter var_iter, struct_iter, props_iter;
+		dbus_int32_t id = 0;
+		char *label = NULL;
+		int type = 0;
+		int has_children = 0;
+
+		dbus_message_iter_recurse(&elem_iter, &var_iter);
+		dbus_message_iter_recurse(&var_iter, &struct_iter);
+
+		if (dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_INT32)
+			dbus_message_iter_get_basic(&struct_iter, &id);
+
+		if (dbus_message_iter_next(&struct_iter) &&
+		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
+			props_iter = struct_iter;
+			sni_dbusmenu_parse_props(&props_iter, &label, &type);
+		}
+
+		if (dbus_message_iter_next(&struct_iter) &&
+		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY)
+			has_children = 1;
+
+		if (type == 1) {
+			/* separator */
+			wMenuAddCallback(menu, "", NULL, NULL);
+		} else {
+			SNIMenuCtx *ctx = wmalloc(sizeof(SNIMenuCtx));
+			WMenuEntry *entry;
+
+			ctx->item = item;
+			ctx->dbus_id = id;
+			entry = wMenuAddCallback(menu, label ? label : "", sni_menu_callback, ctx);
+			entry->free_cdata = sni_menu_ctx_free;
+
+			if (has_children) {
+				WMenu *sub = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
+
+				sni_build_dbusmenu(item, sub, &struct_iter);
+				wMenuEntrySetCascade(menu, entry, sub);
+			}
+		}
+
+		if (label)
+			wfree(label);
+
+		dbus_message_iter_next(&elem_iter);
+	}
+}
+
+static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
+{
+	SNILayoutReq *req = (SNILayoutReq *)user_data;
+	SNIItem *item = req->item;
+	DBusMessage *reply;
+	DBusMessageIter root_iter, outer_iter, layout_iter;
+
+	reply = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+	if (!reply) {
+		wfree(req);
+		return;
+	}
+
+	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR ||
+	    !dbus_message_iter_init(reply, &root_iter) ||
+	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_STRUCT) {
+		dbus_message_unref(reply);
+		wfree(req);
+		return;
+	}
+
+	/* GetLayout returns: (u revision, (i id, a{sv} props, av children)) */
+	dbus_message_iter_recurse(&root_iter, &outer_iter);
+	if (!dbus_message_iter_next(&outer_iter) ||
+	    dbus_message_iter_get_arg_type(&outer_iter) != DBUS_TYPE_STRUCT) {
+		dbus_message_unref(reply);
+		wfree(req);
+		return;
+	}
+
+	/* outer_iter now points at (i id, a{sv} props, av children) */
+	dbus_message_iter_recurse(&outer_iter, &layout_iter);
+	/* skip id */
+	if (!dbus_message_iter_next(&layout_iter) ||
+	    !dbus_message_iter_next(&layout_iter) ||
+	    dbus_message_iter_get_arg_type(&layout_iter) != DBUS_TYPE_ARRAY) {
+		dbus_message_unref(reply);
+		wfree(req);
+		return;
+	}
+	/* layout_iter now points at av children */
+
+	if (item->aicon) {
+		WMenu *menu = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
+
+		sni_build_dbusmenu(item, menu, &layout_iter);
+		if (item->menu)
+			wMenuDestroy(item->menu, True);
+		item->menu = menu;
+		wMenuMapAt(menu, req->x, req->y, False);
+	}
+
+	dbus_message_unref(reply);
+	wfree(req);
+}
+
+static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
+{
+	DBusMessage *msg;
+	DBusPendingCall *pending = NULL;
+	SNILayoutReq *req;
+	const char *dest;
+	dbus_int32_t parent_id = 0;
+	dbus_int32_t depth = -1;
+	const char *prop_names[] = { "label", "type", "enabled", "visible", "children-display" };
+	const char **props = prop_names;
+
+	if (!sni_state || !sni_state->conn || !item)
+		return;
+
+	dest = (item->service_name && item->service_name[0]) ? item->service_name : item->sender_unique;
+	if (!dest || !item->menu_path)
+		return;
+
+	msg = dbus_message_new_method_call(dest, item->menu_path, DBUSMENU_IFACE, "GetLayout");
+	if (!msg)
+		return;
+
+	dbus_message_append_args(msg,
+	                         DBUS_TYPE_INT32, &parent_id,
+	                         DBUS_TYPE_INT32, &depth,
+	                         DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &props, 5,
+	                         DBUS_TYPE_INVALID);
+
+	if (dbus_connection_send_with_reply(sni_state->conn, msg, &pending, 5000) && pending) {
+		req = wmalloc(sizeof(SNILayoutReq));
+		req->item = item;
+		req->x = x;
+		req->y = y;
+		dbus_pending_call_set_notify(pending, sni_on_get_layout_reply, req, NULL);
+	}
+	dbus_message_unref(msg);
+	dbus_connection_flush(sni_state->conn);
+}
+
+static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id)
+{
+	DBusMessage *msg;
+	DBusMessageIter iter;
+	const char *dest;
+	dbus_int32_t iid = id;
+	const char *eid = event_id;
+	dbus_uint32_t ts = 0;
+
+	if (!sni_state || !sni_state->conn || !item)
+		return;
+
+	dest = (item->service_name && item->service_name[0]) ? item->service_name : item->sender_unique;
+	if (!dest || !item->menu_path)
+		return;
+
+	msg = dbus_message_new_method_call(dest, item->menu_path, DBUSMENU_IFACE, "Event");
+	if (!msg)
+		return;
+
+	dbus_message_set_no_reply(msg, TRUE);
+	dbus_message_iter_init_append(msg, &iter);
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_INT32, &iid);
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &eid);
+	{
+		DBusMessageIter var_iter;
+		const char *empty = "";
+
+		dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &var_iter);
+		dbus_message_iter_append_basic(&var_iter, DBUS_TYPE_STRING, &empty);
+		dbus_message_iter_close_container(&iter, &var_iter);
+	}
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_UINT32, &ts);
+
+	dbus_connection_send(sni_state->conn, msg, NULL);
+	dbus_message_unref(msg);
+	dbus_connection_flush(sni_state->conn);
+}
+
+static void sni_show_dbusmenu(SNIItem *item, int x, int y)
+{
+	/* If the item does not export a DBusMenu, ask it to show its own menu */
+	if (!item->menu_path || item->menu_path[0] == '\0' ||
+	    strcmp(item->menu_path, "/NO_DBUSMENU") == 0) {
+		sni_send_item_coord_method(item->aicon, "ContextMenu", x, y);
+		return;
+	}
+
+	sni_request_dbusmenu_layout(item, x, y);
+}
+
 void wSnihostActivate(WAppIcon *aicon, int x, int y)
 {
 	sni_send_item_coord_method(aicon, "Activate", x, y);
@@ -1119,7 +1397,10 @@ void wSnihostSecondaryActivate(WAppIcon *aicon, int x, int y)
 
 void wSnihostContextMenu(WAppIcon *aicon, int x, int y)
 {
-	sni_send_item_coord_method(aicon, "ContextMenu", x, y);
+	SNIItem *item = sni_find_item_by_aicon(aicon);
+
+	if (item)
+		sni_show_dbusmenu(item, x, y);
 }
 
 void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation)
