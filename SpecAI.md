@@ -913,6 +913,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass (`SIGTERM`, `SIGUSR1`, `SIGUSR2`, and Valgrind memory check).
       - End-to-end test on an isolated `Xvfb :94` + `dbus-run-session` with a synthetic `StatusNotifierItem` client verified item registration, async `Properties.GetAll` reply with 24x24 ARGB32 `IconPixmap`, mapped 64x64 Dock window creation at `(960, 64)`, `Activate`/`SecondaryActivate`/`ContextMenu`/`Scroll` D-Bus method delivery on X11 button events, automatic Dock tile removal on client D-Bus disconnect, and clean `WMState` on exit.
 
+143. **SNI Host Review & Improvements (`SNIReview.md`)**:
+    - Wrote `SNIReview.md` with the evidence-based review of the SNI host: build 0 warnings, `exit-test --valgrind` passes, the watcher answers `Introspect`/`Properties.Get` on a real `dbus-run-session` bus, and `RegisterStatusNotifierItem` + shutdown detach of SNI icons is clean under Valgrind (no `Invalid`, no new leak).
+    - Applied two of the review's improvement points to `src/snihost.c`: (1) documented the `sni_state` per-session singleton (bound to screen 0, other screens must not create a second host); (2) cached the resolved icon path in `SNIItem` (`resolved_icon_name`/`resolved_icon_path`, freed in `sni_free_item`), ordered the icon categories `status`-first and dropped the rarely-used `.tiff` extension, so an unchanged `IconName` no longer re-runs the full candidate search. Build stays 0 warnings and `exit-test --valgrind` passes after the change.
+    - Remaining (not applied): circumscribe `dbus_shutdown()` if other D-Bus code is ever added, spot-check `wDockFindFreeSlot()` icon placement on a real desktop, and smoke-test with a real SNI app (`nm-applet`/`pasystray`) for `Activate`/`ContextMenu`/`Scroll` and `IconName` rendering.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
