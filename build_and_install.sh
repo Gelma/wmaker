@@ -151,6 +151,7 @@ log_info "Configurazione sorgenti per prefisso ${PREFIX}..."
     --enable-xinerama \
     --enable-randr \
     --enable-usermenu \
+	--enable-sni \
     "${CONF_TOOLCHAIN_ARGS[@]}"
 
 log_info "Compilazione con ${NPROCS} processi paralleli..."
