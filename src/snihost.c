@@ -1143,6 +1143,11 @@ static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
 	(void)menu;
 	if (ctx)
 		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
+
+	/* Close the whole SNI menu after activating a leaf entry. */
+	if (ctx && ctx->item && ctx->item->menu) {
+		wMenuUnmap(ctx->item->menu);
+	}
 }
 
 static void sni_menu_ctx_free(void *data)
@@ -1309,7 +1314,7 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		if (item->menu)
 			wMenuDestroy(item->menu, True);
 		item->menu = menu;
-		wMenuMapAt(menu, mx, my, False);
+		wMenuMapAt(menu, mx, my, True);
 	}
 
 	dbus_message_unref(reply);

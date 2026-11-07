@@ -1260,6 +1260,11 @@ void wMenuMapAt(WMenu * menu, int x, int y, int keyboard)
 		menu->frame_x = x;
 		menu->frame_y = y;
 		XMapWindow(dpy, menu->frame->core->window);
+		/* Make the frame viewable before any grab: a menu opened from an
+		 * asynchronous path (e.g. a D-Bus callback) must be ready for
+		 * keyboardMenu()'s XGrabKeyboard, which fails on a not-yet-viewable
+		 * window. */
+		XSync(dpy, False);
 		wRaiseFrame(menu->frame->core);
 		menu->flags.mapped = 1;
 	} else {
