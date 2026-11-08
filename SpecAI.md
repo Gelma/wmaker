@@ -928,6 +928,11 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       3. **D-Bus queue drain after flush (`sni_flush_and_dispatch`), `AboutToShow`, and `layout_pending` tracking (`src/snihost.c`)**: added `sni_flush_and_dispatch()` so any messages read into `libdbus`'s internal buffer during `dbus_connection_flush()` are dispatched immediately instead of waiting for the next socket wakeup; tracked `item->layout_pending` (cancelling any in-flight `GetLayout` call on rapid right-clicks or teardown with `wfree` as the `DBusFreeFunction`); and sent fire-and-forget `com.canonical.dbusmenu.AboutToShow(0)` before `GetLayout` so dynamic Ayatana/Electron/Qt menus populate their entries before returning the layout.
     - **Verification**: builds with 0 errors and 0 warnings; `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass.
 
+145. **SNI DBusMenu Activation UAF Fix (`a3be1cbc`, `c870593c`) — feature confirmed working**:
+    - `a3be1cbc` fixed the `dbus_pending_call_unref()`-before-`steal_reply()` order (a use-after-free on the pending call).
+    - `c870593c` fixed the leaf-activation crash: `sni_menu_callback()` was still calling `wMenuUnmap()` while `menuMouseDown()` was on the call stack, so the subsequent `selectEntry()`/`insertEntry()`/`wFrameWindowUpdateBorders()` dereferenced the unmapped frame and crashed (GPF + segfault in dmesg, mapped with `addr2line`). The callback now only sends the DBusMenu `Event`; `menuMouseDown()` closes the menu itself via `close_on_exit`.
+    - **Andrea confirmed (2026-11-08)**: right-click opens the menu; clicking an entry activates it and closes the menu without a WM restart; Escape closes the menu. The SNI system-tray DBusMenu feature (wishlist item 5) is fully working end-to-end.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
