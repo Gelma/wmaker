@@ -41,6 +41,7 @@
 #include "stacking.h"
 #include "misc.h"
 #include "menu.h"
+#include "pixmap.h"
 #include "framewin.h"
 #include "snihost.h"
 
@@ -341,6 +342,8 @@ static RImage *sni_try_load_icon_file(WScreen *scr, const char *path)
 
 static void sni_cache_resolved(SNIItem *item, const char *icon_name, const char *path)
 {
+	if (!item)
+		return;
 	sni_replace_str(&item->resolved_icon_name, icon_name);
 	sni_replace_str(&item->resolved_icon_path, path);
 }
@@ -362,7 +365,7 @@ static RImage *sni_resolve_icon_name(SNIItem *item, WScreen *scr, const char *ic
 
 	/* Cache: the lookup below is dozens of access()/RLoadImage attempts, so
 	 * when the icon name has not changed reuse the path found last time. */
-	if (item->resolved_icon_name && item->resolved_icon_path &&
+	if (item && item->resolved_icon_name && item->resolved_icon_path &&
 	    strcmp(item->resolved_icon_name, icon_name) == 0) {
 		img = sni_try_load_icon_file(scr, item->resolved_icon_path);
 		if (img)
@@ -1064,8 +1067,9 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	/* Track menu layout changes: close the open menu so the next
-	 * right-click re-fetches the updated layout. */
+	/* Track menu layout changes: destroy any cached unmapped menu so the next
+	 * right-click re-fetches the updated layout, without closing a menu that
+	 * the user currently has open on screen. */
 	if (dbus_message_is_signal(msg, "com.canonical.dbusmenu", "LayoutUpdated")) {
 		const char *sender = dbus_message_get_sender(msg);
 		SNIItem *it;
@@ -1073,8 +1077,11 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 		if (sender) {
 			for (it = sni_state->items; it; it = it->next) {
 				if (it->sender_unique && strcmp(it->sender_unique, sender) == 0 &&
-				    it->menu && it->menu->flags.mapped) {
-					wSnihostCloseMenus();
+				    it->menu && !it->menu->flags.mapped) {
+					WMenu *menu = it->menu;
+
+					it->menu = NULL;
+					wMenuDestroy(menu, True);
 					break;
 				}
 			}
@@ -1210,9 +1217,34 @@ static void sni_menu_ctx_free(void *data)
 	wfree(data);
 }
 
+static char *sni_strip_mnemonic(const char *src)
+{
+	char *dst, *d;
+	const char *s;
+
+	if (!src)
+		return NULL;
+
+	dst = wmalloc(strlen(src) + 1);
+	d = dst;
+	for (s = src; *s; s++) {
+		if (*s == '_') {
+			if (*(s + 1) == '_') {
+				*d++ = '_';
+				s++;
+			}
+			continue;
+		}
+		*d++ = *s;
+	}
+	*d = '\0';
+	return dst;
+}
+
 static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_out,
                                      int *type_out, char **icon_name_out,
-                                     int *toggle_type_out, int *toggle_state_out)
+                                     int *toggle_type_out, int *toggle_state_out,
+                                     int *enabled_out, int *visible_out)
 {
 	DBusMessageIter entry_iter;
 
@@ -1221,6 +1253,8 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 	*icon_name_out = NULL;
 	*toggle_type_out = 0;	/* 0 = none, 1 = checkmark, 2 = radio */
 	*toggle_state_out = -1;	/* -1 = absent, 0 = off, 1 = on, 2 = indeterminate */
+	*enabled_out = 1;
+	*visible_out = 1;
 
 	dbus_message_iter_recurse(props_iter, &entry_iter);
 	while (dbus_message_iter_get_arg_type(&entry_iter) == DBUS_TYPE_DICT_ENTRY) {
@@ -1236,8 +1270,11 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 			    dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
 				const char *v = NULL;
 				dbus_message_iter_get_basic(&v_iter, &v);
-				if (v && v[0])
-					*label_out = wstrdup(v);
+				if (v && v[0]) {
+					if (*label_out)
+						wfree(*label_out);
+					*label_out = sni_strip_mnemonic(v);
+				}
 			} else if (strcmp(key, "type") == 0 &&
 			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
 				const char *v = NULL;
@@ -1248,8 +1285,11 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
 				const char *v = NULL;
 				dbus_message_iter_get_basic(&v_iter, &v);
-				if (v && v[0])
+				if (v && v[0]) {
+					if (*icon_name_out)
+						wfree(*icon_name_out);
 					*icon_name_out = wstrdup(v);
+				}
 			} else if (strcmp(key, "toggle-type") == 0 &&
 			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
 				const char *v = NULL;
@@ -1263,6 +1303,16 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 				dbus_int32_t v = 0;
 				dbus_message_iter_get_basic(&v_iter, &v);
 				*toggle_state_out = v;
+			} else if (strcmp(key, "enabled") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_BOOLEAN) {
+				dbus_bool_t v = TRUE;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				*enabled_out = v ? 1 : 0;
+			} else if (strcmp(key, "visible") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_BOOLEAN) {
+				dbus_bool_t v = TRUE;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				*visible_out = v ? 1 : 0;
 			}
 		}
 		dbus_message_iter_next(&entry_iter);
@@ -1270,15 +1320,35 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 }
 
 static void sni_entry_set_icon_toggle(SNIItem *item, WMenuEntry *entry,
-                                      const char *icon_name, int toggle_type, int toggle_state)
+                                      const char *icon_name, int toggle_type,
+                                      int toggle_state, int enabled)
 {
 	WScreen *scr = item->aicon->icon->core->screen_ptr;
 
+	entry->flags.enabled = enabled ? 1 : 0;
+
 	if (icon_name && icon_name[0]) {
-		RImage *img = sni_resolve_icon_name(item, scr, icon_name, item->icon_theme_path);
+		RImage *img = sni_resolve_icon_name(NULL, scr, icon_name, item->icon_theme_path);
 
 		if (img) {
-			entry->icon = (struct WPixmap *)WMCreatePixmapFromRImage(scr->wmscreen, img, 128);
+			int max_size = WMFontHeight(scr->menu_entry_font) + 2;
+
+			if (max_size < 12)
+				max_size = 12;
+			img = wIconValidateIconSize(img, max_size);
+		}
+		if (img) {
+			WPixmap *pix = wmalloc(sizeof(WPixmap));
+
+			memset(pix, 0, sizeof(WPixmap));
+			if (RConvertImageMask(scr->rcontext, img, &pix->image, &pix->mask, 128)) {
+				pix->width = img->width;
+				pix->height = img->height;
+				pix->depth = scr->w_depth;
+				entry->icon = pix;
+			} else {
+				wfree(pix);
+			}
 			RReleaseImage(img);
 		}
 	}
@@ -1303,6 +1373,8 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 		int type = 0;
 		int toggle_type = 0;
 		int toggle_state = -1;
+		int enabled = 1;
+		int visible = 1;
 		int has_children = 0;
 
 		dbus_message_iter_recurse(&elem_iter, &var_iter);
@@ -1315,7 +1387,7 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
 			props_iter = struct_iter;
 			sni_dbusmenu_parse_props(&props_iter, &label, &type, &icon_name,
-			                         &toggle_type, &toggle_state);
+			                         &toggle_type, &toggle_state, &enabled, &visible);
 		}
 
 		if (dbus_message_iter_next(&struct_iter) &&
@@ -1325,6 +1397,15 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			dbus_message_iter_recurse(&struct_iter, &child_check);
 			if (dbus_message_iter_get_arg_type(&child_check) == DBUS_TYPE_VARIANT)
 				has_children = 1;
+		}
+
+		if (!visible) {
+			if (label)
+				wfree(label);
+			if (icon_name)
+				wfree(icon_name);
+			dbus_message_iter_next(&elem_iter);
+			continue;
 		}
 
 		if (type == 1) {
@@ -1340,7 +1421,7 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			 * menu->cascades[entry->cascade]. Attaching sni_menu_callback to a
 			 * submenu parent would unmap/close the menu as soon as the submenu opens! */
 			entry = wMenuAddCallback(menu, label ? label : "", NULL, NULL);
-			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state);
+			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state, enabled);
 			sub = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
 			sni_build_dbusmenu(item, sub, &struct_iter);
 			wMenuEntrySetCascade(menu, entry, sub);
@@ -1352,7 +1433,7 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			ctx->dbus_id = id;
 			entry = wMenuAddCallback(menu, label ? label : "", sni_menu_callback, ctx);
 			entry->free_cdata = sni_menu_ctx_free;
-			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state);
+			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state, enabled);
 		}
 
 		if (label)
@@ -1457,7 +1538,10 @@ static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 	const char *dest;
 	dbus_int32_t parent_id = 0;
 	dbus_int32_t depth = -1;
-	const char *prop_names[] = { "label", "type", "enabled", "visible", "children-display" };
+	const char *prop_names[] = {
+		"label", "type", "enabled", "visible",
+		"children-display", "icon-name", "toggle-type", "toggle-state"
+	};
 	const char **props = prop_names;
 
 	if (!sni_state || !sni_state->conn || !item)
@@ -1492,7 +1576,7 @@ static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 	dbus_message_append_args(msg,
 	                         DBUS_TYPE_INT32, &parent_id,
 	                         DBUS_TYPE_INT32, &depth,
-	                         DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &props, 5,
+	                         DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &props, 8,
 	                         DBUS_TYPE_INVALID);
 
 	if (dbus_connection_send_with_reply(sni_state->conn, msg, &pending, 5000) && pending) {
