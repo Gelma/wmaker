@@ -4148,16 +4148,17 @@ static void iconMouseDown(WObjDescriptor *desc, XEvent *event)
 #ifdef USE_SNI
 	if (aicon->sni) {
 		if (event->xbutton.button == Button1) {
-			Bool hasMoved;
+			if (event->xbutton.state & MOD_MASK) {
+				Bool hasMoved;
 
-			if (event->xbutton.state & MOD_MASK)
 				wDockLower(dock);
-			else
+				hasMoved = wHandleAppIconMove(aicon, event);
+				if (!hasMoved)
+					wSnihostActivate(aicon, event->xbutton.x_root, event->xbutton.y_root);
+			} else {
 				wDockRaise(dock);
-
-			hasMoved = wHandleAppIconMove(aicon, event);
-			if (!hasMoved)
 				wSnihostActivate(aicon, event->xbutton.x_root, event->xbutton.y_root);
+			}
 			return;
 		} else if (event->xbutton.button == Button2) {
 			wSnihostSecondaryActivate(aicon, event->xbutton.x_root, event->xbutton.y_root);
