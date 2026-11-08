@@ -960,6 +960,40 @@ All fixes have been applied in individual, incremental Git commits, each signed 
         - When `sni_on_sync_layout_reply()` receives the new layout, `sni_sync_dbusmenu_ids()` recursively walks the mapped `WMenu` (and its submenu cascades) alongside the D-Bus layout tree, matching entries in order by `(has_children, label)` (correctly distinguishing duplicate labels in different sections, such as Ethernet `"Disconnect"` vs. Wi-Fi `"Disconnect"`) and updating `ctx->dbus_id`, `ctx->toggle_type`, `ctx->toggle_state`, `entry->flags.enabled`, and `entry->flags.indicator_on` in-place.
     - Verified: build 0 warnings, `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass.
 
+148. **SNI DBusMenu Submenu Cascade Opening (`"Available networks"`, `"VPN Connections"`) and `libdbus` Re-Entrant Dispatch Deadlock Fix**:
+    - **Live `gdb` diagnosis on frozen `wmaker --for-real` (PID `811215`)**:
+      Attaching `gdb` to the live `wmaker` process after clicking `"Available networks"` / `"VPN Connections"` in `nm-applet` uncovered three distinct bugs:
+      1. **Root Cause 1 — `libdbus` self-deadlock on recursive `dbus_connection_dispatch()` (WM freeze after a few seconds)**:
+         - Backtrace of Thread 1 in PID `811215`:
+           ```text
+           #4  ___pthread_cond_wait (cond=0x555555812500, mutex=0x555555824300) at ./nptl/pthread_cond_wait.c:627
+           #6  dbus_connection_dispatch () at /lib/x86_64-linux-gnu/libdbus-1.so.3
+           #7  sni_flush_and_dispatch () at snihost.c:637
+           #9  sni_request_dbusmenu_sync (item=0x55555592f780) at snihost.c:1659
+           #10 sni_bus_filter (conn=..., msg=...) at snihost.c:1088
+           #12 dbus_connection_dispatch () at /lib/x86_64-linux-gnu/libdbus-1.so.3
+           #13 sni_dbus_input_proc (fd=..., mask=..., clientData=...) at snihost.c:1148
+           ```
+         - When `sni_dbus_input_proc()` invokes `dbus_connection_dispatch(sni_state->conn)`, `libdbus` acquires its non-recursive internal dispatch lock (`connection->dispatch_acquired = TRUE`) and calls `sni_bus_filter()`.
+         - Inside `sni_bus_filter()` (upon receiving `LayoutUpdated` or `NewIcon`/`NewStatus`), `sni_request_dbusmenu_sync()` or `sni_request_properties()` called `sni_flush_and_dispatch()`, which called `dbus_connection_flush()` (reading further incoming D-Bus messages from the socket into the incoming queue) followed by `dbus_connection_dispatch()` **on the same thread while already inside `dbus_connection_dispatch()`**. `libdbus` then waited forever on `pthread_cond_wait(&connection->dispatch_cond, &connection->mutex)`.
+         - **Fix**: Added `Bool in_dispatch;` to `SNIHostState`. `sni_dbus_input_proc()` sets `sni_state->in_dispatch = True` around its `dbus_connection_dispatch()` loop and calls `dbus_connection_flush()` after exiting the loop. `sni_flush_and_dispatch()` returns immediately when `sni_state->in_dispatch` is `True` (and guards its own dispatch loop with `in_dispatch = True`), eliminating all recursive `dbus_connection_dispatch()` calls.
+      2. **Root Cause 2 — Submenus mapped off-screen (`x = 1920`) when `wPreferences.wrap_menus == 0` (the default)**:
+         - Live `gdb` inspection of `sni_state->items->menu` showed `frame_x = 1599`, `MENUW(menu) = 321` (`1599 + 321 = 1920` on a `1920x1080` screen), `flags.open_to_left = 0`, and `wPreferences.wrap_menus = 0`.
+         - In `src/menu.c`:
+           - `selectEntry()` (`src/menu.c:1415`) only checked `if (wPreferences.wrap_menus)` before wrapping submenus to the left (`x = menu->frame_x - MENUW(submenu)`). With `wrap_menus == 0`, it unconditionally placed `"Available networks"` (`cascades[0]`) and `"VPN Connections"` (`cascades[1]`) at `x = menu->frame_x + MENUW(menu) = 1920` — completely off the right edge of the screen.
+           - Furthermore, at the end of `menuMouseDown()` (`src/menu.c:2234`), `if (!wPreferences.wrap_menus) wMenuMove(parentMenu(desc->parent), old_frame_x, old_frame_y, True)` moved any mapped submenu right back to `x + MENUW(menu)`.
+         - **Fix**:
+           - In `sni_on_get_layout_reply()` (`src/snihost.c`), set `menu->flags.open_to_left = 1` whenever the SNI menu is on the right half of the screen or clamped against the right border (with a 3px margin from the screen edge so `EnterNotify` at `scr_width - 2` does not falsely trigger edge-scrolling).
+           - In `wMenuMapAt()`, `selectEntry()`, `menuMouseDown()`, and `wMenuMove()` (`src/menu.c`), honor `menu->flags.open_to_left` alongside `wPreferences.wrap_menus` so cascade submenus of right-side menus always open to the left (`x = menu->frame_x - MENUW(submenu)`), clamp vertically to the head rectangle, and are not snapped back off-screen on button release.
+      3. **Root Cause 3 — Clicking and releasing a cascade parent (`"Available networks"`) immediately closed the menu tree (`close_on_exit`)**:
+         - In `wSnihostHandleButtonPress()`, setting `event->xany.send_event = True` sets `close_on_exit = 1` in `menuMouseDown()`. When the user clicked and released on a cascade parent entry (`entry->cascade >= 0`), line 2228 of `src/menu.c` (`if (... || close_on_exit || !smenu) closeCascade(desc->parent);`) immediately unmapped both the newly opened submenu and the parent SNI menu upon `ButtonRelease`.
+         - Additionally, `wSnihostHandleButtonPress()` had already released the outer pointer/keyboard grabs before calling `menuMouseDown()`, and if `event->xbutton.window` was `frame->core->window` rather than `under->menu->window`, `menuMouseDown()` armed a 250ms `delayed_select` timer that prevented quick clicks from calling `selectEntry()` at all.
+         - **Fix**:
+           - In `wSnihostHandleButtonPress()` (`src/snihost.c`), route inside-menu clicks directly to `under->menu->window` (`event->xbutton.subwindow = None`).
+           - In `menuMouseDown()` (`src/menu.c:2228`), do not call `closeCascade(desc->parent)` on `close_on_exit` when the released entry is an enabled cascade parent (`entry->cascade >= 0`), keeping the parent menu and its newly mapped submenu open on screen.
+           - Added `wSnihostPostButtonPress()` (`src/snihost.c`, called from `DispatchEvent()` in `src/event.c` after `handleButtonPress()`): if the SNI menu remains mapped after `menuMouseDown()` returns (because a submenu was opened), it re-establishes the non-blocking pointer and keyboard grabs (`sni_grab_menu()`) so subsequent clicks inside the submenu, clicks outside to dismiss, or `Escape` work seamlessly; if `menuMouseDown()` unmapped the menu (after activating a leaf entry), it calls `wSnihostCloseMenus()` to destroy the `WMenu` and release grabs.
+    - Verified: build 0 warnings, `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
