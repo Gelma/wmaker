@@ -1269,12 +1269,11 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *reply;
 	DBusMessageIter root_iter, layout_iter;
 
+	reply = dbus_pending_call_steal_reply(pending);
 	if (item->layout_pending == pending) {
 		dbus_pending_call_unref(item->layout_pending);
 		item->layout_pending = NULL;
 	}
-
-	reply = dbus_pending_call_steal_reply(pending);
 	if (!reply)
 		return;
 
