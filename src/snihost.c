@@ -1178,17 +1178,13 @@ static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
 	SNIMenuCtx *ctx = entry->clientdata;
 
 	(void)menu;
-	if (ctx) {
+	if (ctx)
 		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
-		if (ctx->item && ctx->item->menu)
-			wMenuUnmap(ctx->item->menu);
-	}
 
-	/* Do NOT call wMenuDestroy() here: menuMouseDown() is still on the call
-	 * stack and will dereference menu and its parent after this callback
-	 * returns. Simply release any active grabs; wSnihostCloseMenus() will
-	 * destroy the unmapped menu later. */
-	sni_release_grabs();
+	/* Do NOT touch the menu here: menuMouseDown() is still on the call
+	 * stack and closes the menu itself (close_on_exit), then keeps
+	 * dereferencing it (selectEntry/insertEntry/...). Closing or destroying
+	 * it here caused a use-after-free crash on every leaf activation. */
 }
 
 static void sni_menu_ctx_free(void *data)
@@ -1256,12 +1252,30 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 		}
 
 		if (dbus_message_iter_next(&struct_iter) &&
-		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY)
-			has_children = 1;
+		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
+			DBusMessageIter child_check;
+
+			dbus_message_iter_recurse(&struct_iter, &child_check);
+			if (dbus_message_iter_get_arg_type(&child_check) == DBUS_TYPE_VARIANT)
+				has_children = 1;
+		}
 
 		if (type == 1) {
 			/* separator */
 			wMenuAddCallback(menu, "", NULL, NULL);
+		} else if (has_children) {
+			WMenuEntry *entry;
+			WMenu *sub;
+
+			/* Submenu parent: do NOT attach sni_menu_callback! In Window Maker's
+			 * selectEntry() (src/menu.c:1394-1404), if a cascade parent entry has
+			 * a callback, it is invoked *when opening the submenu* before mapping
+			 * menu->cascades[entry->cascade]. Attaching sni_menu_callback to a
+			 * submenu parent would unmap/close the menu as soon as the submenu opens! */
+			entry = wMenuAddCallback(menu, label ? label : "", NULL, NULL);
+			sub = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
+			sni_build_dbusmenu(item, sub, &struct_iter);
+			wMenuEntrySetCascade(menu, entry, sub);
 		} else {
 			SNIMenuCtx *ctx = wmalloc(sizeof(SNIMenuCtx));
 			WMenuEntry *entry;
@@ -1270,13 +1284,6 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			ctx->dbus_id = id;
 			entry = wMenuAddCallback(menu, label ? label : "", sni_menu_callback, ctx);
 			entry->free_cdata = sni_menu_ctx_free;
-
-			if (has_children) {
-				WMenu *sub = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
-
-				sni_build_dbusmenu(item, sub, &struct_iter);
-				wMenuEntrySetCascade(menu, entry, sub);
-			}
 		}
 
 		if (label)
