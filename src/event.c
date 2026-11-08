@@ -252,6 +252,9 @@ void DispatchEvent(XEvent * event)
 
 	case ButtonPress:
 		handleButtonPress(event);
+#ifdef USE_SNI
+		wSnihostPostButtonPress();
+#endif
 		break;
 
 	case Expose:

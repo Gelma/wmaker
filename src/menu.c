@@ -1242,7 +1242,7 @@ void wMenuMapAt(WMenu * menu, int x, int y, int keyboard)
 	}
 
 	if (!menu->flags.mapped) {
-		if (wPreferences.wrap_menus) {
+		if (wPreferences.wrap_menus || menu->flags.open_to_left) {
 			WScreen *scr = menu->frame->screen_ptr;
 			WMRect rect = wGetRectForHead(scr, wGetHeadForPointerLocation(scr));
 
@@ -1412,7 +1412,7 @@ static void selectEntry(WMenu * menu, int entry_no)
 
 				if (!submenu->flags.realized)
 					wMenuRealize(submenu);
-				if (wPreferences.wrap_menus) {
+				if (wPreferences.wrap_menus || menu->flags.open_to_left) {
 					if (menu->flags.open_to_left)
 						submenu->flags.open_to_left = 1;
 
@@ -1937,7 +1937,7 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 	   } */
 	menu->flags.inside_handler = 1;
 
-	if (!wPreferences.wrap_menus) {
+	if (!wPreferences.wrap_menus && !parentMenu(menu)->flags.open_to_left) {
 		smenu = parentMenu(menu);
 		old_frame_x = smenu->frame_x;
 		old_frame_y = smenu->frame_y;
@@ -2225,13 +2225,19 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 		}
 	}
 
-	if (((WMenu *) desc->parent)->flags.brother || close_on_exit || !smenu)
-		closeCascade(desc->parent);
+	{
+		int keep_open = (smenu != NULL && menu != NULL &&
+		                 entry != NULL && entry->flags.enabled &&
+		                 entry->cascade >= 0);
+
+		if (!keep_open && (((WMenu *) desc->parent)->flags.brother || close_on_exit || !smenu))
+			closeCascade(desc->parent);
+	}
 
 	/* close the cascade windows that should not remain opened */
 	closeBrotherCascadesOf(desc->parent);
 
-	if (!wPreferences.wrap_menus)
+	if (!wPreferences.wrap_menus && !parentMenu(desc->parent)->flags.open_to_left)
 		wMenuMove(parentMenu(desc->parent), old_frame_x, old_frame_y, True);
 
  byebye:
@@ -2266,10 +2272,14 @@ void wMenuMove(WMenu * menu, int x, int y, int submenus)
 		if (i >= 0 && i < menu->cascade_no && menu->cascades) {
 			submenu = menu->cascades[i];
 			if (submenu && submenu->flags.mapped && !submenu->flags.buttoned) {
+				int sub_x = submenu->flags.open_to_left
+				            ? x - MENUW(submenu)
+				            : x + MENUW(menu);
+
 				if (wPreferences.align_menus) {
-					wMenuMove(submenu, x + MENUW(menu), y, submenus);
+					wMenuMove(submenu, sub_x, y, submenus);
 				} else {
-					wMenuMove(submenu, x + MENUW(menu),
+					wMenuMove(submenu, sub_x,
 						  y + submenu->entry_height * menu->selected_entry, submenus);
 				}
 			}

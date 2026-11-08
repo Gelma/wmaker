@@ -34,6 +34,7 @@ void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation);
 const char *wSnihostGetBalloonText(WAppIcon *aicon);
 void wSnihostCloseMenus(void);
 void wSnihostHandleButtonPress(XEvent *event);
+void wSnihostPostButtonPress(void);
 Bool wSnihostHandleKeyPress(XEvent *event);
 
 #endif /* WMSNIHOST_H_ */

@@ -90,6 +90,7 @@ typedef struct SNIHostState {
 	SNIItem *items;
 	Bool pointer_grabbed;
 	Bool keyboard_grabbed;
+	Bool in_dispatch;
 } SNIHostState;
 
 /* The tray is a per-session singleton: only screen 0 binds the watcher and
@@ -629,13 +630,15 @@ next_entry:
 
 static void sni_flush_and_dispatch(void)
 {
-	if (!sni_state || !sni_state->conn)
+	if (!sni_state || !sni_state->conn || sni_state->in_dispatch)
 		return;
 
 	dbus_connection_flush(sni_state->conn);
+	sni_state->in_dispatch = True;
 	while (dbus_connection_get_dispatch_status(sni_state->conn) == DBUS_DISPATCH_DATA_REMAINS) {
 		dbus_connection_dispatch(sni_state->conn);
 	}
+	sni_state->in_dispatch = False;
 }
 
 static void sni_request_properties(SNIItem *item)
@@ -1144,9 +1147,12 @@ static void sni_dbus_input_proc(int fd, int mask, void *clientData)
 		return;
 	}
 
+	sni_state->in_dispatch = True;
 	while (dbus_connection_get_dispatch_status(sni_state->conn) == DBUS_DISPATCH_DATA_REMAINS) {
 		dbus_connection_dispatch(sni_state->conn);
 	}
+	sni_state->in_dispatch = False;
+	dbus_connection_flush(sni_state->conn);
 	XFlush(dpy);
 }
 
@@ -1208,6 +1214,25 @@ static void sni_release_grabs(void)
 		sni_state->keyboard_grabbed = False;
 	}
 	XFlush(dpy);
+}
+
+static void sni_grab_menu(WMenu *menu)
+{
+	if (!sni_state || !menu || !menu->frame || !menu->frame->core)
+		return;
+
+	XSync(dpy, False);
+	if (!sni_state->pointer_grabbed) {
+		if (XGrabPointer(dpy, menu->frame->core->window, True,
+		                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+		                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime) == GrabSuccess)
+			sni_state->pointer_grabbed = True;
+	}
+	if (!sni_state->keyboard_grabbed) {
+		if (XGrabKeyboard(dpy, menu->frame->core->window, True,
+		                  GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+			sni_state->keyboard_grabbed = True;
+	}
 }
 
 static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
@@ -1541,6 +1566,21 @@ static void sni_sync_dbusmenu_ids(WMenu *menu, DBusMessageIter *children_iter)
 			}
 		}
 
+		if (match_idx < 0 && type != 1 && label && label[0] != '\0') {
+			for (i = 0; i < idx && i < menu->entry_no; i++) {
+				WMenuEntry *e = menu->entries[i];
+				const char *elabel = e->text ? e->text : "";
+				int e_has_sub = (e->cascade >= 0 && menu->cascades &&
+				                 e->cascade < menu->cascade_no &&
+				                 menu->cascades[e->cascade] != NULL);
+
+				if (e_has_sub == has_children && strcmp(elabel, label) == 0) {
+					match_idx = i;
+					break;
+				}
+			}
+		}
+
 		if (match_idx >= 0) {
 			WMenuEntry *e = menu->entries[match_idx];
 
@@ -1563,7 +1603,8 @@ static void sni_sync_dbusmenu_ids(WMenu *menu, DBusMessageIter *children_iter)
 					e->flags.indicator_type = (toggle_type == 2) ? MI_DIAMOND : MI_CHECK;
 				}
 			}
-			idx = match_idx + 1;
+			if (match_idx >= idx)
+				idx = match_idx + 1;
 		}
 
 		if (label)
@@ -1708,15 +1749,21 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		wMenuRealize(menu);
 
 		/* Keep the menu on-screen: the dock sits on the right edge, so open
-		 * the menu to the left of the pointer when it would overflow. */
+		 * the menu to the left of the pointer when it would overflow, and
+		 * mark open_to_left so cascade submenus open to the left onto the
+		 * screen even when wPreferences.wrap_menus is False. */
 		if (menu->frame) {
 			int mw = menu->frame->core->width;
 			int mh = menu->frame->core->height;
 
-			if (mx + mw > scr->scr_width)
-				mx = scr->scr_width - mw;
-			if (my + mh > scr->scr_height)
-				my = scr->scr_height - mh;
+			if (mx + mw >= scr->scr_width - 2) {
+				mx = scr->scr_width - mw - 3;
+				menu->flags.open_to_left = 1;
+			} else if (mx > scr->scr_width / 2) {
+				menu->flags.open_to_left = 1;
+			}
+			if (my + mh >= scr->scr_height - 2)
+				my = scr->scr_height - mh - 3;
 			if (mx < 0)
 				mx = 0;
 			if (my < 0)
@@ -1731,14 +1778,7 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		 * pressing Escape reaches us and closes it. keyboardMenu() would
 		 * block here (it is a modal WMMaskEvent loop), so use plain
 		 * non-blocking grabs. */
-		XSync(dpy, False);
-		if (XGrabPointer(dpy, menu->frame->core->window, True,
-		                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-		                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime) == GrabSuccess)
-			sni_state->pointer_grabbed = True;
-		if (XGrabKeyboard(dpy, menu->frame->core->window, True,
-		                  GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
-			sni_state->keyboard_grabbed = True;
+		sni_grab_menu(menu);
 	}
 
 	dbus_message_unref(reply);
@@ -1942,15 +1982,51 @@ void wSnihostHandleButtonPress(XEvent *event)
 	under = wMenuUnderPointer(sni_state->scr);
 	if (under && sni_menu_contains_tree(open_item->menu, under)) {
 		/* Click is inside the open SNI menu (or one of its cascades):
-		 * release the outer pointer/keyboard grabs and mark send_event = True
-		 * so menuMouseDown() tracks the click/drag and closes on release. */
+		 * release the outer pointer/keyboard grabs, target the inner
+		 * menu window directly (avoiding the root-menu delayed_select
+		 * timer on frame->core->window), and mark send_event = True
+		 * so menuMouseDown() tracks the click/drag. */
 		sni_release_grabs();
+		if (under->menu) {
+			event->xbutton.window = under->menu->window;
+			event->xbutton.subwindow = None;
+		}
 		event->xany.send_event = True;
 		return;
 	}
 
 	/* Click is outside the SNI menu: close the menu and release the grabs. */
 	wSnihostCloseMenus();
+}
+
+void wSnihostPostButtonPress(void)
+{
+	SNIItem *it, *open_item = NULL;
+
+	if (!sni_state)
+		return;
+
+	for (it = sni_state->items; it; it = it->next) {
+		if (it->menu) {
+			open_item = it;
+			break;
+		}
+	}
+
+	if (!open_item)
+		return;
+
+	if (open_item->menu->flags.mapped) {
+		/* The menu remained mapped after menuMouseDown (e.g. the user
+		 * clicked a cascade entry to open a submenu): re-establish the
+		 * pointer and keyboard grabs so subsequent clicks inside the
+		 * submenu, clicks outside, or Escape are captured. */
+		sni_grab_menu(open_item->menu);
+	} else {
+		/* menuMouseDown unmapped the menu after activating a leaf entry
+		 * or closing the cascade: destroy the WMenu and release grabs. */
+		wSnihostCloseMenus();
+	}
 }
 
 Bool wSnihostHandleKeyPress(XEvent *event)
@@ -2099,10 +2175,7 @@ void wSnihostInit(WScreen *scr)
 	sni_state->input_handler = WMAddInputHandler(fd, WIReadMask, sni_dbus_input_proc, scr);
 
 	sni_emit_watcher_signal("StatusNotifierHostRegistered", NULL);
-
-	while (dbus_connection_get_dispatch_status(conn) == DBUS_DISPATCH_DATA_REMAINS) {
-		dbus_connection_dispatch(conn);
-	}
+	sni_flush_and_dispatch();
 }
 
 void wSnihostShutdown(WScreen *scr)
