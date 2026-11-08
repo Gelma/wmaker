@@ -122,6 +122,7 @@ static const char *sni_watcher_introspect_xml =
 	"</node>\n";
 
 static void sni_request_properties(SNIItem *item);
+static void sni_request_dbusmenu_sync(SNIItem *item);
 
 static void sni_replace_str(char **dst, const char *src)
 {
@@ -1067,21 +1068,30 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	/* Track menu layout changes: destroy any cached unmapped menu so the next
-	 * right-click re-fetches the updated layout, without closing a menu that
-	 * the user currently has open on screen. */
+	/* Track menu layout changes: if the menu is currently closed, destroy the
+	 * cached WMenu so the next right-click re-fetches the updated layout. If
+	 * the menu is currently mapped on screen (e.g. nm-applet rebuilding its
+	 * GtkMenu after a background Wi-Fi scan triggered by AboutToShow), keep
+	 * the WMenu open and asynchronously refresh its entries' dbus_id values
+	 * in-place so clicking an entry never sends a stale ID. */
 	if (dbus_message_is_signal(msg, "com.canonical.dbusmenu", "LayoutUpdated")) {
 		const char *sender = dbus_message_get_sender(msg);
+		const char *path = dbus_message_get_path(msg);
 		SNIItem *it;
 
 		if (sender) {
 			for (it = sni_state->items; it; it = it->next) {
 				if (it->sender_unique && strcmp(it->sender_unique, sender) == 0 &&
-				    it->menu && !it->menu->flags.mapped) {
-					WMenu *menu = it->menu;
+				    (!path || !it->menu_path || strcmp(it->menu_path, path) == 0) &&
+				    it->menu) {
+					if (it->menu->flags.mapped) {
+						sni_request_dbusmenu_sync(it);
+					} else {
+						WMenu *menu = it->menu;
 
-					it->menu = NULL;
-					wMenuDestroy(menu, True);
+						it->menu = NULL;
+						wMenuDestroy(menu, True);
+					}
 					break;
 				}
 			}
@@ -1173,6 +1183,8 @@ static void sni_send_item_coord_method(WAppIcon *aicon, const char *method, int 
 typedef struct SNIMenuCtx {
 	SNIItem *item;
 	int dbus_id;
+	int toggle_type;	/* 0 = none, 1 = checkmark, 2 = radio */
+	int toggle_state;	/* -1 = absent, 0 = off, 1 = on */
 } SNIMenuCtx;
 
 typedef struct SNILayoutReq {
@@ -1180,7 +1192,7 @@ typedef struct SNILayoutReq {
 	int x, y;
 } SNILayoutReq;
 
-static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id);
+static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id, int new_state);
 
 static void sni_release_grabs(void)
 {
@@ -1201,10 +1213,20 @@ static void sni_release_grabs(void)
 static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
 {
 	SNIMenuCtx *ctx = entry->clientdata;
+	int new_state = -1;
 
 	(void)menu;
-	if (ctx)
-		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
+	if (ctx) {
+		/* For toggle entries, pass the new state as the Event variant data:
+		 * a radio becomes selected, a checkmark toggles. Plain entries send
+		 * an empty string variant. */
+		if (ctx->toggle_type == 2)
+			new_state = 1;
+		else if (ctx->toggle_type == 1)
+			new_state = (ctx->toggle_state == 1) ? 0 : 1;
+
+		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked", new_state);
+	}
 
 	/* Do NOT touch the menu here: menuMouseDown() is still on the call
 	 * stack and closes the menu itself (close_on_exit), then keeps
@@ -1431,6 +1453,8 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 
 			ctx->item = item;
 			ctx->dbus_id = id;
+			ctx->toggle_type = toggle_type;
+			ctx->toggle_state = toggle_state;
 			entry = wMenuAddCallback(menu, label ? label : "", sni_menu_callback, ctx);
 			entry->free_cdata = sni_menu_ctx_free;
 			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state, enabled);
@@ -1443,6 +1467,196 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 
 		dbus_message_iter_next(&elem_iter);
 	}
+}
+
+/* Synchronize dbus_id and toggle state in-place on an already mapped WMenu
+ * when the DBusMenu server emits LayoutUpdated while the menu is open (for
+ * example, nm-applet recreating its GtkMenuItem widgets after a Wi-Fi scan
+ * triggered by AboutToShow). */
+static void sni_sync_dbusmenu_ids(WMenu *menu, DBusMessageIter *children_iter)
+{
+	DBusMessageIter elem_iter;
+	int idx = 0;
+
+	if (!menu || !children_iter)
+		return;
+
+	dbus_message_iter_recurse(children_iter, &elem_iter);
+	while (dbus_message_iter_get_arg_type(&elem_iter) == DBUS_TYPE_VARIANT) {
+		DBusMessageIter var_iter, struct_iter, props_iter;
+		dbus_int32_t id = 0;
+		char *label = NULL;
+		char *icon_name = NULL;
+		int type = 0;
+		int toggle_type = 0;
+		int toggle_state = -1;
+		int enabled = 1;
+		int visible = 1;
+		int has_children = 0;
+		int match_idx = -1;
+		int i;
+
+		dbus_message_iter_recurse(&elem_iter, &var_iter);
+		dbus_message_iter_recurse(&var_iter, &struct_iter);
+
+		if (dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_INT32)
+			dbus_message_iter_get_basic(&struct_iter, &id);
+
+		if (dbus_message_iter_next(&struct_iter) &&
+		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
+			props_iter = struct_iter;
+			sni_dbusmenu_parse_props(&props_iter, &label, &type, &icon_name,
+			                         &toggle_type, &toggle_state, &enabled, &visible);
+		}
+
+		if (dbus_message_iter_next(&struct_iter) &&
+		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
+			DBusMessageIter child_check;
+
+			dbus_message_iter_recurse(&struct_iter, &child_check);
+			if (dbus_message_iter_get_arg_type(&child_check) == DBUS_TYPE_VARIANT)
+				has_children = 1;
+		}
+
+		if (!visible) {
+			if (label)
+				wfree(label);
+			if (icon_name)
+				wfree(icon_name);
+			dbus_message_iter_next(&elem_iter);
+			continue;
+		}
+
+		for (i = idx; i < menu->entry_no; i++) {
+			WMenuEntry *e = menu->entries[i];
+			const char *elabel = e->text ? e->text : "";
+			const char *dlabel = (type == 1) ? "" : (label ? label : "");
+			int e_has_sub = (e->cascade >= 0 && menu->cascades &&
+			                 e->cascade < menu->cascade_no &&
+			                 menu->cascades[e->cascade] != NULL);
+
+			if (e_has_sub == has_children && strcmp(elabel, dlabel) == 0) {
+				match_idx = i;
+				break;
+			}
+		}
+
+		if (match_idx >= 0) {
+			WMenuEntry *e = menu->entries[match_idx];
+
+			e->flags.enabled = enabled ? 1 : 0;
+			if (has_children) {
+				if (e->cascade >= 0 && menu->cascades &&
+				    e->cascade < menu->cascade_no &&
+				    menu->cascades[e->cascade]) {
+					sni_sync_dbusmenu_ids(menu->cascades[e->cascade], &struct_iter);
+				}
+			} else if (e->clientdata) {
+				SNIMenuCtx *ctx = (SNIMenuCtx *)e->clientdata;
+
+				ctx->dbus_id = id;
+				ctx->toggle_type = toggle_type;
+				ctx->toggle_state = toggle_state;
+				if (toggle_type != 0) {
+					e->flags.indicator = 1;
+					e->flags.indicator_on = (toggle_state == 1);
+					e->flags.indicator_type = (toggle_type == 2) ? MI_DIAMOND : MI_CHECK;
+				}
+			}
+			idx = match_idx + 1;
+		}
+
+		if (label)
+			wfree(label);
+		if (icon_name)
+			wfree(icon_name);
+
+		dbus_message_iter_next(&elem_iter);
+	}
+}
+
+static void sni_on_sync_layout_reply(DBusPendingCall *pending, void *user_data)
+{
+	SNIItem *item = (SNIItem *)user_data;
+	DBusMessage *reply;
+	DBusMessageIter root_iter, layout_iter;
+
+	reply = dbus_pending_call_steal_reply(pending);
+	if (item->layout_pending == pending) {
+		dbus_pending_call_unref(item->layout_pending);
+		item->layout_pending = NULL;
+	}
+	if (!reply)
+		return;
+
+	if (!item->menu || !item->menu->flags.mapped ||
+	    dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR ||
+	    !dbus_message_iter_init(reply, &root_iter) ||
+	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_UINT32) {
+		dbus_message_unref(reply);
+		return;
+	}
+
+	if (!dbus_message_iter_next(&root_iter) ||
+	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_STRUCT) {
+		dbus_message_unref(reply);
+		return;
+	}
+
+	dbus_message_iter_recurse(&root_iter, &layout_iter);
+	if (!dbus_message_iter_next(&layout_iter) ||
+	    !dbus_message_iter_next(&layout_iter) ||
+	    dbus_message_iter_get_arg_type(&layout_iter) != DBUS_TYPE_ARRAY) {
+		dbus_message_unref(reply);
+		return;
+	}
+
+	sni_sync_dbusmenu_ids(item->menu, &layout_iter);
+	dbus_message_unref(reply);
+}
+
+static void sni_request_dbusmenu_sync(SNIItem *item)
+{
+	DBusMessage *msg;
+	DBusPendingCall *pending = NULL;
+	const char *dest;
+	dbus_int32_t parent_id = 0;
+	dbus_int32_t depth = -1;
+	const char *prop_names[] = {
+		"label", "type", "enabled", "visible",
+		"children-display", "icon-name", "toggle-type", "toggle-state"
+	};
+	const char **props = prop_names;
+
+	if (!sni_state || !sni_state->conn || !item || !item->menu || !item->menu->flags.mapped)
+		return;
+
+	if (item->layout_pending) {
+		dbus_pending_call_cancel(item->layout_pending);
+		dbus_pending_call_unref(item->layout_pending);
+		item->layout_pending = NULL;
+	}
+
+	dest = (item->service_name && item->service_name[0]) ? item->service_name : item->sender_unique;
+	if (!dest || !item->menu_path)
+		return;
+
+	msg = dbus_message_new_method_call(dest, item->menu_path, DBUSMENU_IFACE, "GetLayout");
+	if (!msg)
+		return;
+
+	dbus_message_append_args(msg,
+	                         DBUS_TYPE_INT32, &parent_id,
+	                         DBUS_TYPE_INT32, &depth,
+	                         DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &props, 8,
+	                         DBUS_TYPE_INVALID);
+
+	if (dbus_connection_send_with_reply(sni_state->conn, msg, &pending, 5000) && pending) {
+		item->layout_pending = pending;
+		dbus_pending_call_set_notify(pending, sni_on_sync_layout_reply, item, NULL);
+	}
+	dbus_message_unref(msg);
+	sni_flush_and_dispatch();
 }
 
 static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
@@ -1591,7 +1805,7 @@ static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 	sni_flush_and_dispatch();
 }
 
-static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id)
+static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id, int new_state)
 {
 	DBusMessage *msg;
 	DBusMessageIter iter;
@@ -1617,10 +1831,20 @@ static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id)
 	dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &eid);
 	{
 		DBusMessageIter var_iter;
-		const char *empty = "";
 
-		dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &var_iter);
-		dbus_message_iter_append_basic(&var_iter, DBUS_TYPE_STRING, &empty);
+		/* Toggle/radio entries carry the new state as an int32 variant;
+		 * plain entries send an empty string variant. */
+		if (new_state >= 0) {
+			dbus_int32_t ns = new_state;
+
+			dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "i", &var_iter);
+			dbus_message_iter_append_basic(&var_iter, DBUS_TYPE_INT32, &ns);
+		} else {
+			const char *empty = "";
+
+			dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &var_iter);
+			dbus_message_iter_append_basic(&var_iter, DBUS_TYPE_STRING, &empty);
+		}
 		dbus_message_iter_close_container(&iter, &var_iter);
 	}
 	dbus_message_iter_append_basic(&iter, DBUS_TYPE_UINT32, &ts);
