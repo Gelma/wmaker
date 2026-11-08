@@ -1064,6 +1064,24 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
+	/* Track menu layout changes: close the open menu so the next
+	 * right-click re-fetches the updated layout. */
+	if (dbus_message_is_signal(msg, "com.canonical.dbusmenu", "LayoutUpdated")) {
+		const char *sender = dbus_message_get_sender(msg);
+		SNIItem *it;
+
+		if (sender) {
+			for (it = sni_state->items; it; it = it->next) {
+				if (it->sender_unique && strcmp(it->sender_unique, sender) == 0 &&
+				    it->menu && it->menu->flags.mapped) {
+					wSnihostCloseMenus();
+					break;
+				}
+			}
+		}
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
 	/* Listen for dynamic property update signals from StatusNotifierItems */
 	if (dbus_message_get_type(msg) == DBUS_MESSAGE_TYPE_SIGNAL) {
 		const char *iface = dbus_message_get_interface(msg);
@@ -1192,12 +1210,17 @@ static void sni_menu_ctx_free(void *data)
 	wfree(data);
 }
 
-static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_out, int *type_out)
+static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_out,
+                                     int *type_out, char **icon_name_out,
+                                     int *toggle_type_out, int *toggle_state_out)
 {
 	DBusMessageIter entry_iter;
 
 	*label_out = NULL;
 	*type_out = 0;		/* 0 = standard, 1 = separator */
+	*icon_name_out = NULL;
+	*toggle_type_out = 0;	/* 0 = none, 1 = checkmark, 2 = radio */
+	*toggle_state_out = -1;	/* -1 = absent, 0 = off, 1 = on, 2 = indeterminate */
 
 	dbus_message_iter_recurse(props_iter, &entry_iter);
 	while (dbus_message_iter_get_arg_type(&entry_iter) == DBUS_TYPE_DICT_ENTRY) {
@@ -1221,9 +1244,49 @@ static void sni_dbusmenu_parse_props(DBusMessageIter *props_iter, char **label_o
 				dbus_message_iter_get_basic(&v_iter, &v);
 				if (v && strcmp(v, "separator") == 0)
 					*type_out = 1;
+			} else if (strcmp(key, "icon-name") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
+				const char *v = NULL;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				if (v && v[0])
+					*icon_name_out = wstrdup(v);
+			} else if (strcmp(key, "toggle-type") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_STRING) {
+				const char *v = NULL;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				if (v && strcmp(v, "radio") == 0)
+					*toggle_type_out = 2;
+				else if (v && strcmp(v, "checkmark") == 0)
+					*toggle_type_out = 1;
+			} else if (strcmp(key, "toggle-state") == 0 &&
+			           dbus_message_iter_get_arg_type(&v_iter) == DBUS_TYPE_INT32) {
+				dbus_int32_t v = 0;
+				dbus_message_iter_get_basic(&v_iter, &v);
+				*toggle_state_out = v;
 			}
 		}
 		dbus_message_iter_next(&entry_iter);
+	}
+}
+
+static void sni_entry_set_icon_toggle(SNIItem *item, WMenuEntry *entry,
+                                      const char *icon_name, int toggle_type, int toggle_state)
+{
+	WScreen *scr = item->aicon->icon->core->screen_ptr;
+
+	if (icon_name && icon_name[0]) {
+		RImage *img = sni_resolve_icon_name(item, scr, icon_name, item->icon_theme_path);
+
+		if (img) {
+			entry->icon = (struct WPixmap *)WMCreatePixmapFromRImage(scr->wmscreen, img, 128);
+			RReleaseImage(img);
+		}
+	}
+
+	if (toggle_type != 0) {
+		entry->flags.indicator = 1;
+		entry->flags.indicator_on = (toggle_state == 1);
+		entry->flags.indicator_type = (toggle_type == 2) ? MI_DIAMOND : MI_CHECK;
 	}
 }
 
@@ -1236,7 +1299,10 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 		DBusMessageIter var_iter, struct_iter, props_iter;
 		dbus_int32_t id = 0;
 		char *label = NULL;
+		char *icon_name = NULL;
 		int type = 0;
+		int toggle_type = 0;
+		int toggle_state = -1;
 		int has_children = 0;
 
 		dbus_message_iter_recurse(&elem_iter, &var_iter);
@@ -1248,7 +1314,8 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 		if (dbus_message_iter_next(&struct_iter) &&
 		    dbus_message_iter_get_arg_type(&struct_iter) == DBUS_TYPE_ARRAY) {
 			props_iter = struct_iter;
-			sni_dbusmenu_parse_props(&props_iter, &label, &type);
+			sni_dbusmenu_parse_props(&props_iter, &label, &type, &icon_name,
+			                         &toggle_type, &toggle_state);
 		}
 
 		if (dbus_message_iter_next(&struct_iter) &&
@@ -1273,6 +1340,7 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			 * menu->cascades[entry->cascade]. Attaching sni_menu_callback to a
 			 * submenu parent would unmap/close the menu as soon as the submenu opens! */
 			entry = wMenuAddCallback(menu, label ? label : "", NULL, NULL);
+			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state);
 			sub = wMenuCreate(item->aicon->icon->core->screen_ptr, NULL, False);
 			sni_build_dbusmenu(item, sub, &struct_iter);
 			wMenuEntrySetCascade(menu, entry, sub);
@@ -1284,10 +1352,13 @@ static void sni_build_dbusmenu(SNIItem *item, WMenu *menu, DBusMessageIter *chil
 			ctx->dbus_id = id;
 			entry = wMenuAddCallback(menu, label ? label : "", sni_menu_callback, ctx);
 			entry->free_cdata = sni_menu_ctx_free;
+			sni_entry_set_icon_toggle(item, entry, icon_name, toggle_type, toggle_state);
 		}
 
 		if (label)
 			wfree(label);
+		if (icon_name)
+			wfree(icon_name);
 
 		dbus_message_iter_next(&elem_iter);
 	}
@@ -1705,6 +1776,9 @@ void wSnihostInit(WScreen *scr)
 	                   NULL);
 	dbus_bus_add_match(conn,
 	                   "type='signal',interface='org.freedesktop.StatusNotifierItem'",
+	                   NULL);
+	dbus_bus_add_match(conn,
+	                   "type='signal',interface='com.canonical.dbusmenu'",
 	                   NULL);
 
 	dbus_connection_add_filter(conn, sni_bus_filter, NULL, NULL);
