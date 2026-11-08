@@ -32,5 +32,6 @@ void wSnihostSecondaryActivate(WAppIcon *aicon, int x, int y);
 void wSnihostContextMenu(WAppIcon *aicon, int x, int y);
 void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation);
 const char *wSnihostGetBalloonText(WAppIcon *aicon);
+void wSnihostCloseMenus(void);
 
 #endif /* WMSNIHOST_H_ */

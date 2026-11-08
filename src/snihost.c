@@ -85,6 +85,7 @@ typedef struct SNIHostState {
 	WMHandlerID input_handler;
 	char *host_bus_name;
 	SNIItem *items;
+	Bool pointer_grabbed;
 } SNIHostState;
 
 /* The tray is a per-session singleton: only screen 0 binds the watcher and
@@ -1315,6 +1316,14 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 			wMenuDestroy(item->menu, True);
 		item->menu = menu;
 		wMenuMapAt(menu, mx, my, False);
+		/* Grab the pointer so a click outside the menu reaches us and
+		 * closes it. keyboardMenu() would block here (it is a modal
+		 * WMMaskEvent loop), so use a plain non-blocking pointer grab. */
+		XSync(dpy, False);
+		if (XGrabPointer(dpy, menu->frame->core->window, True,
+		                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+		                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime) == GrabSuccess)
+			sni_state->pointer_grabbed = True;
 	}
 
 	dbus_message_unref(reply);
@@ -1427,6 +1436,28 @@ void wSnihostContextMenu(WAppIcon *aicon, int x, int y)
 
 	if (item)
 		sni_show_dbusmenu(item, x, y);
+}
+
+void wSnihostCloseMenus(void)
+{
+	SNIItem *it;
+
+	if (!sni_state)
+		return;
+
+	for (it = sni_state->items; it; it = it->next) {
+		if (it->menu) {
+			WMenu *menu = it->menu;
+
+			it->menu = NULL;
+			wMenuDestroy(menu, True);
+		}
+	}
+
+	if (sni_state->pointer_grabbed) {
+		XUngrabPointer(dpy, CurrentTime);
+		sni_state->pointer_grabbed = False;
+	}
 }
 
 void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation)

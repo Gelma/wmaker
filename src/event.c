@@ -63,6 +63,7 @@
 #include "defaults.h"
 #include "workspace.h"
 #include "dock.h"
+#include "snihost.h"
 #include "framewin.h"
 #include "properties.h"
 #include "balloon.h"
@@ -199,6 +200,14 @@ void DispatchEvent(XEvent * event)
 	 * the stuff above */
 	if (!event)
 		return;
+
+#ifdef USE_SNI
+	/* A click outside an open SNI DBusMenu (the pointer is grabbed with
+	 * owner_events=True, so this ButtonPress is the outside click) closes
+	 * the menu and releases the grab. */
+	if (event->type == ButtonPress)
+		wSnihostCloseMenus();
+#endif
 
 	struct timespec tstart;
 	uint64_t modal_before, total_ns, nested_ns, own_ns;
