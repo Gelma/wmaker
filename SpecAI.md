@@ -933,6 +933,10 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - `c870593c` fixed the leaf-activation crash: `sni_menu_callback()` was still calling `wMenuUnmap()` while `menuMouseDown()` was on the call stack, so the subsequent `selectEntry()`/`insertEntry()`/`wFrameWindowUpdateBorders()` dereferenced the unmapped frame and crashed (GPF + segfault in dmesg, mapped with `addr2line`). The callback now only sends the DBusMenu `Event`; `menuMouseDown()` closes the menu itself via `close_on_exit`.
     - **Andrea confirmed (2026-11-08)**: right-click opens the menu; clicking an entry activates it and closes the menu without a WM restart; Escape closes the menu. The SNI system-tray DBusMenu feature (wishlist item 5) is fully working end-to-end.
 
+146. **SNI DBusMenu Entry Icons, Toggle Indicators & `LayoutUpdated` (`1efe4727`)**:
+    - Completed the remaining DBusMenu rendering: each entry's `icon-name` is resolved (via the existing `sni_resolve_icon_name`) into a `WMCreatePixmapFromRImage` pixmap and set as `entry->icon`; `toggle-type` (`checkmark`/`radio`) and `toggle-state` map to the Window Maker `MI_CHECK`/`MI_DIAMOND` indicators (`entry->flags.indicator`/`indicator_on`/`indicator_type`); and the `com.canonical.dbusmenu` `LayoutUpdated` signal is now matched and handled, closing the open menu so the next right-click re-fetches the updated layout.
+    - Verified: build 0 warnings, `EXIT_TEST_ARGS=--valgrind make exit-test` passes.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
