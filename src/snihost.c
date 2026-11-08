@@ -1314,7 +1314,7 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		if (item->menu)
 			wMenuDestroy(item->menu, True);
 		item->menu = menu;
-		wMenuMapAt(menu, mx, my, True);
+		wMenuMapAt(menu, mx, my, False);
 	}
 
 	dbus_message_unref(reply);
