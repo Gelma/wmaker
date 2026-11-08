@@ -23,6 +23,7 @@
 #ifdef USE_SNI
 
 #include <X11/Xlib.h>
+#include <X11/keysym.h>
 #include <dbus/dbus.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -87,6 +88,7 @@ typedef struct SNIHostState {
 	char *host_bus_name;
 	SNIItem *items;
 	Bool pointer_grabbed;
+	Bool keyboard_grabbed;
 } SNIHostState;
 
 /* The tray is a per-session singleton: only screen 0 binds the watcher and
@@ -1155,16 +1157,38 @@ typedef struct SNILayoutReq {
 
 static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id);
 
+static void sni_release_grabs(void)
+{
+	if (!sni_state)
+		return;
+
+	if (sni_state->pointer_grabbed) {
+		XUngrabPointer(dpy, CurrentTime);
+		sni_state->pointer_grabbed = False;
+	}
+	if (sni_state->keyboard_grabbed) {
+		XUngrabKeyboard(dpy, CurrentTime);
+		sni_state->keyboard_grabbed = False;
+	}
+	XFlush(dpy);
+}
+
 static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
 {
 	SNIMenuCtx *ctx = entry->clientdata;
 
 	(void)menu;
-	if (ctx)
+	if (ctx) {
 		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
+		if (ctx->item && ctx->item->menu)
+			wMenuUnmap(ctx->item->menu);
+	}
 
-	/* Close the whole SNI menu and release any active pointer grab. */
-	wSnihostCloseMenus();
+	/* Do NOT call wMenuDestroy() here: menuMouseDown() is still on the call
+	 * stack and will dereference menu and its parent after this callback
+	 * returns. Simply release any active grabs; wSnihostCloseMenus() will
+	 * destroy the unmapped menu later. */
+	sni_release_grabs();
 }
 
 static void sni_menu_ctx_free(void *data)
@@ -1330,14 +1354,18 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		wSnihostCloseMenus();
 		item->menu = menu;
 		wMenuMapAt(menu, mx, my, False);
-		/* Grab the pointer so a click outside the menu reaches us and
-		 * closes it. keyboardMenu() would block here (it is a modal
-		 * WMMaskEvent loop), so use a plain non-blocking pointer grab. */
+		/* Grab the pointer and keyboard so a click outside the menu or
+		 * pressing Escape reaches us and closes it. keyboardMenu() would
+		 * block here (it is a modal WMMaskEvent loop), so use plain
+		 * non-blocking grabs. */
 		XSync(dpy, False);
 		if (XGrabPointer(dpy, menu->frame->core->window, True,
 		                 ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
 		                 GrabModeAsync, GrabModeAsync, None, None, CurrentTime) == GrabSuccess)
 			sni_state->pointer_grabbed = True;
+		if (XGrabKeyboard(dpy, menu->frame->core->window, True,
+		                  GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+			sni_state->keyboard_grabbed = True;
 	}
 
 	dbus_message_unref(reply);
@@ -1501,11 +1529,7 @@ void wSnihostCloseMenus(void)
 		}
 	}
 
-	if (sni_state->pointer_grabbed) {
-		XUngrabPointer(dpy, CurrentTime);
-		sni_state->pointer_grabbed = False;
-		XFlush(dpy);
-	}
+	sni_release_grabs();
 }
 
 void wSnihostHandleButtonPress(XEvent *event)
@@ -1524,7 +1548,7 @@ void wSnihostHandleButtonPress(XEvent *event)
 	}
 
 	if (!open_item) {
-		if (sni_state->pointer_grabbed)
+		if (sni_state->pointer_grabbed || sni_state->keyboard_grabbed)
 			wSnihostCloseMenus();
 		return;
 	}
@@ -1532,18 +1556,43 @@ void wSnihostHandleButtonPress(XEvent *event)
 	under = wMenuUnderPointer(sni_state->scr);
 	if (under && sni_menu_contains_tree(open_item->menu, under)) {
 		/* Click is inside the open SNI menu (or one of its cascades):
-		 * release the outer pointer grab and mark send_event = True so
-		 * menuMouseDown() tracks the click/drag and closes on release. */
-		if (sni_state->pointer_grabbed) {
-			XUngrabPointer(dpy, CurrentTime);
-			sni_state->pointer_grabbed = False;
-		}
+		 * release the outer pointer/keyboard grabs and mark send_event = True
+		 * so menuMouseDown() tracks the click/drag and closes on release. */
+		sni_release_grabs();
 		event->xany.send_event = True;
 		return;
 	}
 
-	/* Click is outside the SNI menu: close the menu and release the grab. */
+	/* Click is outside the SNI menu: close the menu and release the grabs. */
 	wSnihostCloseMenus();
+}
+
+Bool wSnihostHandleKeyPress(XEvent *event)
+{
+	SNIItem *it, *open_item = NULL;
+	KeySym ksym;
+
+	if (!sni_state || !sni_state->scr || !event)
+		return False;
+
+	for (it = sni_state->items; it; it = it->next) {
+		if (it->menu && it->menu->flags.mapped) {
+			open_item = it;
+			break;
+		}
+	}
+
+	if (!open_item) {
+		if (sni_state->pointer_grabbed || sni_state->keyboard_grabbed)
+			wSnihostCloseMenus();
+		return False;
+	}
+
+	ksym = XLookupKeysym(&event->xkey, 0);
+	if (ksym == XK_Escape)
+		wSnihostCloseMenus();
+
+	return True;
 }
 
 void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation)
@@ -1679,10 +1728,7 @@ void wSnihostShutdown(WScreen *scr)
 		sni_state->input_handler = NULL;
 	}
 
-	if (sni_state->pointer_grabbed) {
-		XUngrabPointer(dpy, CurrentTime);
-		sni_state->pointer_grabbed = False;
-	}
+	sni_release_grabs();
 
 	it = sni_state->items;
 	sni_state->items = NULL;

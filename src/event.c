@@ -207,6 +207,8 @@ void DispatchEvent(XEvent * event)
 	 * grab and mark the event so menuMouseDown closes the menu on exit. */
 	if (event->type == ButtonPress)
 		wSnihostHandleButtonPress(event);
+	else if (event->type == KeyPress && wSnihostHandleKeyPress(event))
+		return;
 #endif
 
 	struct timespec tstart;
