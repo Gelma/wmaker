@@ -202,11 +202,11 @@ void DispatchEvent(XEvent * event)
 		return;
 
 #ifdef USE_SNI
-	/* A click outside an open SNI DBusMenu (the pointer is grabbed with
-	 * owner_events=True, so this ButtonPress is the outside click) closes
-	 * the menu and releases the grab. */
+	/* Handle clicks while an SNI DBusMenu is open: outside clicks close the
+	 * menu and release the pointer grab; inside clicks release the outer
+	 * grab and mark the event so menuMouseDown closes the menu on exit. */
 	if (event->type == ButtonPress)
-		wSnihostCloseMenus();
+		wSnihostHandleButtonPress(event);
 #endif
 
 	struct timespec tstart;

@@ -76,6 +76,7 @@ typedef struct SNIItem {
 	WMenu *menu;
 	WAppIcon *aicon;
 	DBusPendingCall *pending;
+	DBusPendingCall *layout_pending;
 	struct SNIItem *next;
 } SNIItem;
 
@@ -620,6 +621,17 @@ next_entry:
 	wAppIconPaint(item->aicon);
 }
 
+static void sni_flush_and_dispatch(void)
+{
+	if (!sni_state || !sni_state->conn)
+		return;
+
+	dbus_connection_flush(sni_state->conn);
+	while (dbus_connection_get_dispatch_status(sni_state->conn) == DBUS_DISPATCH_DATA_REMAINS) {
+		dbus_connection_dispatch(sni_state->conn);
+	}
+}
+
 static void sni_request_properties(SNIItem *item)
 {
 	DBusMessage *msg;
@@ -651,7 +663,7 @@ static void sni_request_properties(SNIItem *item)
 		dbus_pending_call_set_notify(pending, sni_on_get_all_reply, item, NULL);
 	}
 	dbus_message_unref(msg);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 static void sni_emit_watcher_signal(const char *sig_name, const char *arg_str)
@@ -670,7 +682,7 @@ static void sni_emit_watcher_signal(const char *sig_name, const char *arg_str)
 
 	dbus_connection_send(sni_state->conn, sig, NULL);
 	dbus_message_unref(sig);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 static void sni_free_item(SNIItem *item, Bool detach_dock)
@@ -682,6 +694,12 @@ static void sni_free_item(SNIItem *item, Bool detach_dock)
 		dbus_pending_call_cancel(item->pending);
 		dbus_pending_call_unref(item->pending);
 		item->pending = NULL;
+	}
+
+	if (item->layout_pending) {
+		dbus_pending_call_cancel(item->layout_pending);
+		dbus_pending_call_unref(item->layout_pending);
+		item->layout_pending = NULL;
 	}
 
 	if (item->aicon) {
@@ -1118,7 +1136,7 @@ static void sni_send_item_coord_method(WAppIcon *aicon, const char *method, int 
 	dbus_message_append_args(msg, DBUS_TYPE_INT32, &dx, DBUS_TYPE_INT32, &dy, DBUS_TYPE_INVALID);
 	dbus_connection_send(sni_state->conn, msg, NULL);
 	dbus_message_unref(msg);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 /* --- DBusMenu (com.canonical.dbusmenu) host --- */
@@ -1145,10 +1163,8 @@ static void sni_menu_callback(WMenu *menu, WMenuEntry *entry)
 	if (ctx)
 		sni_dbusmenu_event(ctx->item, ctx->dbus_id, "clicked");
 
-	/* Close the whole SNI menu after activating a leaf entry. */
-	if (ctx && ctx->item && ctx->item->menu) {
-		wMenuUnmap(ctx->item->menu);
-	}
+	/* Close the whole SNI menu and release any active pointer grab. */
+	wSnihostCloseMenus();
 }
 
 static void sni_menu_ctx_free(void *data)
@@ -1253,18 +1269,19 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *reply;
 	DBusMessageIter root_iter, layout_iter;
 
-	reply = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-	if (!reply) {
-		wfree(req);
-		return;
+	if (item->layout_pending == pending) {
+		dbus_pending_call_unref(item->layout_pending);
+		item->layout_pending = NULL;
 	}
+
+	reply = dbus_pending_call_steal_reply(pending);
+	if (!reply)
+		return;
 
 	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR ||
 	    !dbus_message_iter_init(reply, &root_iter) ||
 	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_UINT32) {
 		dbus_message_unref(reply);
-		wfree(req);
 		return;
 	}
 
@@ -1272,7 +1289,6 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	if (!dbus_message_iter_next(&root_iter) ||
 	    dbus_message_iter_get_arg_type(&root_iter) != DBUS_TYPE_STRUCT) {
 		dbus_message_unref(reply);
-		wfree(req);
 		return;
 	}
 
@@ -1283,7 +1299,6 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	    !dbus_message_iter_next(&layout_iter) ||
 	    dbus_message_iter_get_arg_type(&layout_iter) != DBUS_TYPE_ARRAY) {
 		dbus_message_unref(reply);
-		wfree(req);
 		return;
 	}
 	/* layout_iter now points at av children */
@@ -1312,8 +1327,8 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 				my = 0;
 		}
 
-		if (item->menu)
-			wMenuDestroy(item->menu, True);
+		/* Close any previously open SNI menu before mapping the new one */
+		wSnihostCloseMenus();
 		item->menu = menu;
 		wMenuMapAt(menu, mx, my, False);
 		/* Grab the pointer so a click outside the menu reaches us and
@@ -1327,12 +1342,11 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 	}
 
 	dbus_message_unref(reply);
-	wfree(req);
 }
 
 static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 {
-	DBusMessage *msg;
+	DBusMessage *about_msg, *msg;
 	DBusPendingCall *pending = NULL;
 	SNILayoutReq *req;
 	const char *dest;
@@ -1344,13 +1358,31 @@ static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 	if (!sni_state || !sni_state->conn || !item)
 		return;
 
+	if (item->layout_pending) {
+		dbus_pending_call_cancel(item->layout_pending);
+		dbus_pending_call_unref(item->layout_pending);
+		item->layout_pending = NULL;
+	}
+
 	dest = (item->service_name && item->service_name[0]) ? item->service_name : item->sender_unique;
 	if (!dest || !item->menu_path)
 		return;
 
+	/* Notify the DBusMenu server that root menu (id=0) is about to be shown
+	 * so dynamic menus (Ayatana/Electron/Qt) populate their items first. */
+	about_msg = dbus_message_new_method_call(dest, item->menu_path, DBUSMENU_IFACE, "AboutToShow");
+	if (about_msg) {
+		dbus_message_set_no_reply(about_msg, TRUE);
+		dbus_message_append_args(about_msg, DBUS_TYPE_INT32, &parent_id, DBUS_TYPE_INVALID);
+		dbus_connection_send(sni_state->conn, about_msg, NULL);
+		dbus_message_unref(about_msg);
+	}
+
 	msg = dbus_message_new_method_call(dest, item->menu_path, DBUSMENU_IFACE, "GetLayout");
-	if (!msg)
+	if (!msg) {
+		sni_flush_and_dispatch();
 		return;
+	}
 
 	dbus_message_append_args(msg,
 	                         DBUS_TYPE_INT32, &parent_id,
@@ -1363,10 +1395,11 @@ static void sni_request_dbusmenu_layout(SNIItem *item, int x, int y)
 		req->item = item;
 		req->x = x;
 		req->y = y;
-		dbus_pending_call_set_notify(pending, sni_on_get_layout_reply, req, NULL);
+		item->layout_pending = pending;
+		dbus_pending_call_set_notify(pending, sni_on_get_layout_reply, req, wfree);
 	}
 	dbus_message_unref(msg);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id)
@@ -1405,7 +1438,7 @@ static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id)
 
 	dbus_connection_send(sni_state->conn, msg, NULL);
 	dbus_message_unref(msg);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 static void sni_show_dbusmenu(SNIItem *item, int x, int y)
@@ -1438,6 +1471,21 @@ void wSnihostContextMenu(WAppIcon *aicon, int x, int y)
 		sni_show_dbusmenu(item, x, y);
 }
 
+static Bool sni_menu_contains_tree(WMenu *root, WMenu *target)
+{
+	int i;
+
+	if (!root || !target)
+		return False;
+	if (root == target || root->brother == target)
+		return True;
+	for (i = 0; root->cascades && i < root->cascade_no; i++) {
+		if (sni_menu_contains_tree(root->cascades[i], target))
+			return True;
+	}
+	return False;
+}
+
 void wSnihostCloseMenus(void)
 {
 	SNIItem *it;
@@ -1457,7 +1505,46 @@ void wSnihostCloseMenus(void)
 	if (sni_state->pointer_grabbed) {
 		XUngrabPointer(dpy, CurrentTime);
 		sni_state->pointer_grabbed = False;
+		XFlush(dpy);
 	}
+}
+
+void wSnihostHandleButtonPress(XEvent *event)
+{
+	SNIItem *it, *open_item = NULL;
+	WMenu *under;
+
+	if (!sni_state || !sni_state->scr || !event)
+		return;
+
+	for (it = sni_state->items; it; it = it->next) {
+		if (it->menu && it->menu->flags.mapped) {
+			open_item = it;
+			break;
+		}
+	}
+
+	if (!open_item) {
+		if (sni_state->pointer_grabbed)
+			wSnihostCloseMenus();
+		return;
+	}
+
+	under = wMenuUnderPointer(sni_state->scr);
+	if (under && sni_menu_contains_tree(open_item->menu, under)) {
+		/* Click is inside the open SNI menu (or one of its cascades):
+		 * release the outer pointer grab and mark send_event = True so
+		 * menuMouseDown() tracks the click/drag and closes on release. */
+		if (sni_state->pointer_grabbed) {
+			XUngrabPointer(dpy, CurrentTime);
+			sni_state->pointer_grabbed = False;
+		}
+		event->xany.send_event = True;
+		return;
+	}
+
+	/* Click is outside the SNI menu: close the menu and release the grab. */
+	wSnihostCloseMenus();
 }
 
 void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation)
@@ -1484,7 +1571,7 @@ void wSnihostScroll(WAppIcon *aicon, int delta, const char *orientation)
 	dbus_message_append_args(msg, DBUS_TYPE_INT32, &d, DBUS_TYPE_STRING, &orient, DBUS_TYPE_INVALID);
 	dbus_connection_send(sni_state->conn, msg, NULL);
 	dbus_message_unref(msg);
-	dbus_connection_flush(sni_state->conn);
+	sni_flush_and_dispatch();
 }
 
 const char *wSnihostGetBalloonText(WAppIcon *aicon)
@@ -1591,6 +1678,11 @@ void wSnihostShutdown(WScreen *scr)
 	if (sni_state->input_handler) {
 		WMDeleteInputHandler(sni_state->input_handler);
 		sni_state->input_handler = NULL;
+	}
+
+	if (sni_state->pointer_grabbed) {
+		XUngrabPointer(dpy, CurrentTime);
+		sni_state->pointer_grabbed = False;
 	}
 
 	it = sni_state->items;
