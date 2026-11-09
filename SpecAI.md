@@ -1080,6 +1080,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - `make exit-test` passes all SIGTERM, SIGUSR1, and SIGUSR2 test assertions.
       - `./tools/static-analysis.sh check` confirms zero regressions against baseline.
 
+155. **Static-Analysis Review (2026-11-09) & Follow-up Remediation** (report: `StaticAnalysisReview-2026-11-09.md`):
+    - **NULL-safe destructors**: `wCoreDestroy()` (`src/wcore.c`) and `wFrameWindowDestroy()` (`src/framewin.c`) now return early on NULL. `wmalloc`/`wrealloc` abort on OOM, so the defensive OOM checks added to `wMenuCreate()` (`03d4e300`) and `sni_on_get_layout_reply()` (`1cbbc6a1`) are unreachable; but if ever reached they used to call these destructors with NULL and crash. The guards make them genuinely safe.
+    - **Report reconciliation** (`QLCodeAnalysis/QLCODEReport.md`): §1 now points to §8 (current 447 / 19) and labels the 563 / 53 figures as the 2026-11-05 baseline; §8.3 notes that the 2 float `sprintf`, 4 nullness checks and redundant null check were fixed afterwards by `03d4e300`.
+    - **Coverity backlog triage**: most of the 21 older `New` CIDs already carry a fix/annotation comment in the code (`1686058`/`1686112` in `src/event.c`, `1686060` in `src/wsmap.c`, `240602` in `WINGs/string.c`, …), so the Coverity Connect `status` is simply not synchronized. One real leak fixed: `parse_wmconfig()` (`util/wmmenugen_parse_wmconfig.c`) freed only `label` on an empty-label line, leaking `key`/`value` (CID 1686034).
+    - **cppcheck baseline** (`tools/static-analysis.txt`): re-verified with `tools/static-analysis.sh cppcheck` — 933 findings (6 error / 10 portability / 915 style / 2 warning), matching the baseline; the earlier 925→933 delta is tree growth.
+    - Verified: full `make -j` 0 warnings, `make check` pass, `make exit-test` pass, `EXIT_TEST_ARGS=--valgrind make exit-test` pass.
 
 ## Verification Status
 

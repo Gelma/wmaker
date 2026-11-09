@@ -10,7 +10,13 @@
 
 ## 1. Executive Summary & Overview
 
-Running the **GitHub CodeQL (C/C++ query pack)** static analysis suite across the Window Maker codebase produced a total of **563 findings**, classified into three severity levels:
+> **Status update (2026-11-09):** after remediation and a fresh re-scan the
+> current totals are **447 findings / 19 errors** (19 error, 150 warning, 278
+> recommendation). See §8 for the baseline-vs-current comparison and the
+> per-component breakdown. The figures below are the **2026-11-05 baseline**,
+> kept for reference.
+
+The 2026-11-05 baseline produced a total of **563 findings**, classified into three severity levels:
 - **Error (Critical / High-impact defects / Vulnerabilities)**: **53**
 - **Warning (Security, integer conversions, and robustness notices)**: **179**
 - **Recommendation (Code hygiene, style, and best practices)**: **331**
@@ -361,4 +367,11 @@ A fresh static analysis scan was executed across the entire repository using **G
   - 2 instances of float formatting in `sprintf` (`userdefaults.c:601`, `MouseSettings.c:166`).
   - 4 instances of inconsistent nullness checks (`wwindow.c:427`, `event.c:1402`, `menu.c:199`, `window.c:2032`).
   - 1 redundant null check (`wfilepanel.c:648`).
+
+> **Post-scan remediation (same day):** the 2 float `sprintf` instances, the 4
+> inconsistent nullness checks and the redundant null check listed above were
+> fixed in `03d4e300`, i.e. *after* the scan that produced §8. This section is a
+> faithful snapshot of that scan, so the live error count is now expected to be
+> lower; the 12 `Unbounded write` false positives remain. A re-scan will refresh
+> this section.
 
