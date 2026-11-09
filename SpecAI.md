@@ -1041,6 +1041,12 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       3. In `wFrameWindowShowButton()` and `wFrameWindowHideButton()`, ensure `XClearWindow()` and `wFrameWindowPaint()` are called whenever `fwin->titlebar->width > 20`, irrespective of `TS_NEW`.
     - **Verification**: `make -j$(nproc)` builds cleanly with 0 warnings; `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass with 0 errors.
 
+152. **Refinements on the Title-Strip Cache (§150/§151): Precise Invalidation, Degraded-Strip Cleanup, README Typo**:
+    - **Precise invalidation in `wFrameWindowUpdateBorders()`**: `freeTitleStrip()` was called unconditionally on every `WFF_TITLEBAR` update, which `wWindowConfigureBorders()` issues for any border/selection reconfiguration. Only a change of the titlebar *height* (`top_width`) is invisible to the `wFrameWindowPaint()` cache hit — that check compares the titlebar *width* and the title text, not the height or strip placement, while a width change is already caught at paint time by the `title_strip_width == titlebar->width` test. The invalidation is now gated on `theight != fwin->top_width`, keeping the cache effective when `wWindowConfigureBorders()` runs for non-geometry reasons and future-proofing the case where it reaches the focus path.
+    - **Degraded-strip cleanup**: the `else` branch of `wFrameWindowPaint()` that rejects a degraded strip now also resets `title_strip_x[state]`, `title_strip_y[state]` and `title_strip_h[state]` (not just `title_strip_w[state]`), instead of relying on `title_strip[state] == None` alone to invalidate it.
+    - **README**: fixed the `something line nm-applet` typo → `something like`.
+    - Verified: `make -C src framewin.o` builds with 0 warnings under the project's strict flags.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):

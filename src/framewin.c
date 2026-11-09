@@ -140,6 +140,7 @@ void wFrameWindowUpdateBorders(WFrameWindow * fwin, int flags)
 	int bsize;
 	int width, height;
 	int i;
+	int top_width_changed;
 	WScreen *scr = fwin->screen_ptr;
 
 	width = fwin->core->width;
@@ -173,10 +174,20 @@ void wFrameWindowUpdateBorders(WFrameWindow * fwin, int flags)
 		/* if we had a titlebar and is requesting for one,
 		 * check if the size has changed and resize it */
 		if (flags & WFF_TITLEBAR) {
+			top_width_changed = (theight != fwin->top_width);
+
 			fwin->top_width = theight;
 
 			fwin->flags.need_texture_remake = 1;
-			freeTitleStrip(fwin);
+			/* wFrameWindowPaint()'s cache hit compares the titlebar
+			 * width and the title text, but not the height or the strip
+			 * placement, so it cannot notice a top_width change on its
+			 * own. Invalidate only when the height really changes, so the
+			 * cache stays effective when wWindowConfigureBorders() runs
+			 * for non-geometry reasons (and if it ever reaches the focus
+			 * path). */
+			if (top_width_changed)
+				freeTitleStrip(fwin);
 
 			if (wPreferences.new_style == TS_NEW) {
 				if (fwin->left_button)
@@ -1208,7 +1219,10 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 			} else {
 				FREE_PIXMAP(fwin->title_strip[state]);
 				fwin->title_strip[state] = None;
+				fwin->title_strip_x[state] = 0;
+				fwin->title_strip_y[state] = 0;
 				fwin->title_strip_w[state] = 0;
+				fwin->title_strip_h[state] = 0;
 				XFreePixmap(dpy, buf);
 			}
 
