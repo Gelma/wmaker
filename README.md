@@ -74,6 +74,8 @@ You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker
 
 (By the way, playing [Urban Terror](https://www.urbanterror.info/home/) has more or less the same FPS, but a complete different refresh sync on display!)
 
+Using right now the SNI/DBus implementation. So, something line nm-applet works completely in WMaker!
+
 ---
 ### (Original README)
 ---
