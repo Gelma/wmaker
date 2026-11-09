@@ -1748,6 +1748,13 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		WMenu *menu = wMenuCreate(scr, NULL, False);
 		int mx = req->x, my = req->y;
 
+		if (!menu || !menu->frame) {
+			if (menu)
+				wMenuDestroy(menu, True);
+			dbus_message_unref(reply);
+			return;
+		}
+
 		sni_build_dbusmenu(item, menu, &layout_iter);
 		wMenuRealize(menu);
 
@@ -1755,7 +1762,7 @@ static void sni_on_get_layout_reply(DBusPendingCall *pending, void *user_data)
 		 * the menu to the left of the pointer when it would overflow, and
 		 * mark open_to_left so cascade submenus open to the left onto the
 		 * screen even when wPreferences.wrap_menus is False. */
-		if (menu->frame) {
+		{
 			int mw = menu->frame->core->width;
 			int mh = menu->frame->core->height;
 
