@@ -668,8 +668,14 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 
 		i = atoi(WMGetFromPLString(WMGetFromPLArray(texture, 2)));
 
-		RCombineImagesWithOpaqueness(image, grad, i);
-		RReleaseImage(grad);
+		if (image && grad) {
+			RCombineImagesWithOpaqueness(image, grad, i);
+		} else if (!image && grad) {
+			image = grad;
+			grad = NULL;
+		}
+		if (grad)
+			RReleaseImage(grad);
 
 	} else if (strcasecmp(&type[2], "gradient") == 0 && toupper(type[0]) == 'M') {
 		RGradientStyle style;
