@@ -96,7 +96,12 @@ void parse_wmconfig(const char *file, cb_add_menu_entry *addWMMenuEntryCallback)
 		parse_wmconfig_line(&label, &key, &value, p);
 
 		if (label && strlen(label) == 0) {
+			/* parse_wmconfig_line() always allocates key and value too;
+			 * free them before skipping an empty-label line (Coverity
+			 * CID 1686034). */
 			wfree(label);
+			wfree(key);
+			wfree(value);
 			continue;
 		}
 		if (label) {

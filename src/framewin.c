@@ -487,6 +487,11 @@ void wFrameWindowDestroy(WFrameWindow * fwin)
 {
 	int i;
 
+	/* NULL-safe: lets the defensive OOM checks in the menu constructors call
+	 * wMenuDestroy() on a partially built menu without crashing here. */
+	if (!fwin)
+		return;
+
 	freeTitleStrip(fwin);
 
 	if (fwin->left_button)

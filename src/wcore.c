@@ -129,6 +129,12 @@ WCoreWindow *wCoreCreate(WCoreWindow *parent, int x, int y, int width, int heigh
 
 void wCoreDestroy(WCoreWindow * core)
 {
+	/* Destructors are NULL-safe so the defensive OOM checks in the menu /
+	 * frame constructors (which call them with a NULL core/frame) cannot
+	 * turn into a crash if such a branch is ever reached. */
+	if (!core)
+		return;
+
 	if (core->stacking)
 		wfree(core->stacking);
 
