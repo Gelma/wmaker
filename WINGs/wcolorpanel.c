@@ -3298,9 +3298,13 @@ static void colorListPaintItem(WMList * lPtr, int index, Drawable d, char *text,
 static void colorListSelect(WMWidget * w, void *data)
 {
 	W_ColorPanel *panel = (W_ColorPanel *) data;
+	const WMListItem *item = WMGetListSelectedItem(w);
 	CPColor cpColor = {};
 
-	cpColor.rgb = *((RColor *) WMGetListSelectedItem(w)->clientData);
+	if (!item || !item->clientData)
+		return;
+
+	cpColor.rgb = *((RColor *) item->clientData);
 	cpColor.set = cpRGB;
 
 	panel->lastChanged = WMColorListModeColorPanel;
