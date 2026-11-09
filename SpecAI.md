@@ -1007,6 +1007,27 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       2. `sni_bus_filter()` `LayoutUpdated` handling: when `it->menu` is **unmapped**, do **not** `wMenuDestroy()` it — a signal handler must not free a WMenu that `menuMouseDown()` may still hold. The next right-click always rebuilds from a fresh `GetLayout`, and the unmapped tree is torn down by `wSnihostPostButtonPress()` (after a leaf activation) or by `wSnihostCloseMenus()` (Esc / click-outside / next open).
     - Verified: `make -C src snihost.o` compiles with 0 warnings under the project's strict flags (`-Wall -Wextra -Wdouble-promotion -Wfloat-equal -Wlogical-op …`).
 
+150. **Fix Window List Menu Titlebar Visual Glitches: Stale/Degraded Cached Title Strips (`src/framewin.c`, `src/framewin.h`)**:
+    - **Symptom**: when middle-clicking on the desktop repeatedly to open the Window List menu (`Windows`), the titlebar label sometimes showed correctly as `"Windows"`, sometimes was completely blank/empty (no text rendered, bare background texture), and sometimes rendered an anomalous single truncated character (e.g. an isolated glyph at the left margin).
+    - **Root cause**: commit `19ca933d` introduced caching of rendered window/menu title text (`title_strip[3]`) to save Pango shaping and X11 round-trips during Expose and focus switches. However:
+      1. While `title_strip[3]` cached pixmaps per state, the placement coordinates and extents (`title_strip_x`, `title_strip_y`, `title_strip_w`, `title_strip_h`) were shared global scalars in `WFrameWindow`. If any paint occurred while degraded (or if states had differing text widths), `title_strip_w` was overwritten (e.g. with 0), causing subsequent repaints of other states via `XCopyArea` to copy 0 pixels (empty titlebar).
+      2. Invalidation (`freeTitleStrip`) was missing in several critical geometry and configuration paths:
+         - `wFrameWindowHideButton()` and `wFrameWindowShowButton()`: when menus are pinned/unpinned (buttoned/unbuttoned), the close button is mapped/unmapped, changing `rofs` (from 6 px to 27 px) and shifting the available width and offset `x`. Because `fwin->titlebar->width` did not change, the cache considered the old strip valid, rendering it at stale coordinates or clipped.
+         - `reconfigure()`: horizontal resizes changed `fwin->core->width` and button fits without dropping the cached strips.
+         - `wFrameWindowUpdateBorders()` and `wFrameWindowChangeTitle()`: border adjustments or title changes left stale strip caches.
+      3. Transient degenerate dimensions: during initialization or realization (e.g. `wFrameWindowCreate` with initial 1x1 geometry), `fwin->titlebar->width - lofs - rofs` is negative or too small to fit text (`w <= 0`). `title_strip` was caching these degraded pixmaps and reusing them.
+    - **Fix**:
+      1. Store `title_strip_x[3]`, `title_strip_y[3]`, `title_strip_w[3]`, `title_strip_h[3]` per state in `WFrameWindow` (`src/framewin.h`).
+      2. Clear and reset all per-state coordinates to 0 in `wFrameWindowCreate()` and `freeTitleStrip()`.
+      3. Only cache strips when `w > 0` and `fwin->titlebar->width > lofs + rofs`. If the titlebar is too narrow or text width is 0, do not store an empty strip in `title_strip[state]`.
+      4. Call `freeTitleStrip(fwin)` upon:
+         - `wFrameWindowHideButton()` and `wFrameWindowShowButton()`
+         - `wFrameWindowChangeTitle()`
+         - `wFrameWindowUpdateBorders()`
+         - `reconfigure()` when `fwin->core->width != width`
+      5. Check `fwin->title_strip_w[state] > 0` before attempting `XCopyArea` cache hits.
+    - **Verification**: `make -j$(nproc)` builds cleanly with 0 warnings; `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass without memory or X11 errors.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):

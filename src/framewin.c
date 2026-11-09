@@ -84,14 +84,16 @@ WFrameWindow *wFrameWindowCreate(WScreen * scr, int wlevel, int x, int y,
 
 	fwin = wmalloc(sizeof(WFrameWindow));
 
-	fwin->title_strip[0] = None;
-	fwin->title_strip[1] = None;
-	fwin->title_strip[2] = None;
+	int i;
+
+	for (i = 0; i < 3; i++) {
+		fwin->title_strip[i] = None;
+		fwin->title_strip_x[i] = 0;
+		fwin->title_strip_y[i] = 0;
+		fwin->title_strip_w[i] = 0;
+		fwin->title_strip_h[i] = 0;
+	}
 	fwin->title_strip_width = 0;
-	fwin->title_strip_x = 0;
-	fwin->title_strip_y = 0;
-	fwin->title_strip_w = 0;
-	fwin->title_strip_h = 0;
 	fwin->title_strip_text = NULL;
 
 	fwin->screen_ptr = scr;
@@ -174,6 +176,7 @@ void wFrameWindowUpdateBorders(WFrameWindow * fwin, int flags)
 			fwin->top_width = theight;
 
 			fwin->flags.need_texture_remake = 1;
+			freeTitleStrip(fwin);
 
 			if (wPreferences.new_style == TS_NEW) {
 				if (fwin->left_button)
@@ -617,6 +620,8 @@ static void updateTitlebar(WFrameWindow * fwin)
 
 void wFrameWindowHideButton(WFrameWindow * fwin, int flags)
 {
+	freeTitleStrip(fwin);
+
 	if ((flags & WFF_RIGHT_BUTTON) && fwin->right_button) {
 		XUnmapWindow(dpy, fwin->right_button->window);
 		fwin->flags.hide_right_button = 1;
@@ -650,6 +655,8 @@ void wFrameWindowHideButton(WFrameWindow * fwin, int flags)
 
 void wFrameWindowShowButton(WFrameWindow * fwin, int flags)
 {
+	freeTitleStrip(fwin);
+
 	if ((flags & WFF_RIGHT_BUTTON) && fwin->right_button && fwin->flags.hide_right_button) {
 
 		if (!fwin->flags.rbutton_dont_fit)
@@ -982,13 +989,17 @@ static void freeTitleStrip(WFrameWindow * fwin)
 {
 	int i;
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < 3; i++) {
 		FREE_PIXMAP(fwin->title_strip[i]);
+		fwin->title_strip[i] = None;
+		fwin->title_strip_x[i] = 0;
+		fwin->title_strip_y[i] = 0;
+		fwin->title_strip_w[i] = 0;
+		fwin->title_strip_h[i] = 0;
+	}
 	wfree(fwin->title_strip_text);
 	fwin->title_strip_text = NULL;
 	fwin->title_strip_width = 0;
-	fwin->title_strip_w = 0;
-	fwin->title_strip_h = 0;
 }
 
 void wFrameWindowPaint(WFrameWindow * fwin)
@@ -1115,14 +1126,15 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 
 			if (fwin->title_strip_text && fwin->title_strip[state] != None
 			    && fwin->title_strip_width == fwin->titlebar->width
+			    && fwin->title_strip_w[state] > 0
 			    && strcmp(fwin->title_strip_text, fwin->title) == 0) {
 				/* Same title, same width, same textures: the strip is still
 				 * valid, so an Expose or a focus switch is one XCopyArea
 				 * instead of ShrinkString + Pango shaping + a pixmap
 				 * round-trip. */
 				XCopyArea(dpy, fwin->title_strip[state], fwin->titlebar->window,
-					  scr->copy_gc, 0, 0, fwin->title_strip_w + 2,
-					  fwin->title_strip_h, fwin->title_strip_x - 1, fwin->title_strip_y);
+					  scr->copy_gc, 0, 0, fwin->title_strip_w[state] + 2,
+					  fwin->title_strip_h[state], fwin->title_strip_x[state] - 1, fwin->title_strip_y[state]);
 				goto title_done;
 			}
 
@@ -1181,21 +1193,30 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 
 			XCopyArea(dpy, buf, fwin->titlebar->window, scr->copy_gc, 0, 0, w + 2, h, x - 1, y);
 
-			/* Keep the strip for the next repaint of this state. */
-			if (fwin->title_strip_text
-			    && (fwin->title_strip_width != fwin->titlebar->width
-				|| strcmp(fwin->title_strip_text, fwin->title) != 0))
-				freeTitleStrip(fwin);
-			if (!fwin->title_strip_text) {
-				fwin->title_strip_text = wstrdup(fwin->title);
-				fwin->title_strip_width = fwin->titlebar->width;
-				fwin->title_strip_x = x;
-				fwin->title_strip_y = y;
-				fwin->title_strip_w = w;
-				fwin->title_strip_h = h;
+			/* Keep the strip for the next repaint of this state.
+			 * Avoid caching degraded or empty strips when the titlebar is
+			 * too narrow to hold text. */
+			if (w > 0 && fwin->titlebar->width > lofs + rofs) {
+				if (fwin->title_strip_text
+				    && (fwin->title_strip_width != fwin->titlebar->width
+					|| strcmp(fwin->title_strip_text, fwin->title) != 0))
+					freeTitleStrip(fwin);
+				if (!fwin->title_strip_text) {
+					fwin->title_strip_text = wstrdup(fwin->title);
+					fwin->title_strip_width = fwin->titlebar->width;
+				}
+				fwin->title_strip_x[state] = x;
+				fwin->title_strip_y[state] = y;
+				fwin->title_strip_w[state] = w;
+				fwin->title_strip_h[state] = h;
+				FREE_PIXMAP(fwin->title_strip[state]);
+				fwin->title_strip[state] = buf;
+			} else {
+				FREE_PIXMAP(fwin->title_strip[state]);
+				fwin->title_strip[state] = None;
+				fwin->title_strip_w[state] = 0;
+				XFreePixmap(dpy, buf);
 			}
-			FREE_PIXMAP(fwin->title_strip[state]);
-			fwin->title_strip[state] = buf;
 
 			wfree(title);
 title_done:
@@ -1225,6 +1246,7 @@ static void reconfigure(WFrameWindow * fwin, int x, int y, int width, int height
 
 	if (fwin->core->width != width) {
 		fwin->flags.need_texture_remake = 1;
+		freeTitleStrip(fwin);
 		resizedHorizontally = 1;
 	}
 
@@ -1328,6 +1350,7 @@ int wFrameWindowChangeTitle(WFrameWindow *fwin, const char *new_title)
 		wfree(fwin->title);
 
 	fwin->title = wstrdup(new_title);
+	freeTitleStrip(fwin);
 
 	if (fwin->titlebar) {
 		XClearWindow(dpy, fwin->titlebar->window);

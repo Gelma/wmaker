@@ -82,8 +82,8 @@ typedef struct WFrameWindow {
      * the frame textures change. */
     Pixmap title_strip[3];	       /* focused, unfocused, pfocused */
     int title_strip_width;	       /* titlebar width the strips were made for */
-    int title_strip_x, title_strip_y;  /* placement inside the titlebar */
-    int title_strip_w, title_strip_h;  /* strip size (w is the text width) */
+    int title_strip_x[3], title_strip_y[3];  /* placement inside the titlebar per state */
+    int title_strip_w[3], title_strip_h[3];  /* strip size per state (w is the text width) */
     char *title_strip_text;	       /* title the strips were made for */
 
     WPixmap *lbutton_image;
