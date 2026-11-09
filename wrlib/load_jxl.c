@@ -40,18 +40,19 @@ static unsigned char *do_read_file(const char *filename, size_t *size)
 	struct stat st;
 	unsigned char *data;
 
-	if (stat(filename, &st) != 0) {
-		RErrorCode = RERR_OPEN;
-		return NULL;
-	}
-
 	file = fopen(filename, "rb");
 	if (!file) {
 		RErrorCode = RERR_OPEN;
 		return NULL;
 	}
 
-	*size = st.st_size;
+	if (fstat(fileno(file), &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0) {
+		RErrorCode = RERR_READ;
+		fclose(file);
+		return NULL;
+	}
+
+	*size = (size_t)st.st_size;
 	data = malloc(*size);
 	if (!data) {
 		RErrorCode = RERR_NOMEMORY;
@@ -149,6 +150,15 @@ RImage *RLoadJXL(const char *file)
 			format.align = 0;
 
 		} else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+			if (image) {
+				RReleaseImage(image);
+				image = NULL;
+			}
+			if (pixels) {
+				free(pixels);
+				pixels = NULL;
+			}
+
 			/* Allocate image with or without alpha */
 			image = RCreateImage(width, height, has_alpha ? True : False);
 			if (!image) {
@@ -175,13 +185,18 @@ RImage *RLoadJXL(const char *file)
 				goto error;
 			}
 		} else if (status == JXL_DEC_FULL_IMAGE) {
+			if (!image || !pixels) {
+				RErrorCode = RERR_BADIMAGEFILE;
+				goto error;
+			}
+
 			/* Image is ready, copy data directly for RGB or RGBA */
 			if (has_alpha) {
 				/* RGBA format - copy directly */
-				memcpy(image->data, pixels, width * height * 4);
+				memcpy(image->data, pixels, (size_t)width * height * 4);
 			} else {
 				/* RGB format - copy directly */
-				memcpy(image->data, pixels, width * height * 3);
+				memcpy(image->data, pixels, (size_t)width * height * 3);
 			}
 			break;
 		} else if (status == JXL_DEC_SUCCESS) {
