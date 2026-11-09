@@ -741,6 +741,7 @@ static void drawIconProc(WMList * lPtr, int index, Drawable d, char *text, int s
 	GC gc = scr->draw_gc;
 	GC copygc = scr->copy_gc;
 	char *file, *dirfile;
+	const WMListItem *item;
 	WMPixmap *pixmap;
 	WMColor *back;
 	WMSize size;
@@ -761,7 +762,14 @@ static void drawIconProc(WMList * lPtr, int index, Drawable d, char *text, int s
 
 	back = (state & WLDSSelected) ? scr->white : scr->gray;
 
-	dirfile = wexpandpath(WMGetListSelectedItem(panel->dirList)->text);
+	item = WMGetListSelectedItem(panel->dirList);
+	if (!item || !item->text)
+		return;
+
+	dirfile = wexpandpath(item->text);
+	if (!dirfile)
+		return;
+
 	len = strlen(dirfile) + strlen(text) + 4;
 	file = wmalloc(len);
 	snprintf(file, len, "%s/%s", dirfile, text);
