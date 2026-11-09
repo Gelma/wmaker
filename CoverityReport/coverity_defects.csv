@@ -1,89 +1,41 @@
 cid,displayImpact,displayCategory,displayType,displayFile,lineNumber,displayFunction,status,firstDetected
-240602,High,Resource leaks,Resource leak,/src/dock.c,3172,execCommand,New,12/04/13
-1255978,Medium,Integer handling issues,Operands don't affect result,/src/xmodifier.c,Various,x_reset_modifier_mapping,New,11/24/14
-1255982,Medium,Integer handling issues,Operands don't affect result,/src/xmodifier.c,Various,x_reset_modifier_mapping,New,11/24/14
-1255987,Medium,Integer handling issues,Operands don't affect result,/src/xmodifier.c,Various,x_reset_modifier_mapping,New,11/24/14
-1255992,Medium,Integer handling issues,Operands don't affect result,/src/xmodifier.c,Various,x_reset_modifier_mapping,New,11/24/14
-1686030,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_webp.c,82,RLoadWEBP,New,11/04/26
-1686031,High,Insecure data handling,Overflowed integer argument,/WINGs/wsplitview.c,484,dragDivider,New,11/04/26
-1686032,Medium,Null pointer dereferences,Dereference before null check,/WINGs/wtext.c,1194,cursorToTextPosition,New,11/04/26
-1686033,Medium,Null pointer dereferences,Dereference after null check,/src/icon.c,663,wIconUpdate,New,11/04/26
-1686034,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,142,parse_wmconfig,New,11/04/26
-1686035,Medium,Error handling issues,Unchecked return value from library,/WINGs/wcolorpanel.c,3122,customPaletteMenuRename,New,11/04/26
+240602,High,Resource leaks,Resource leak,/src/dock.c,3226,execCommand,New,12/04/13
+1686030,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_webp.c,83,RLoadWEBP,New,11/04/26
+1686034,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,163,parse_wmconfig,New,11/04/26
 1686036,Low,Security best practices violations,Calling risky function,/src/superfluous.c,Various,DoKaboom,New,11/04/26
-1686037,High,Memory - illegal accesses,Read from pointer after free,/util/wmgenmenu.c,413,find_and_write,New,11/04/26
-1686038,High,Insecure data handling,Overflowed integer argument,/WINGs/wsplitview.c,363,handleViewResized,New,11/04/26
-1686039,High,Resource leaks,Resource leak,/util/wmmenugen_parse_xdg.c,Various,parse_xdg,New,11/04/26
-1686040,Medium,Null pointer dereferences,Dereference null return value,/WPrefs.app/Appearance.c,591,renderTexture,New,11/04/26
-1686041,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3028,customPaletteMenuNewFromFile,New,11/04/26
-1686042,Low,Security best practices violations,Time of check time of use,/src/monitor.c,160,MonitorLoop,New,11/04/26
-1686043,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,142,parse_wmconfig,New,11/04/26
-1686044,Low,Security best practices violations,Time of check time of use,/util/wmmenugen.c,160,main,New,11/04/26
-1686045,Medium,Null pointer dereferences,Dereference after null check,/util/xdnd.c,933,xdnd_drag,New,11/04/26
-1686046,High,Memory - illegal accesses,Negative array index read,/WPrefs.app/WindowHandling.c,Various,storeData,New,11/04/26
-1686047,Medium,Control flow issues,Structurally dead code,/src/stacking.c,493,MoveInStackListAbove,New,11/04/26
-1686048,High,Resource leaks,Resource leak,/src/misc.c,910,GetShortcutString,New,11/04/26
-1686049,Medium,Control flow issues,Logically dead code,/util/wmsetbg.c,565,parseTexture,New,11/04/26
-1686050,Medium,Integer handling issues,Overflowed constant,/WINGs/dragsource.c,736,findDestination,New,11/04/26
-1686051,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,Various,parse_wmconfig,New,11/04/26
-1686052,High,Resource leaks,Resource leak,/util/wmmenugen_parse_xdg.c,196,parse_xdg,New,11/04/26
-1686053,Medium,Null pointer dereferences,Dereference null return value,/WINGs/wcolorpanel.c,2808,customRenderSpectrum,New,11/04/26
-1686054,Medium,Null pointer dereferences,Dereference after null check,/src/switchpanel.c,188,changeImage,New,11/04/26
-1686055,High,Memory - illegal accesses,Read from pointer after free,/WINGs/bagtree.c,464,WMEraseFromBag,New,11/04/26
-1686056,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,142,parse_wmconfig,New,11/04/26
-1686057,High,Insecure data handling,Overflowed integer argument,/WINGs/wtextfield.c,Various,decrToFit,New,11/04/26
-1686058,High,Memory - illegal accesses,Out-of-bounds read,/src/event.c,401,handle_inotify_events,New,11/04/26
-1686059,High,Insecure data handling,Overflowed integer argument,/WINGs/wtextfield.c,Various,handleTextFieldKeyPress,New,11/04/26
-1686060,Medium,Null pointer dereferences,Dereference before null check,/src/wsmap.c,116,workspace_map_destroy,New,11/04/26
-1686061,Medium,Error handling issues,Unchecked return value,/src/startup.c,832,manageAllWindows,New,11/04/26
-1686062,Medium,Error handling issues,Unchecked return value from library,/src/misc.c,474,getTextSelection,New,11/04/26
-1686063,Low,Code maintainability issues,Unused value,/src/defaults.c,Various,wDefaultsCheckDomains,New,11/04/26
-1686064,Medium,Null pointer dereferences,Dereference before null check,/WINGs/wfilepanel.c,652,createDir,New,11/04/26
-1686065,Medium,Integer handling issues,Overflowed constant,/WINGs/wcolorpanel.c,3554,getShift,New,11/04/26
-1686066,High,Resource leaks,Resource leak,/wmlib/menu.c,57,WMMenuCreate,New,11/04/26
-1686067,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,421,WMSetScrollViewHasHorizontalScroller,New,11/04/26
-1686068,High,Resource leaks,Resource leak,/WPrefs.app/HotCornerShortcuts.c,Various,storeData,New,11/04/26
-1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,705,deleteFile,New,11/04/26
-1686070,Medium,Null pointer dereferences,Dereference after null check,/WINGs/wtext.c,Various,cursorToTextPosition,New,11/04/26
-1686071,High,Insecure data handling,Overflowed integer argument,/WINGs/error.c,Various,__wmessage,New,11/04/26
-1686072,High,Memory - illegal accesses,Read from pointer after free,/WINGs/wtext.c,Various,deleteTextInteractively,New,11/04/26
-1686073,Low,Security best practices violations,Time of check time of use,/WPrefs.app/Appearance.c,Various,createPanel,New,11/04/26
-1686074,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3114,customPaletteMenuRename,New,11/04/26
-1686075,High,Resource leaks,Resource leak,/src/window.c,1007,wManageWindow,New,11/04/26
-1686076,Medium,Error handling issues,Unchecked return value from library,/src/startup.c,Various,StartUp,New,11/04/26
-1686077,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_ppm.c,183,load_graymap,New,11/04/26
-1686078,Medium,Null pointer dereferences,Dereference null return value,/src/texture.c,365,wTextureRenderImage,New,11/04/26
-1686079,Medium,Null pointer dereferences,Dereference null return value,/src/defaults.c,3602,chopOffImage,New,11/04/26
+1686041,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3034,customPaletteMenuNewFromFile,Dismissed,11/04/26
+1686042,Low,Security best practices violations,Time of check time of use,/src/monitor.c,161,MonitorLoop,Dismissed,11/04/26
+1686044,Low,Security best practices violations,Time of check time of use,/util/wmmenugen.c,161,main,Dismissed,11/04/26
+1686049,Medium,Control flow issues,Logically dead code,/util/wmsetbg.c,568,parseTexture,New,11/04/26
+1686051,High,Resource leaks,Resource leak,/util/wmmenugen_parse_wmconfig.c,163,parse_wmconfig,New,11/04/26
+1686058,High,Memory - illegal accesses,Out-of-bounds read,/src/event.c,422,handle_inotify_events,New,11/04/26
+1686060,Medium,Null pointer dereferences,Dereference before null check,/src/wsmap.c,117,workspace_map_destroy,New,11/04/26
+1686063,Low,Code maintainability issues,Unused value,/src/defaults.c,1118,wDefaultsCheckDomains,New,11/04/26
+1686067,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,422,WMSetScrollViewHasHorizontalScroller,New,11/04/26
+1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,708,deleteFile,Dismissed,11/04/26
+1686073,Low,Security best practices violations,Time of check time of use,/WPrefs.app/Appearance.c,Various,createPanel,Dismissed,11/04/26
+1686074,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3121,customPaletteMenuRename,Dismissed,11/04/26
+1686077,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_ppm.c,185,load_graymap,New,11/04/26
 1686080,Medium,Null pointer dereferences,Dereference after null check,/src/dock.c,Various,openDockMenu,New,11/04/26
 1686081,Medium,Incorrect expression,Copy-paste error,/src/dock.c,Various,killCallback,New,11/04/26
-1686082,High,Insecure data handling,Overflowed integer argument,/WINGs/wtextfield.c,426,WMDeleteTextFieldRange,New,11/04/26
-1686083,Medium,Null pointer dereferences,Dereference null return value,/src/dock.c,1675,wDockSaveState,New,11/04/26
-1686084,Medium,Null pointer dereferences,Dereference null return value,/src/workspace.c,950,wWorkspaceRestoreState,New,11/04/26
 1686085,Low,Security best practices violations,Calling risky function,/src/placement.c,Various,randomPlaceWindow,New,11/04/26
-1686086,Medium,Control flow issues,Logically dead code,/util/setstyle.c,409,main,New,11/04/26
-1686087,Medium,Incorrect expression,Result is not floating-point,/WPrefs.app/Appearance.c,2015,createPanel,New,11/04/26
-1686088,Medium,Error handling issues,Unchecked return value,/src/wsmap.c,487,handle_event,New,11/04/26
-1686089,Low,Security best practices violations,Time of check time of use,/util/setstyle.c,440,main,New,11/04/26
-1686090,Medium,Error handling issues,Unchecked return value,/WPrefs.app/TexturePanel.c,916,SetTexturePanelTexture,New,11/04/26
-1686091,Medium,Null pointer dereferences,Dereference after null check,/src/menu.c,1226,keyboardMenu,New,11/04/26
-1686092,Medium,Control flow issues,Logically dead code,/src/event.c,1975,dispatchWKBDCommand,New,11/04/26
-1686093,Medium,Error handling issues,Unchecked return value from library,/src/telemetry.c,276,rotate_spike_file,New,11/04/26
-1686094,High,Resource leaks,Resource leak,/util/wmgenmenu.c,Various,other_window_managers,New,11/04/26
-1686095,Low,Code maintainability issues,Unused value,/src/rootmenu.c,675,constructMenu,New,11/04/26
-1686096,Medium,Null pointer dereferences,Dereference after null check,/src/winspector.c,Various,createInspectorForWindow,New,11/04/26
-1686097,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1788,wmkdirhier,New,11/04/26
-1686098,High,Resource leaks,Resource leak,/WPrefs.app/Appearance.c,2361,OpenExtractPanelFor,New,11/04/26
-1686099,Medium,Error handling issues,Unchecked return value from library,/src/telemetry.c,297,wTelemetryInit,New,11/04/26
-1686100,High,Resource leaks,Resource leak,/util/wmgenmenu.c,Various,find_and_write,New,11/04/26
+1686086,Medium,Control flow issues,Logically dead code,/util/setstyle.c,434,main,New,11/04/26
+1686089,Low,Security best practices violations,Time of check time of use,/util/setstyle.c,466,main,Dismissed,11/04/26
+1686097,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1789,wmkdirhier,Dismissed,11/04/26
 1686101,High,Resource leaks,Resource leak,/WPrefs.app/Appearance.c,Various,renderTexture,New,11/04/26
-1686102,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1865,wrmdirhier,New,11/04/26
-1686103,High,Memory - illegal accesses,Uninitialized pointer read,/util/wmiv.c,1549,connect_dir,New,11/04/26
-1686104,High,Resource leaks,Resource leak,/src/screen.c,751,wScreenInit,New,11/04/26
-1686105,Medium,Null pointer dereferences,Dereference null return value,/src/dock.c,Various,drawerRestoreState,New,11/04/26
-1686106,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,454,WMSetScrollViewHasVerticalScroller,New,11/04/26
-1686107,Medium,Null pointer dereferences,Dereference before null check,/src/session.c,276,makeWindowState,New,11/04/26
-1686108,Low,Security best practices violations,Calling risky function,/src/actions.c,1355,animateResize,New,11/04/26
-1686109,High,Resource leaks,Resource leak,/WPrefs.app/TexturePanel.c,Various,GetTexturePanelTexture,New,11/04/26
-1686110,Medium,Insecure data handling,Untrusted loop bound,/wrlib/load_ppm.c,126,pm_getuint,New,11/04/26
-1686111,Medium,Control flow issues,Logically dead code,/WINGs/dragsource.c,375,sendEnterMessage,New,11/04/26
+1686102,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1867,wrmdirhier,Dismissed,11/04/26
+1686105,Medium,Null pointer dereferences,Dereference null return value,/src/dock.c,5040,drawerRestoreState,New,11/04/26
+1686106,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,456,WMSetScrollViewHasVerticalScroller,New,11/04/26
+1686108,Low,Security best practices violations,Calling risky function,/src/actions.c,1356,animateResize,New,11/04/26
+1686110,Medium,Insecure data handling,Untrusted loop bound,/wrlib/load_ppm.c,127,pm_getuint,New,11/04/26
 1686112,High,Memory - illegal accesses,String not null terminated,/src/event.c,Various,handle_inotify_events,New,11/04/26
+1687863,Low,Security best practices violations,Time of check time of use,/wrlib/load_jxl.c,43,do_read_file,New,11/09/26
+1687864,Medium,Null pointer dereferences,Explicit null dereferenced,/wrlib/load_jxl.c,Various,RLoadJXL,New,11/09/26
+1687865,Medium,Null pointer dereferences,Dereference null return value,/WPrefs.app/Appearance.c,671,renderTexture,New,11/09/26
+1687866,High,Resource leaks,Resource leak,/WINGs/wfontpanel.c,Various,typefaceClick,New,11/09/26
+1687867,Medium,Null pointer dereferences,Dereference null return value,/WINGs/wcolorpanel.c,3303,colorListSelect,New,11/09/26
+1687868,Medium,Null pointer dereferences,Dereference null return value,/WINGs/wfontpanel.c,634,familyClick,New,11/09/26
+1687869,Medium,Null pointer dereferences,Dereference before null check,/src/snihost.c,1758,sni_on_get_layout_reply,New,11/09/26
+1687870,Medium,Null pointer dereferences,Dereference null return value,/src/session.c,311,wSessionSaveState,New,11/09/26
+1687871,Medium,Null pointer dereferences,Dereference null return value,/src/dialog.c,764,drawIconProc,New,11/09/26
+1687872,High,Resource leaks,Resource leak,/wrlib/load_jxl.c,153,RLoadJXL,New,11/09/26
