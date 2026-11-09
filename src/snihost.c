@@ -1071,12 +1071,21 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	/* Track menu layout changes: if the menu is currently closed, destroy the
-	 * cached WMenu so the next right-click re-fetches the updated layout. If
-	 * the menu is currently mapped on screen (e.g. nm-applet rebuilding its
-	 * GtkMenu after a background Wi-Fi scan triggered by AboutToShow), keep
-	 * the WMenu open and asynchronously refresh its entries' dbus_id values
-	 * in-place so clicking an entry never sends a stale ID. */
+	/* Track menu layout changes. If the menu is currently mapped on screen
+	 * (e.g. nm-applet rebuilding its GtkMenu after a background Wi-Fi scan
+	 * triggered by AboutToShow), keep the WMenu open and asynchronously
+	 * refresh its entries' dbus_id values in-place so clicking an entry never
+	 * sends a stale ID.
+	 *
+	 * If the menu is unmapped, do NOT destroy it here: this signal handler can
+	 * run from a D-Bus dispatch re-entered while the menu is being closed (the
+	 * LayoutUpdated landing exactly during the WMenu entry callback, after
+	 * closeCascade() has already unmapped it but while menuMouseDown() still
+	 * dereferences desc->parent after the callback). Freeing it then leaves
+	 * menuMouseDown() with a dangling pointer and crashes in wMenuMove().
+	 * The next right-click always rebuilds the menu from a fresh GetLayout, and
+	 * the unmapped tree is torn down by wSnihostPostButtonPress() / the next
+	 * open, so leaving it cached is safe. */
 	if (dbus_message_is_signal(msg, "com.canonical.dbusmenu", "LayoutUpdated")) {
 		const char *sender = dbus_message_get_sender(msg);
 		const char *path = dbus_message_get_path(msg);
@@ -1087,14 +1096,8 @@ static DBusHandlerResult sni_bus_filter(DBusConnection *conn, DBusMessage *msg, 
 				if (it->sender_unique && strcmp(it->sender_unique, sender) == 0 &&
 				    (!path || !it->menu_path || strcmp(it->menu_path, path) == 0) &&
 				    it->menu) {
-					if (it->menu->flags.mapped) {
+					if (it->menu->flags.mapped)
 						sni_request_dbusmenu_sync(it);
-					} else {
-						WMenu *menu = it->menu;
-
-						it->menu = NULL;
-						wMenuDestroy(menu, True);
-					}
 					break;
 				}
 			}
@@ -1891,7 +1894,16 @@ static void sni_dbusmenu_event(SNIItem *item, int id, const char *event_id, int 
 
 	dbus_connection_send(sni_state->conn, msg, NULL);
 	dbus_message_unref(msg);
-	sni_flush_and_dispatch();
+	/* Flush only: this runs from the WMenu entry callback, while
+	 * menuMouseDown() still holds a pointer to the menu (desc->parent) and
+	 * uses it after the callback returns (closeCascade() + wMenuMove()). If
+	 * we dispatched incoming messages here, a LayoutUpdated arriving at this
+	 * moment would hit sni_bus_filter() with the menu already unmapped by
+	 * closeCascade() and free it (wMenuDestroy), leaving menuMouseDown() with
+	 * a dangling pointer -> general protection fault in wMenuMove(). The
+	 * Event is no_reply, so flushing is enough; the main loop dispatches the
+	 * pending signals later, once the menu is no longer in use. */
+	dbus_connection_flush(sni_state->conn);
 }
 
 static void sni_show_dbusmenu(SNIItem *item, int x, int y)

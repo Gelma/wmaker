@@ -994,6 +994,19 @@ All fixes have been applied in individual, incremental Git commits, each signed 
            - Added `wSnihostPostButtonPress()` (`src/snihost.c`, called from `DispatchEvent()` in `src/event.c` after `handleButtonPress()`): if the SNI menu remains mapped after `menuMouseDown()` returns (because a submenu was opened), it re-establishes the non-blocking pointer and keyboard grabs (`sni_grab_menu()`) so subsequent clicks inside the submenu, clicks outside to dismiss, or `Escape` work seamlessly; if `menuMouseDown()` unmapped the menu (after activating a leaf entry), it calls `wSnihostCloseMenus()` to destroy the `WMenu` and release grabs.
     - Verified: build 0 warnings, `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass.
 
+149. **SNI DBusMenu Leaf Activation Crash: `LayoutUpdated` Destroying the `WMenu` During `menuMouseDown()` (GPF in `wMenuMove()`)**:
+    - **Symptom**: clicking `"Edit connections…"` in the `nm-applet` DBusMenu crashed `wmaker` with a general protection fault and restarted the WM. `"Connection information"` (same class of plain leaf entry) worked, cascade submenus worked.
+      - `dmesg`: `traps: wmaker[PID] general protection fault ip:... in wmaker[4b044,...]`; `addr2line -e /opt/wmaker/bin/wmaker 0x4b044` → `wMenuMove` (`src/menu.c:2267`) → `i = menu->entries[menu->selected_entry]->cascade;`.
+    - **Root cause**: a use-after-free of the `WMenu` across the entry callback.
+      1. `menuMouseDown()` (`src/menu.c:2201`) calls `closeCascade(menu)` **before** invoking `(*entry->callback)(menu, entry)`, which unmaps the menu (`wMenuUnmap` sets `flags.mapped = 0`) but keeps the `WMenu` allocated.
+      2. The SNI leaf callback `sni_menu_callback()` → `sni_dbusmenu_event()` ended with `sni_flush_and_dispatch()`, i.e. it *dispatched* incoming D-Bus messages from a context that is **not** a D-Bus dispatch (`sni_state->in_dispatch` is false), so the recursive-dispatch guard from §148 did not stop it.
+      3. `nm-applet` emits `LayoutUpdated` continuously (periodic 15 s scan + the scan triggered by `AboutToShow`). If one was queued when the callback ran, `sni_bus_filter()` processed it here: the menu was already unmapped, so it took the "unmapped → `wMenuDestroy(it->menu, True)`" branch and freed the whole menu tree.
+      4. Back in `menuMouseDown()`, `desc->parent` now dangles; the post-callback code still dereferences it (`closeCascade(desc->parent)` at line 2234, `closeBrotherCascadesOf()`, then `wMenuMove(parentMenu(desc->parent), ...)` at line 2241) → GPF inside `wMenuMove()`. `"Edit connections…"` is just the entry that lands in the window (spawning `nm-connection-editor` + periodic scan); `"Connection information"` usually does not have a `LayoutUpdated` pending at that instant.
+    - **Fix (`src/snihost.c`)**:
+      1. `sni_dbusmenu_event()`: replace `sni_flush_and_dispatch()` with `dbus_connection_flush()`. The DBusMenu `Event` is sent with `no_reply`, so a flush delivers it; incoming signals are dispatched later by the main loop (`sni_dbus_input_proc`), once `menuMouseDown()` has returned and the menu is no longer referenced.
+      2. `sni_bus_filter()` `LayoutUpdated` handling: when `it->menu` is **unmapped**, do **not** `wMenuDestroy()` it — a signal handler must not free a WMenu that `menuMouseDown()` may still hold. The next right-click always rebuilds from a fresh `GetLayout`, and the unmapped tree is torn down by `wSnihostPostButtonPress()` (after a leaf activation) or by `wSnihostCloseMenus()` (Esc / click-outside / next open).
+    - Verified: `make -C src snihost.o` compiles with 0 warnings under the project's strict flags (`-Wall -Wextra -Wdouble-promotion -Wfloat-equal -Wlogical-op …`).
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
