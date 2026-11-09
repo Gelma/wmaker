@@ -631,6 +631,13 @@ static void familyClick(WMWidget * w, void *data)
 	osize = WMGetTextFieldText(panel->sizT);
 
 	item = WMGetListSelectedItem(lPtr);
+	if (!item || !item->clientData) {
+		if (oface)
+			wfree(oface);
+		if (osize)
+			wfree(osize);
+		return;
+	}
 	family = (Family *) item->clientData;
 
 	WMClearList(panel->typLs);
@@ -691,14 +698,14 @@ static void typefaceClick(WMWidget * w, void *data)
 	/* Parameter not used, but tell the compiler that it is ok */
 	(void) w;
 
-	osize = WMGetTextFieldText(panel->sizT);
-
 	item = WMGetListSelectedItem(panel->typLs);
 	if (!item)
 		return;
 	face = (Typeface *) item->clientData;
 	if (!face)
 		return;
+
+	osize = WMGetTextFieldText(panel->sizT);
 
 	WMClearList(panel->sizLs);
 
