@@ -629,10 +629,16 @@ void wMenuRealize(WMenu * menu)
 
 	menu->flags.realized = 1;
 
-	if (menu->flags.mapped)
+	if (menu->flags.mapped) {
 		wMenuPaint(menu);
-	if (menu->brother->flags.mapped)
+		if (menu->flags.titled)
+			wFrameWindowPaint(menu->frame);
+	}
+	if (menu->brother->flags.mapped) {
 		wMenuPaint(menu->brother);
+		if (menu->brother->flags.titled)
+			wFrameWindowPaint(menu->brother->frame);
+	}
 }
 
 void wMenuDestroy(WMenu * menu, int recurse)
@@ -1267,6 +1273,8 @@ void wMenuMapAt(WMenu * menu, int x, int y, int keyboard)
 		XSync(dpy, False);
 		wRaiseFrame(menu->frame->core);
 		menu->flags.mapped = 1;
+		if (menu->flags.titled)
+			wFrameWindowPaint(menu->frame);
 	} else {
 		selectEntry(menu, 0);
 	}
@@ -1289,6 +1297,8 @@ void wMenuMap(WMenu * menu)
 	XMapWindow(dpy, menu->frame->core->window);
 	wRaiseFrame(menu->frame->core);
 	menu->flags.mapped = 1;
+	if (menu->flags.titled)
+		wFrameWindowPaint(menu->frame);
 }
 
 void wMenuUnmap(WMenu * menu)

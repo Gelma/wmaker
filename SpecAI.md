@@ -1028,6 +1028,19 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       5. Check `fwin->title_strip_w[state] > 0` before attempting `XCopyArea` cache hits.
     - **Verification**: `make -j$(nproc)` builds cleanly with 0 warnings; `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass without memory or X11 errors.
 
+151. **Synchronous Frame Painting on Menu Mapping and Button Visibility Changes (`src/menu.c`, `src/framewin.c`)**:
+    - **Symptom**: When opening the Window List menu (`Windows`) with middle-click on the desktop, the menu titlebar was sometimes initially completely empty/blank (showing only bare background texture), but clicking inside the titlebar with the left mouse button caused `"Windows"` to appear immediately.
+    - **Root cause**:
+      1. `wMenuMapAt()` and `wMenuMap()` mapped the menu frame core window (`XMapWindow`) and marked `menu->flags.mapped = 1`, but never invoked `wFrameWindowPaint(menu->frame)`. They relied entirely on the X server delivering asynchronous `Expose` events.
+      2. Immediately following `wMenuMapAt()`, Window Maker entered the modal event loop `menuMouseDown()`, which grabbed pointer events and caught `Expose` events in `WMMaskEvent()`. If the user released the button quickly or if `Expose` was delayed or swallowed, the titlebar was never rendered.
+      3. In `wFrameWindowShowButton()` and `wFrameWindowHideButton()`, when `wPreferences.new_style == TS_NEW`, `updateTitlebar()` was called without `wFrameWindowPaint()`. Under X11, shrinking a window (showing a button shrinks titlebar width) produces no exposure event for the remaining area, leaving the titlebar unpainted until explicitly repainted.
+      4. Clicking inside the titlebar with the left mouse button triggered `menuTitleMouseDown()`, which buttoned/pinned the menu and called `wFrameWindowShowButton(menu->frame, WFF_RIGHT_BUTTON)`.
+    - **Fix**:
+      1. Synchronously call `wFrameWindowPaint(menu->frame)` upon `wMenuMapAt()` and `wMenuMap()` whenever `menu->flags.titled` is true.
+      2. Synchronously call `wFrameWindowPaint(menu->frame)` in `wMenuRealize()` if the menu is mapped and titled.
+      3. In `wFrameWindowShowButton()` and `wFrameWindowHideButton()`, ensure `XClearWindow()` and `wFrameWindowPaint()` are called whenever `fwin->titlebar->width > 20`, irrespective of `TS_NEW`.
+    - **Verification**: `make -j$(nproc)` builds cleanly with 0 warnings; `make check`, `make exit-test`, and `EXIT_TEST_ARGS=--valgrind make exit-test` all pass with 0 errors.
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):

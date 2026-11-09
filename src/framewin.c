@@ -639,17 +639,12 @@ void wFrameWindowHideButton(WFrameWindow * fwin, int flags)
 #endif
 
 	if (fwin->titlebar) {
-		if (wPreferences.new_style == TS_NEW) {
-			updateTitlebar(fwin);
-		} else {
-#ifdef XKB_BUTTON_HINT
-			updateTitlebar(fwin);
-#else
+		updateTitlebar(fwin);
+		checkTitleSize(fwin);
+		if (fwin->titlebar->width > 20) {
 			XClearWindow(dpy, fwin->titlebar->window);
 			wFrameWindowPaint(fwin);
-#endif
 		}
-		checkTitleSize(fwin);
 	}
 }
 
@@ -683,13 +678,12 @@ void wFrameWindowShowButton(WFrameWindow * fwin, int flags)
 	}
 
 	if (fwin->titlebar) {
-		if (wPreferences.new_style == TS_NEW) {
-			updateTitlebar(fwin);
-		} else {
+		updateTitlebar(fwin);
+		checkTitleSize(fwin);
+		if (fwin->titlebar->width > 20) {
 			XClearWindow(dpy, fwin->titlebar->window);
 			wFrameWindowPaint(fwin);
 		}
-		checkTitleSize(fwin);
 	}
 }
 
