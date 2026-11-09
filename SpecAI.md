@@ -1058,6 +1058,28 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - The critical security vulnerabilities (command injection in `wmsetbg.c` and 17 `char tmp[4]` stack overflows in `wcolorpanel.c`) are confirmed resolved.
       - Updated artifact files in `QLCodeAnalysis/`: `wmaker-results.sarif`, `wmaker-results.csv`, and `QLCODEReport.md`.
 
+154. **Coverity Report 09/11/26 & CodeQL Hardening Remediation (2026-11-09)**:
+    - **Coverity Report Defect Remediation (CIDs 1687863–1687872)**:
+      - **CID 1687863 (`wrlib/load_jxl.c`) - TOCTOU elimination**: Replaced pre-`fopen` `stat()` check with atomic `fopen()` followed by `fstat(fileno(file))` and regular file mode validation.
+      - **CID 1687864 & CID 1687872 (`wrlib/load_jxl.c`) - Null dereference & resource leak**: Released preexisting `image` and `pixels` when re-entering `JXL_DEC_NEED_IMAGE_OUT_BUFFER`, and validated non-null `image` and `pixels` before `memcpy` in `JXL_DEC_FULL_IMAGE`.
+      - **CID 1687865 (`WPrefs.app/Appearance.c`) - Null return handling**: Added null checks for tiled `image` and `grad` before `RCombineImagesWithOpaqueness()`, safely falling back to `grad` if tiled image creation failed.
+      - **CID 1687866 & CID 1687868 (`WINGs/wfontpanel.c`) - Font panel leak & null dereferences**: Deferred `WMGetTextFieldText()` in `typefaceClick()` after `item` and `face` validation to prevent memory leak on early exit; added defensive guards on selected item and family in `familyClick()`, properly freeing `oface`/`osize` on failure.
+      - **CID 1687867 (`WINGs/wcolorpanel.c`) - Color list selection guard**: Checked non-null `WMGetListSelectedItem(w)` and its `clientData` prior to dereferencing in `colorListSelect()`.
+      - **CID 1687869 (`src/snihost.c`) - Reverse-inull and menu frame validation**: Checked `menu` and `menu->frame` immediately after `wMenuCreate()`, destroying menu and unreferencing DBus message on failure, eliminating the reverse-inull condition.
+      - **CID 1687870 (`src/session.c`) - Session save null guard**: Checked `wapp != NULL` before accessing `wapp->app_icon` when retrieving the window command in `makeWindowState()`.
+      - **CID 1687871 (`src/dialog.c`) - Directory list selection guard**: Verified `WMGetListSelectedItem(panel->dirList)` and its text are non-null before path expansion in `drawIconProc()`.
+    - **CodeQL Quality & Nullness Remediations**:
+      - **`WINGs/wwindow.c`**: Validated `XAllocClassHint()` and `XAllocWMHints()` return values before dereferencing or setting window hints.
+      - **`src/event.c`**: Added null guard on `wScreenWithNumber(i)` in `handleXkbIndicatorStateNotify()`.
+      - **`src/menu.c`**: Checked `wCoreCreate()` return value in `wMenuCreate()`, safely destroying the menu on OOM.
+      - **`src/window.c`**: Explicitly guarded `oowner` before pointer equality comparisons in `wWindowUnfocus()`.
+      - **`WINGs/wfilepanel.c`**: Cleaned up redundant null check on `dirName` in `out:` label.
+      - **`WINGs/userdefaults.c` & `WPrefs.app/MouseSettings.c`**: Converted unbounded float `sprintf` to length-controlled `snprintf()`.
+    - **Verification**:
+      - `make -j$(nproc)` builds cleanly with 0 errors and 0 warnings.
+      - `make exit-test` passes all SIGTERM, SIGUSR1, and SIGUSR2 test assertions.
+      - `./tools/static-analysis.sh check` confirms zero regressions against baseline.
+
 
 ## Verification Status
 

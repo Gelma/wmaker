@@ -137,3 +137,6 @@ test-driver
 test/test-suite.log
 test/*.log
 test/*.trs
+
+# Analysis databases
+codeql-db/
