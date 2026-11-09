@@ -598,7 +598,7 @@ void WMSetUDFloatForKey(WMUserDefaults * database, float value, const char *defa
 	WMPropList *object;
 	char buffer[128];
 
-	sprintf(buffer, "%f", (double)value);
+	snprintf(buffer, sizeof(buffer), "%f", (double)value);
 	object = WMCreatePLString(buffer);
 
 	WMSetUDObjectForKey(database, object, defaultName);

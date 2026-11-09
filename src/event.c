@@ -1400,6 +1400,8 @@ static void handleXkbIndicatorStateNotify(XkbEvent *event)
 
 	for (i = 0; i < w_global.screen_count; i++) {
 		scr = wScreenWithNumber(i);
+		if (!scr)
+			continue;
 		wwin = scr->focused_window;
 		if (wwin && wwin->flags.focused) {
 			XkbGetState(dpy, XkbUseCoreKbd, &staterec);

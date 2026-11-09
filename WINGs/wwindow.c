@@ -419,28 +419,32 @@ static void realizeWindow(WMWindow * win)
 	int count;
 
 	classHint = XAllocClassHint();
-	classHint->res_name = win->wname;
-	classHint->res_class = WMGetApplicationName();
-	XSetClassHint(scr->display, win->view->window, classHint);
-	XFree(classHint);
+	if (classHint) {
+		classHint->res_name = win->wname;
+		classHint->res_class = WMGetApplicationName();
+		XSetClassHint(scr->display, win->view->window, classHint);
+		XFree(classHint);
+	}
 
 	hints = XAllocWMHints();
-	hints->flags = 0;
-	if (!scr->aflags.simpleApplication) {
-		hints->flags |= WindowGroupHint;
-		hints->window_group = scr->groupLeader;
-	}
-	if (win->miniImage) {
-		hints->flags |= IconPixmapHint;
-		hints->icon_pixmap = WMGetPixmapXID(win->miniImage);
-		hints->icon_mask = WMGetPixmapMaskXID(win->miniImage);
-		if (hints->icon_mask != None) {
-			hints->flags |= IconMaskHint;
+	if (hints) {
+		hints->flags = 0;
+		if (!scr->aflags.simpleApplication) {
+			hints->flags |= WindowGroupHint;
+			hints->window_group = scr->groupLeader;
 		}
+		if (win->miniImage) {
+			hints->flags |= IconPixmapHint;
+			hints->icon_pixmap = WMGetPixmapXID(win->miniImage);
+			hints->icon_mask = WMGetPixmapMaskXID(win->miniImage);
+			if (hints->icon_mask != None) {
+				hints->flags |= IconMaskHint;
+			}
+		}
+		if (hints->flags != 0)
+			XSetWMHints(scr->display, win->view->window, hints);
+		XFree(hints);
 	}
-	if (hints->flags != 0)
-		XSetWMHints(scr->display, win->view->window, hints);
-	XFree(hints);
 
 	count = 0;
 	if (win->closeAction) {

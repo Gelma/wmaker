@@ -2032,7 +2032,7 @@ void wWindowFocus(WWindow *wwin, WWindow *owin)
 	oowner = wWindowFor(owin->transient_for);
 
 	/* new window is owner of old window */
-	if (wwin == oowner) {
+	if (oowner && wwin == oowner) {
 		wWindowUnfocus(owin);
 		return;
 	}
@@ -2043,7 +2043,7 @@ void wWindowFocus(WWindow *wwin, WWindow *owin)
 	}
 
 	/* new window has same owner of old window */
-	if (oowner == nowner) {
+	if (oowner && oowner == nowner) {
 		/* prevent unfocusing of owner */
 		oowner->flags.semi_focused = 0;
 		wWindowUnfocus(owin);

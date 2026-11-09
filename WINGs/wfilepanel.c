@@ -645,8 +645,7 @@ static void createDir(WMWidget *widget, void *p_panel)
 	}
 
 out:
-	if (dirName)
-		wfree(dirName);
+	wfree(dirName);
 	if (directory)
 		wfree(directory);
 	/* file is allocated with wmalloc() before the first goto out, so the

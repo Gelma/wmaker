@@ -163,7 +163,7 @@ static void speedChange(WMWidget * w, void *data)
 
 		panel->acceleration = 0.25 + (i * 0.25);
 
-		sprintf(buffer, "%.2f", 0.25 + (i * 0.25));
+		snprintf(buffer, sizeof(buffer), "%.2f", 0.25 + (i * 0.25));
 		WMSetTextFieldText(panel->acceT, buffer);
 	}
 
