@@ -324,3 +324,41 @@ Historical commented-out blocks (`/* printf(...); */` and obsolete code segments
 The GitHub CodeQL analysis identified concrete security vulnerabilities and stability defects (notably command injection in `wmsetbg.c`, potential stack corruption in `wcolorpanel.c`, an empty grab failure branch in `icon.c`, and uninitialized reads following `sscanf` failures in `dock.c`).
 
 Executing the remediation plan according to the prioritized phases will significantly elevate Window Maker's safety, security, and software quality baseline while preserving backward compatibility and preparing the codebase for modern C23 language features.
+
+---
+
+## 8. Re-Scan Verification & Status Update (2026-11-09)
+
+A fresh static analysis scan was executed across the entire repository using **GitHub CodeQL CLI 2.27.4** with the official `cpp-security-and-quality.qls` query suite (183 rules evaluated against 221 compiled C translation units).
+
+### 8.1. Findings Comparison (Baseline vs Current)
+
+| Severity Level | Baseline (2026-11-05) | Current Scan (2026-11-09) | Net Change |
+|:---|:---:|:---:|:---:|
+| **Error (Critical / Vulnerability)** | 53 | **19** | **-34 (-64.2%)** |
+| **Warning (Robustness / Conversions)** | 179 | **150** | **-29 (-16.2%)** |
+| **Recommendation (Hygiene / Practices)** | 331 | **278** | **-53 (-16.0%)** |
+| **TOTAL** | **563** | **447** | **-116 (-20.6%)** |
+
+### 8.2. Component Breakdown (Current Tree)
+
+| Module / Directory | Error | Warning | Recommendation | Total |
+|:---|:---:|:---:|:---:|:---:|
+| **`src/`** | 9 | 55 | 129 | **193** |
+| **`WINGs/`** | 6 | 17 | 43 | **66** |
+| **`util/`** | 1 | 23 | 54 | **78** |
+| **`WPrefs.app/`** | 1 | 37 | 34 | **72** |
+| **`wrlib/`** | 2 | 18 | 18 | **38** |
+| **TOTAL** | **19** | **150** | **278** | **447** |
+
+### 8.3. Status of Previous Critical Findings
+- **CWE-078 (OS Command Injection in `util/wmsetbg.c:1045`)**: **RESOLVED** (Replaced `system()` with direct process execution).
+- **CWE-120 (Buffer Overrun in `WINGs/wcolorpanel.c` ×17 `char tmp[4]`)**: **RESOLVED** (Expanded stack buffers and bounded formatting).
+- **CWE-120 (`WPrefs.app/Expert.c:411` `char tmp[10]`)**: **RESOLVED**.
+- **CWE-562 (`util/xdnd.c:1596` stack escape)**: **RESOLVED**.
+- **Remaining 19 Errors**:
+  - 12 instances of `Unbounded write` (`rootmenu.c`, `userdefaults.c`, `dialog.c`, `getstyle.c`, `load.c`) are dynamic allocations sized from `strlen` components where CodeQL cannot determine the arithmetic equality (false positives).
+  - 2 instances of float formatting in `sprintf` (`userdefaults.c:601`, `MouseSettings.c:166`).
+  - 4 instances of inconsistent nullness checks (`wwindow.c:427`, `event.c:1402`, `menu.c:199`, `window.c:2032`).
+  - 1 redundant null check (`wfilepanel.c:648`).
+

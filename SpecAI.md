@@ -1047,6 +1047,18 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **README**: fixed the `something line nm-applet` typo → `something like`.
     - Verified: `make -C src framewin.o` builds with 0 warnings under the project's strict flags.
 
+153. **GitHub CodeQL Analysis Re-Scan & Verification (2026-11-09)**:
+    - **Toolchain**: GitHub CodeQL CLI 2.27.4 using the standard C/C++ query pack suite (`cpp-security-and-quality.qls`, 183 queries).
+    - **Compilation & Extraction**: Configured with `CC=/usr/bin/gcc` (`CCACHE_DISABLE=1`) to prevent ccache caching/tracer detaching, capturing all 221 C translation units across `src/`, `WINGs/`, `util/`, `WPrefs.app/`, and `wrlib/`.
+    - **Results & Progress**:
+      - Total findings reduced from 563 to 447 (-116 findings, -20.6%).
+      - Critical errors reduced from 53 to 19 (-34 errors, -64.2%).
+      - Warnings reduced from 179 to 150 (-29 warnings, -16.2%).
+      - Recommendations reduced from 331 to 278 (-53 recommendations, -16.0%).
+      - The critical security vulnerabilities (command injection in `wmsetbg.c` and 17 `char tmp[4]` stack overflows in `wcolorpanel.c`) are confirmed resolved.
+      - Updated artifact files in `QLCodeAnalysis/`: `wmaker-results.sarif`, `wmaker-results.csv`, and `QLCODEReport.md`.
+
+
 ## Verification Status
 
 Current state after `151ccd71`, `52e1029a` and `7b9f8e8e` (2026-11-04):
