@@ -76,6 +76,8 @@ You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker
 
 Using right now the SNI/DBus implementation. So, something like nm-applet works completely in WMaker!
 
+Import of features and ideas from [WayLand porting](https://github.com/phkaeser/wlmaker). Also, notify the author about what he can probably "up-port" to its wonderful project.
+
 ---
 ### (Original README)
 ---
