@@ -1277,3 +1277,78 @@ Detailed implementation steps are tracked in [BreakingToTheFuture.md](file:///ho
    - Offload linear gradients (titlebars, menus) and alpha blending to the X server GPU rasterizer using `XRenderCreateLinearGradient` and `XRenderComposite`.
    - Completely eliminates CPU-side gradient rendering and the transfer of megabytes of raw image bitmaps over the X11 socket.
    - (DeepSeek comment: not drop-in — `wTextureRenderImage` (`src/texture.c:349`) returns an `RImage` that is tiled/composited/converted elsewhere, so XRender gradients need a parallel path for menus and frames; neutral or slower on Xvfb/llvmpipe, and DHAT shows tiling (`RMakeTiledImage`) rather than gradients as the churn leader.)
+
+
+---
+
+## 156. Import & Porting of Architectural Features from Wayland Maker (wlmaker)
+
+### Context & Attribution
+Following a comprehensive architectural feasibility evaluation comparing Window Maker with Philipp Kaeser's Wayland Maker (`wlmaker` / https://github.com/phkaeser/wlmaker), five high-impact architectural subsystems were ported into Window Maker. All implementations are clean-room NeXTSTEP/X11 adaptations maintaining Window Maker's GPLv2+ licensing and WINGs integration while faithfully replicating the algorithmic advantages developed in `wlmaker`.
+
+Every involved git commit and new source file explicitly credits the provenance:
+`Idea/code inspired by https://github.com/phkaeser/wlmaker`
+and is signed with `Made-by-IA: Gemini`.
+
+---
+
+### Step 1: In-Process Fatal Crash Backtrace Reporting
+- **Motivation**: Previously, crashes (`SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL`, `SIGABRT`) in Window Maker would either terminate without any call stack or abort into the monitor without logging. `wlmaker`'s `wlm_util_backtrace_setup` demonstrated the utility of capturing stack frames at signal time.
+- **Implementation**:
+  - Created [`src/backtrace.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/backtrace.h) and [`src/backtrace.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/backtrace.c).
+  - Uses `<execinfo.h>` (`backtrace()` and `backtrace_symbols_fd()`) with optional `libbacktrace` support.
+  - Implements async-signal-safe writing (`write(STDERR_FILENO, ...)`) of fatal signal diagnostics, executable path, and stack frames before resetting signal disposition to `SIG_DFL` and re-raising the signal so that core dumping or monitor restart triggers normally.
+  - Added autoconf checks for `backtrace`, `backtrace_symbols_fd`, and `execinfo.h` in [`configure.ac`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/configure.ac).
+  - Initialized in `real_main()` via `wBacktraceInit(argv[0])`.
+- **Commit**: `005f07f2` (*wm: implement in-process fatal crash backtrace reporting*).
+- **Verification**: Verified under headless Xvfb by sending `SIGSEGV` to the running process; complete symbolicated call stack was dumped to stderr before clean termination.
+
+---
+
+### Step 2: Hot Corners State Machine with Hysteresis and Cooldown
+- **Motivation**: Window Maker's legacy hot corner handling lacked cooldown delays, leave actions, and native WM action dispatching, causing pointer flutter at screen boundaries and requiring external scripts for simple actions like opening menus or changing workspaces. `wlmaker`'s `corner.c` introduced an enter/leave hysteresis state machine with cooldown timers.
+- **Implementation**:
+  - Created [`src/corner.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/corner.h) and [`src/corner.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/corner.c).
+  - Implemented monotonic cooldown hysteresis (`get_monotonic_ms() + wPreferences.hot_corner_cooldown`) to eliminate rapid bounce on corner boundaries.
+  - Added support for both `Enter` and `Leave` actions across all four corners (`TopLeft`, `TopRight`, `BottomLeft`, `BottomRight`).
+  - Added native action dispatcher supporting: `RootMenu` / `OpenApplicationsMenu`, `WindowListMenu` / `OpenWindowListMenu`, `CloseMenu`, `WorkspaceNext`, `WorkspacePrev`, `ToggleShade`, `MinimizeAll` / `ShowDesktop`, and arbitrary shell commands.
+  - Integrated into [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/event.c) `handleMotionNotify`, removing legacy inline helpers.
+  - Added `HotCornerCooldown` (default 500ms) and `HotCornerLeaveActions` configuration options in [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/defaults.c).
+- **Commit**: `4b5958ee` (*wm: implement hot corners state machine with hysteresis and cooldown*).
+- **Verification**: Full `make exit-test` suite passed with 0 errors.
+
+---
+
+### Step 3: Asynchronous Subprocess Monitor with Non-Blocking Pipe Capture
+- **Motivation**: Spawning external applications, helpers, or dockapps previously either polluted standard descriptors or redirected output to `/dev/null` without failure diagnosis. `wlmaker`'s `subprocess_monitor.c` provides centralized lifecycle management with non-blocking pipe capture.
+- **Implementation**:
+  - Created [`src/subprocess.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/subprocess.h) and [`src/subprocess.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/subprocess.c).
+  - Spawns child processes with non-blocking cloexec pipes (`O_NONBLOCK | FD_CLOEXEC`) for stdout and stderr.
+  - Registers read descriptors with the WINGs event loop via `WMAddInputHandler(..., WIReadMask, ...)`.
+  - Integrates child exit tracking with Window Maker's `wAddDeathHandler(pid, ...)`, ensuring pipes are completely drained before calling the termination callback.
+  - Provides prefix-tagged logging (`[subprocess <cmd>:<pid> stdout/stderr]`) and optional in-memory capture in `WMData`.
+- **Commit**: `d5873752` (*wm: implement asynchronous subprocess monitor with non-blocking pipe capture*).
+- **Verification**: Built and linked cleanly into `src/wmaker`; passed `make exit-test`.
+
+---
+
+### Step 4: Modern Multi-Core, Memory, and Battery DockApp Suite
+- **Motivation**: `wlmaker` includes a modern suite of dockapps in `apps/` designed for contemporary Linux kernel interfaces (`/proc/stat`, `/proc/meminfo`, and `/sys/class/power_supply`).
+- **Implementation**:
+  - Created three standalone 64x64 NeXTSTEP-styled dockapps in [`util/`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/):
+    1. [`util/wmcpugraph.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmcpugraph.c): Reads `/proc/stat`, tracks per-core and aggregate CPU usage across arbitrary numbers of cores, and renders a 54-column scrolling history graph with multi-core activity heat colors (blue -> cyan -> green -> yellow -> red).
+    2. [`util/wmmemgraph.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmmemgraph.c): Reads `/proc/meminfo` (`MemAvailable` calculation), renders a scrolling memory history graph, and displays a dynamic Swap usage progress bar.
+    3. [`util/wmbattery.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmbattery.c): Scans `/sys/class/power_supply` for battery devices, renders a proportional battery gauge with charging lightning bolt indicator and AC detection.
+  - Added build targets to [`util/Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/Makefile.am) and binaries to [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/.gitignore).
+- **Commit**: `908a8e2b` (*util: add modern multi-core, memory, and battery dockapp suite*).
+- **Verification**: Tested in headless Xvfb; each dockapp successfully mapped its 64x64 window, acquired WithdrawnState for docking, read system statistics, and rendered pixmaps without error.
+
+---
+
+### Step 5: IWYU Mappings & Header Hygiene Tooling
+- **Motivation**: Header sprawl and incorrect internal header inclusions (`<bits/types/...>`) are common maintenance hazards. `wlmaker` uses an explicit mapping file for Include-What-You-Use.
+- **Implementation**:
+  - Created [`tools/iwyu-mappings.imp`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/tools/iwyu-mappings.imp) providing umbrella header mappings for POSIX, Xlib, Xutil, WINGs, wrlib, and Window Maker internal headers.
+  - Created [`tools/check-iwyu.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/tools/check-iwyu.sh) implementing automated header hygiene checks adhering to user bash robustness standards (`set -euo pipefail`, local variables, strict quoting).
+- **Commit**: `bb410edb` (*tools: add include-what-you-use mappings and header hygiene runner*).
+- **Verification**: Executed `./tools/check-iwyu.sh` with successful prerequisite check.
