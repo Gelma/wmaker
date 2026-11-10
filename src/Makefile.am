@@ -25,6 +25,8 @@ wmaker_SOURCES = 	\
 	client.h \
 	colormap.c \
 	colormap.h \
+	corner.c \
+	corner.h \
 	cycling.c \
 	cycling.h \
 	def_pixmaps.h \

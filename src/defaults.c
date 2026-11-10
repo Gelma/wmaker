@@ -153,6 +153,7 @@ static WDECallbackUpdate updateUsableArea;
 static WDECallbackUpdate setModifierKeyLabels;
 static WDECallbackUpdate setModifierShortKeyLabels;
 static WDECallbackUpdate setHotCornerActions;
+static WDECallbackUpdate setHotCornerLeaveActions;
 
 static WDECallbackConvert getCursor;
 static WDECallbackUpdate setCursor;
@@ -535,10 +536,14 @@ WDefaultEntry optionList[] = {
 	    &wPreferences.hot_corners, getBool, NULL, NULL, NULL},
 	{"HotCornerDelay", "250", (void *)&wPreferences.hot_corner_delay,
 	    &wPreferences.hot_corner_delay, getInt, NULL, NULL, NULL},
+	{"HotCornerCooldown", "500", (void *)&wPreferences.hot_corner_cooldown,
+	    &wPreferences.hot_corner_cooldown, getInt, NULL, NULL, NULL},
 	{"HotCornerEdge", "2", (void *)&wPreferences.hot_corner_edge,
 	    &wPreferences.hot_corner_edge, getInt, NULL, NULL, NULL},
 	{"HotCornerActions", "(\"None\", \"None\", \"None\", \"None\")", &wPreferences,
 	    NULL, getPropList, setHotCornerActions, NULL, NULL},
+	{"HotCornerLeaveActions", "(\"None\", \"None\", \"None\", \"None\")", &wPreferences,
+	    NULL, getPropList, setHotCornerLeaveActions, NULL, NULL},
 	{"WindowListAppIcons", "NO", NULL,
 		&wPreferences.window_list_app_icons, getBool, NULL, NULL, NULL},
 	{"MouseWheelFocus", "NO", NULL,
@@ -3832,6 +3837,41 @@ static int setHotCornerActions(WScreen * scr, WDefaultEntry * entry, void *tdata
 		} else {
 			wwarning(_("Invalid argument for option \"%s\" item %d"), entry->key, i);
 			prefs->hot_corner_actions[i] = NULL;
+		}
+	}
+
+	WMReleasePropList(array);
+
+	return 0;
+}
+
+static int setHotCornerLeaveActions(WScreen * scr, WDefaultEntry * entry, void *tdata, void *foo)
+{
+	WMPropList *array = tdata;
+	int i;
+	struct WPreferences *prefs = foo;
+
+	(void) scr;
+	if (!WMIsPLArray(array) || WMGetPropListItemCount(array) != 4) {
+		wwarning(_("Value for option \"%s\" must be an array of 4 strings"), entry->key);
+		WMReleasePropList(array);
+		return 0;
+	}
+
+	for (i = 0; i < 4; i++) {
+		if (prefs->hot_corner_leave_actions[i])
+			wfree(prefs->hot_corner_leave_actions[i]);
+
+		if (WMIsPLString(WMGetFromPLArray(array, i))) {
+			const char *val;
+			val = WMGetFromPLString(WMGetFromPLArray(array, i));
+			if (strcasecmp(val, "NONE") != 0)
+				prefs->hot_corner_leave_actions[i] = wstrdup(val);
+			else
+				prefs->hot_corner_leave_actions[i] = NULL;
+		} else {
+			wwarning(_("Invalid argument for option \"%s\" item %d"), entry->key, i);
+			prefs->hot_corner_leave_actions[i] = NULL;
 		}
 	}
 

@@ -23,6 +23,7 @@
 #include "wconfig.h"
 #include "WindowMaker.h"
 #include <sys/types.h>
+#include <stdint.h>
 
 #include <WINGs/WUtil.h>
 
@@ -305,6 +306,9 @@ typedef struct _WScreen {
                                         * raised */
     /* for hot-corners delay */
     WMHandlerID *hot_corner_timer;
+    uint64_t hot_corner_cooldown_until;
+    int hot_corner_last_x;
+    int hot_corner_last_y;
 
 #ifdef USE_RANDR
     WMHandlerID *randr_debounce_timer;
@@ -339,6 +343,7 @@ typedef struct _WScreen {
         unsigned int jump_back_pending:8;
         unsigned int ignore_focus_events:1;
         unsigned int in_hot_corner:3;
+        unsigned int hot_corner_triggered:1;
         unsigned int mark_capture_mode:3;  /* one of WMarkCaptureMode */
         unsigned int key_grabs_suspended:1;
 
