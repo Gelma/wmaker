@@ -1,0 +1,43 @@
+# -*- mode: python; -*-
+# Window Maker IWYU mapping file
+# Idea/code inspired by https://github.com/phkaeser/wlmaker
+[
+    # C library / POSIX internal bits mappings
+    { "symbol": ["tm", "public", "<time.h>", "public"] },
+    { "symbol": ["siginfo_t", "public", "<signal.h>", "public"] },
+    { "symbol": ["size_t", "public", "<stddef.h>", "public"] },
+    { "symbol": ["uint64_t", "public", "<stdint.h>", "public"] },
+    { "symbol": ["int64_t", "public", "<stdint.h>", "public"] },
+    { "symbol": ["timeval", "public", "<sys/time.h>", "public"] },
+    { "symbol": ["timespec", "public", "<time.h>", "public"] },
+
+    # X11 umbrella headers
+    { "symbol": ["Display", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["Window", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["Pixmap", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["GC", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["XEvent", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["XColor", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["Colormap", "public", "<X11/Xlib.h>", "public"] },
+    { "symbol": ["XSizeHints", "public", "<X11/Xutil.h>", "public"] },
+    { "symbol": ["XWMHints", "public", "<X11/Xutil.h>", "public"] },
+    { "symbol": ["XClassHint", "public", "<X11/Xutil.h>", "public"] },
+
+    # WINGs and wrlib public API mapping
+    { "symbol": ["WMRect", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMPoint", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMSize", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMArray", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMPropList", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMData", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["WMHandlerID", "public", "<WINGs/WUtil.h>", "public"] },
+    { "symbol": ["RImage", "public", "<wraster.h>", "public"] },
+    { "symbol": ["RContext", "public", "<wraster.h>", "public"] },
+    { "symbol": ["RColor", "public", "<wraster.h>", "public"] },
+
+    # Window Maker internal core headers
+    { "symbol": ["WScreen", "public", "\"screen.h\"", "public"] },
+    { "symbol": ["WWindow", "public", "\"window.h\"", "public"] },
+    { "symbol": ["WPreferences", "public", "\"WindowMaker.h\"", "public"] },
+    { "symbol": ["wPreferences", "public", "\"WindowMaker.h\"", "public"] }
+]
