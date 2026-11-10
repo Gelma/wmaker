@@ -1332,15 +1332,17 @@ and is signed with `Made-by-IA: Gemini`.
 
 ---
 
-### Step 4: Modern Multi-Core, Memory, and Battery DockApp Suite
-- **Motivation**: `wlmaker` includes a modern suite of dockapps in `apps/` designed for contemporary Linux kernel interfaces (`/proc/stat`, `/proc/meminfo`, and `/sys/class/power_supply`).
+### Step 4: Modern Multi-Core, Memory, Battery, Network, and Clock DockApp Suite
+- **Motivation**: `wlmaker` includes a modern suite of dockapps in `apps/` designed for contemporary Linux kernel interfaces (`/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, and `/sys/class/power_supply`).
 - **Implementation**:
-  - Created three standalone 64x64 NeXTSTEP-styled dockapps in [`util/`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/):
+  - Created five standalone 64x64 NeXTSTEP-styled dockapps in [`util/`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/):
     1. [`util/wmcpugraph.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmcpugraph.c): Reads `/proc/stat`, tracks per-core and aggregate CPU usage across arbitrary numbers of cores, and renders a 54-column scrolling history graph with multi-core activity heat colors (blue -> cyan -> green -> yellow -> red).
     2. [`util/wmmemgraph.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmmemgraph.c): Reads `/proc/meminfo` (`MemAvailable` calculation), renders a scrolling memory history graph, and displays a dynamic Swap usage progress bar.
     3. [`util/wmbattery.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmbattery.c): Scans `/sys/class/power_supply` for battery devices, renders a proportional battery gauge with charging lightning bolt indicator and AC detection.
-  - Added build targets to [`util/Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/Makefile.am) and binaries to [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/.gitignore).
-- **Commit**: `908a8e2b` (*util: add modern multi-core, memory, and battery dockapp suite*).
+    4. [`util/wmnetgraph.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmnetgraph.c): Reads `/proc/net/dev`, tracks Rx/Tx rates with dynamic scale decay and real-time scrolling history graph.
+    5. [`util/wmclock.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmclock.c): NeXTSTEP analog clock dial with hour tick marks, smooth second/minute/hour hands, and date display.
+  - Added build targets to [`util/Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/Makefile.am) under `bin_PROGRAMS` so they are always compiled with standard `make` and installed to `$(bindir)` (e.g. `/opt/wmaker/bin`) on `make install`. Binaries added to [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/.gitignore).
+- **Commits**: `908a8e2b` (*util: add modern multi-core, memory, and battery dockapp suite*), `3d78b40f` (*util: expand modern dockapp suite with wmnetgraph and wmclock*).
 - **Verification**: Tested in headless Xvfb; each dockapp successfully mapped its 64x64 window, acquired WithdrawnState for docking, read system statistics, and rendered pixmaps without error.
 
 ---
