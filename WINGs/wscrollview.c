@@ -81,7 +81,7 @@ static void applyScrollerValues(WMScrollView * sPtr)
 	if (sPtr->contentView == NULL)
 		return;
 
-	if (sPtr->flags.hasHScroller) {
+	if (sPtr->flags.hasHScroller && sPtr->hScroller) {
 		float v = WMGetScrollerValue(sPtr->hScroller);
 		int size;
 
@@ -92,7 +92,7 @@ static void applyScrollerValues(WMScrollView * sPtr)
 		x = 0;
 	}
 
-	if (sPtr->flags.hasVScroller) {
+	if (sPtr->flags.hasVScroller && sPtr->vScroller) {
 		float v = WMGetScrollerValue(sPtr->vScroller);
 
 		int size;
@@ -185,11 +185,11 @@ static void reorganizeInterior(WMScrollView * sPtr)
 	W_ResizeView(sPtr->viewport, cw, ch);
 	W_MoveView(sPtr->viewport, cx, cy);
 
-	if (sPtr->flags.hasHScroller) {
+	if (sPtr->flags.hasHScroller && sPtr->hScroller) {
 		WMResizeWidget(sPtr->hScroller, hw, 20);
 		WMMoveWidget(sPtr->hScroller, hx, hy);
 	}
-	if (sPtr->flags.hasVScroller) {
+	if (sPtr->flags.hasVScroller && sPtr->vScroller) {
 		WMResizeWidget(sPtr->vScroller, 20, vh);
 		WMMoveWidget(sPtr->vScroller, vx, vy);
 	}
@@ -406,7 +406,6 @@ void WMSetScrollViewHasHorizontalScroller(WMScrollView * sPtr, Bool flag)
 			WMRealizeWidget(sPtr->hScroller);
 		}
 
-		/* coverity[false_positive] CID 1686067: the caller clears flags.hasHScroller first, so the scroller block is skipped */
 		reorganizeInterior(sPtr);
 
 		WMMapWidget(sPtr->hScroller);
@@ -419,6 +418,7 @@ void WMSetScrollViewHasHorizontalScroller(WMScrollView * sPtr, Bool flag)
 		sPtr->hScroller = NULL;
 		sPtr->flags.hasHScroller = 0;
 
+		/* coverity[false_positive] CID 1686067: flags.hasHScroller is cleared and sPtr->hScroller checked */
 		reorganizeInterior(sPtr);
 	}
 }
@@ -452,7 +452,7 @@ void WMSetScrollViewHasVerticalScroller(WMScrollView * sPtr, Bool flag)
 		WMDestroyWidget(sPtr->vScroller);
 		sPtr->vScroller = NULL;
 
-            /* coverity[false_positive] CID 1686106: flags.hasVScroller is cleared above */
+		/* coverity[false_positive] CID 1686106: flags.hasVScroller is cleared and sPtr->vScroller checked */
 		reorganizeInterior(sPtr);
 	}
 }
@@ -502,7 +502,7 @@ static void updateScrollerProportion(ScrollView * sPtr)
 	float prop, value;
 	float oldV, oldP;
 
-	if (sPtr->flags.hasHScroller) {
+	if (sPtr->flags.hasHScroller && sPtr->hScroller) {
 		oldV = WMGetScrollerValue(sPtr->hScroller);
 		oldP = WMGetScrollerKnobProportion(sPtr->hScroller);
 
@@ -514,7 +514,7 @@ static void updateScrollerProportion(ScrollView * sPtr)
 			value = 0;
 		WMSetScrollerParameters(sPtr->hScroller, value, prop);
 	}
-	if (sPtr->flags.hasVScroller) {
+	if (sPtr->flags.hasVScroller && sPtr->vScroller) {
 		oldV = WMGetScrollerValue(sPtr->vScroller);
 		oldP = WMGetScrollerKnobProportion(sPtr->vScroller);
 
