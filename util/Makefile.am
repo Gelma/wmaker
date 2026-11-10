@@ -6,7 +6,7 @@ pkgdatadir  = $(datadir)/@PACKAGE@
 
 bin_PROGRAMS = wxcopy wxpaste wdwrite wdread getstyle setstyle convertfonts \
 	seticons geticonset wmsetbg wmagnify wmgenmenu wmmenugen wmiv \
-	wmcpugraph wmmemgraph wmbattery
+	wmcpugraph wmmemgraph wmbattery wmnetgraph wmclock
 
 bin_SCRIPTS = wmaker.inst wm-oldmenu2new wkdemenu.pl
 
@@ -90,6 +90,12 @@ wmmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist
 
 wmbattery_SOURCES = wmbattery.c
 wmbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+
+wmnetgraph_SOURCES = wmnetgraph.c
+wmnetgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+
+wmclock_SOURCES = wmclock.c
+wmclock_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
 CLEANFILES = wmaker.inst
 
