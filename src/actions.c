@@ -1351,9 +1351,11 @@ void animateResize(WScreen *scr, int x, int y, int w, int h, int fx, int fy, int
 	if (style == WIS_NONE)
 		return;
 
-	if (style == WIS_RANDOM)
-		/* coverity[weak_crypto] picks an animation, not a secret */
+	if (style == WIS_RANDOM) {
+		/* coverity[dont_call] CID 1686108: picks an animation, not a secret */
+		/* coverity[weak_crypto] */
 		style = rand() % 3;
+	}
 
 	switch (style) {
 	case WIS_TWIST:

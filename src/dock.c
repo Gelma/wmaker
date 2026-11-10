@@ -203,6 +203,7 @@ static int matchWindow(const void *item, const void *cdata)
 	return (((WFakeGroupLeader *) item)->leader == (Window) cdata);
 }
 
+/* coverity[copy_paste_error] CID 1686081: killCallback operates on WAppIcon in dock vs WApplication in appicon */
 static void killCallback(WMenu *menu, WMenuEntry *entry)
 {
 	WScreen *scr = menu->menu->screen_ptr;
@@ -221,7 +222,6 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	wretain(icon);
 	icon->editing = 1;
 
-	/* coverity[false_positive] CID 1686081: WCHECK_STATE(NORMAL) then WCHANGE_STATE(MODAL) is the intended idiom */
 	WCHANGE_STATE(WSTATE_MODAL);
 
 	/* strip away dir names */
@@ -248,7 +248,7 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	}
 
 	if (wPreferences.dont_confirm_kill
-	    || wMessageDialog(menu->frame->screen_ptr, _("Kill Application"),
+	    || wMessageDialog(scr, _("Kill Application"),
 			      buffer, _("Yes"), _("No"), NULL) == WAPRDefault) {
 		if (!icon->destroyed) {
 			if (fPtr != NULL) {
