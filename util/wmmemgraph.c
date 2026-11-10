@@ -70,14 +70,19 @@ static int read_meminfo(unsigned long long *mem_total, unsigned long long *mem_a
 		return -1;
 
 	while (fgets(line, sizeof(line), fp)) {
-		if (strncmp(line, "MemTotal:", 9) == 0)
-			sscanf(line + 9, "%llu", mem_total);
-		else if (strncmp(line, "MemAvailable:", 13) == 0)
-			sscanf(line + 13, "%llu", mem_avail);
-		else if (strncmp(line, "SwapTotal:", 10) == 0)
-			sscanf(line + 10, "%llu", swap_total);
-		else if (strncmp(line, "SwapFree:", 9) == 0)
-			sscanf(line + 9, "%llu", swap_free);
+		if (strncmp(line, "MemTotal:", 9) == 0) {
+			if (sscanf(line + 9, "%llu", mem_total) != 1)
+				*mem_total = 0;
+		} else if (strncmp(line, "MemAvailable:", 13) == 0) {
+			if (sscanf(line + 13, "%llu", mem_avail) != 1)
+				*mem_avail = 0;
+		} else if (strncmp(line, "SwapTotal:", 10) == 0) {
+			if (sscanf(line + 10, "%llu", swap_total) != 1)
+				*swap_total = 0;
+		} else if (strncmp(line, "SwapFree:", 9) == 0) {
+			if (sscanf(line + 9, "%llu", swap_free) != 1)
+				*swap_free = 0;
+		}
 	}
 	fclose(fp);
 	return 0;

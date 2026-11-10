@@ -564,9 +564,6 @@ static BackgroundTexture *parseTexture(RContext * rc, char *text)
 				texture->width = scrWidth;
 				texture->height = scrHeight;
 
-				if (!image)
-					break;
-
 #ifdef USE_XINERAMA
 				if (xineInfo.count && ! xineStretch) {
 					int i;

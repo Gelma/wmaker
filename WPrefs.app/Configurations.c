@@ -215,23 +215,29 @@ static void createPanel(Panel *p)
 		image = RLoadImage(WMScreenRContext(scr), path, 0);
 		wfree(path);
 
-		scaled = RScaleImage(image, 61, 61);
-		icon = WMCreatePixmapFromRImage(scr, scaled, 128);
-		RReleaseImage(scaled);
-		if (icon) {
-			WMSetButtonImage(panel->smoB, icon);
-			WMReleasePixmap(icon);
-		}
+		if (image) {
+			scaled = RScaleImage(image, 61, 61);
+			if (scaled) {
+				icon = WMCreatePixmapFromRImage(scr, scaled, 128);
+				RReleaseImage(scaled);
+				if (icon) {
+					WMSetButtonImage(panel->smoB, icon);
+					WMReleasePixmap(icon);
+				}
+			}
 
-		scaled = RSmoothScaleImage(image, 61, 61);
-		icon = WMCreatePixmapFromRImage(scr, scaled, 128);
-		RReleaseImage(scaled);
-		if (icon) {
-			WMSetButtonAltImage(panel->smoB, icon);
-			WMReleasePixmap(icon);
-		}
+			scaled = RSmoothScaleImage(image, 61, 61);
+			if (scaled) {
+				icon = WMCreatePixmapFromRImage(scr, scaled, 128);
+				RReleaseImage(scaled);
+				if (icon) {
+					WMSetButtonAltImage(panel->smoB, icon);
+					WMReleasePixmap(icon);
+				}
+			}
 
-		RReleaseImage(image);
+			RReleaseImage(image);
+		}
 	}
 	WMSetBalloonTextForView(_("Smooth scaled background images, neutralizing\n"
 				  "the `pixelization' effect. This will slow\n"

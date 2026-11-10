@@ -256,16 +256,24 @@ static WMPropList *getColor(WMPropList * texture)
 				value = c1;
 			}
 		} else {
-			XColor color1;
-			XColor color2;
+			XColor color1, color2;
+			Status s1 = 0, s2 = 0;
+			const char *str1 = WMGetFromPLString(c1);
+			const char *str2 = WMGetFromPLString(c2);
 
-			XParseColor(dpy, DefaultColormap(dpy, DefaultScreen(dpy)), WMGetFromPLString(c1), &color1);
-			XParseColor(dpy, DefaultColormap(dpy, DefaultScreen(dpy)), WMGetFromPLString(c2), &color2);
+			if (str1)
+				s1 = XParseColor(dpy, DefaultColormap(dpy, DefaultScreen(dpy)), str1, &color1);
+			if (str2)
+				s2 = XParseColor(dpy, DefaultColormap(dpy, DefaultScreen(dpy)), str2, &color2);
 
-			sprintf(buffer, "#%02x%02x%02x",
-				(color1.red + color2.red) >> 9,
-				(color1.green + color2.green) >> 9, (color1.blue + color2.blue) >> 9);
-			value = WMCreatePLString(buffer);
+			if (s1 && s2) {
+				sprintf(buffer, "#%02x%02x%02x",
+					(color1.red + color2.red) >> 9,
+					(color1.green + color2.green) >> 9, (color1.blue + color2.blue) >> 9);
+				value = WMCreatePLString(buffer);
+			} else {
+				value = c1 ? c1 : c2;
+			}
 		}
 	} else if (strcasecmp(str, "mdgradient") == 0
 		   || strcasecmp(str, "mhgradient") == 0 || strcasecmp(str, "mvgradient") == 0) {
@@ -398,7 +406,7 @@ int main(int argc, char **argv)
 	char *path;
 	char *file = NULL;
 	struct stat st;
-	int i, ch, ignflag = 0;
+	int i, ch;
 	int ignoreCount = 0;
 	char *ignoreList[MAX_OPTIONS];
 	XEvent ev;
@@ -408,7 +416,7 @@ int main(int argc, char **argv)
 		{ "help",	no_argument,		NULL,			'h' },
 		{ "no-fonts",	no_argument,		&ignoreFonts,		1 },
 		{ "no-cursors",	no_argument,		&ignoreCursors,		1 },
-		{ "ignore",	required_argument,	&ignflag,		1 },
+		{ "ignore",	required_argument,	NULL,			'i' },
 		{ NULL,		0,			NULL,			0 }
 	};
 
@@ -422,21 +430,14 @@ int main(int argc, char **argv)
 			case 'h':
 				print_help(1, 0);
 				/* NOTREACHED */
+			case 'i':
+				if (ignoreCount >= MAX_OPTIONS) {
+					printf("Maximum %d `ignore' arguments\n", MAX_OPTIONS);
+					return 1;
+				}
+				ignoreList[ignoreCount++] = optarg;
+				break;
 			case 0:
-				if (ignflag) {
-					/* coverity[dead_error_line]
-					 * CID 1686086 calls this unreachable; it is
-					 * reachable with MAX_OPTIONS --ignore arguments,
-					 * the checker just cannot see getopt counting
-					 * them.  Keeping the guard is what stops the
-					 * array overflow. */
-					if (ignoreCount >= MAX_OPTIONS) {
-						printf("Maximum %d `ignore' arguments\n", MAX_OPTIONS);
-						return 1;
-					}
-					ignoreList[ignoreCount++] = optarg;
-					ignflag = 0;
-				};
 				break;
 			default:
 				print_help(0, 1);
