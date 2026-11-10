@@ -1468,4 +1468,31 @@ Full report in [`CoverityRemediationReview-2026-11-10.md`](CoverityRemediationRe
 - **Verification**: forced rebuild of all 16 touched files = 0 warnings; `make check` PASS; `make exit-test` PASS; `EXIT_TEST_ARGS=--valgrind make exit-test` PASS.
 - **Minor note (pre-existing, not this batch)**: the first `getColor()` caller in `setstyle.c` does not release `value` when a freshly created string is returned (trivial one-shot leak).
 
+---
+
+## 160. Regression Diagnosis & Fixes: Dock `wmclock` Shadowing (`3d78b40f`) and `scr->copy_gc` Stale Clip Mask on Titlebar Cache Hits (2026-11-10)
+
+Inspection of the regression screenshots in `/tmp/regressione/corretto_f067b5f14c0232d28bd2552d44503eb72909b015/` and `/tmp/regressione/rotto_HEAD_commit/` alongside the `git bisect` log revealed two independent root causes:
+
+### 1. Right-Side Dock Regression (`wmclock` Binary Shadowing at Commit `3d78b40f`)
+- **Symptom**: In `rotto_HEAD_commit`, Dock slot `0,1` (the third tile from the top on the right edge, configured in `~/GNUstep/Defaults/WMState` with `Name = wmclock.WMClock; Command = wmclock; AutoLaunch = Yes;`) failed to show the classic digital/calendar `wmclock` and instead displayed an unlaunched default gray 3D cube with `...`, while the new `wlmaker`-inspired analog clock appeared undocked at the bottom-right corner below the Drawer.
+- **Root Cause**: Commit `3d78b40f` added `wmclock` to `bin_PROGRAMS` in `util/Makefile.am`. When installed into `/opt/wmaker/bin` (which precedes `/usr/bin` in `PATH` via `wmaker-session`), `/opt/wmaker/bin/wmclock` shadowed the classic system `/usr/bin/wmclock`. When Window Maker auto-launched `wmclock` for Dock slot `0,1`, it executed `/opt/wmaker/bin/wmclock`, which registered `WM_CLASS = wmclock.DockApp` instead of `wmclock.WMClock`, leaving slot `0,1` unpopulated and spawning an undocked appicon at the bottom right.
+- **Fix** (`3f59ae56`):
+  - Removed the unprefixed `wmclock`, `wmbattery`, `wmcpugraph`, `wmmemgraph`, `wmnetgraph`, and `wmeyes` targets from `bin_PROGRAMS` in `util/Makefile.am`, building and installing the new dockapps exclusively under `wl*`, `wlm*`, and `wlwm*` prefixes (`wlclock`, `wlbattery`, `wlcpugraph`, `wlmemgraph`, `wlnetgraph`, `wleyes` and aliases).
+  - Updated `XClassHint` (`res_name` / `res_class`) in `util/wmclock.c`, `util/wmbattery.c`, `util/wmcpugraph.c`, `util/wmmemgraph.c`, `util/wmnetgraph.c`, and `util/wmeyes.c` to `wl*` / `WLDockApp` (`WLEyes`).
+  - Added an `install-exec-hook` in `util/Makefile.am` to automatically remove any stale unprefixed binaries from `$(DESTDIR)$(bindir)` upon `make install`.
+
+### 2. Central `Windows` Menu Titlebar Disappearing / Broken-`X` Glyph (`scr->copy_gc` Stale Clip Mask)
+- **Symptom**: In the `Windows` switch menu (and intermittently even on `f067b5f1`), the `"Windows"` title text either vanished completely or rendered as a tiny 10x10 broken-`X` cutout of the letter `'W'` at the left of the titlebar, disappearing and reappearing as the user interacted with the menu.
+- **Root Cause**:
+  - Commit `19ca933d` added the `title_strip` cache-hit branch in `wFrameWindowPaint()` (`src/framewin.c`) *above* line 1190's `XSetClipMask(dpy, scr->copy_gc, None)`. Consequently, every `title_strip` cache hit executed `XCopyArea(..., scr->copy_gc, ...)` using whatever `clip_mask` and `clip_origin` had been left on the shared `scr->copy_gc` by prior drawing operations:
+    1. `paintButton()` (`src/framewin.c:1634`) set `XSetClipMask(dpy, copy_gc, image->mask)` and `XSetClipOrigin(dpy, copy_gc, x - left, y)` without resetting them to `None`. At the end of the first (cache-miss) `wFrameWindowPaint()`, `handleButtonExpose()` ran on `fwin->right_button` (`WBUT_CLOSE`), leaving the 10x10 broken-`X` close-button mask at origin `(5, 5)` on `scr->copy_gc`. On the next repaint (cache hit), `XCopyArea()` stenciled `"Windows"` through that 10x10 broken-`X` mask at `(5, 5)`.
+    2. `paintEntry()` (`src/menu.c:941`) set `XSetClipMask(dpy, scr->copy_gc, indicator->mask)` when drawing menu entry indicators (`MI_DIAMOND`, `MI_MINIWINDOW`, `MI_SHADED`) and only reset `XSetClipOrigin` at line 961 without resetting `XSetClipMask(..., None)`, clipping out the title text on subsequent cache-hit repaints until an entry with an application icon (`src/menu.c:860`) happened to reset `XSetClipMask(..., None)`.
+    3. Commit `d26e9e7f` narrowed `freeTitleStrip()` invalidation in `wFrameWindowUpdateBorders()`, turning most `wMenuRealize()` calls into `title_strip` cache hits and making the bug manifest continuously at `HEAD` rather than intermittently at `f067b5f1`.
+- **Fix** (`ab3535f2`):
+  - Explicitly reset `XSetClipMask(dpy, scr->copy_gc, None)` and `XSetClipOrigin(dpy, scr->copy_gc, 0, 0)` before `XCopyArea()` in the `title_strip` cache-hit path of `wFrameWindowPaint()` (`src/framewin.c`).
+  - Reset `copy_gc` clip mask to `None` and clip origin to `(0, 0)` at the end of masked blits in `paintButton()` (`src/framewin.c`), `paintEntry()` indicator drawing (`src/menu.c`), and `drawIconProc()` (`src/dialog.c`).
+  - Guarded `handleButtonExpose()` calls in `updateTexture()` and `wFrameWindowPaint()` so hidden or non-fitting titlebar buttons are not needlessly repainted.
+
+
 
