@@ -1412,3 +1412,49 @@ Review of commits `005f07f2`..`930ce071` (backtrace, hot corners, subprocess mon
 ### Verification
 - `make -j` 0 warnings, `make check` PASS, `make exit-test` PASS, `EXIT_TEST_ARGS=--valgrind make exit-test` PASS.
 
+---
+
+## 158. Comprehensive Remediation of Coverity Report Update (2026-11-10)
+
+Following the Coverity scan update (`632f84ca`), a systematic remediation sweep was performed across all newly reported and active defects in `CoverityReport/`:
+
+### 1. wrlib Subsystem
+- **CID 1687878** (`wrlib/load_jxl.c`): Removed redundant `image = NULL` assignment right before `RCreateImage()` allocation.
+- **CID 1686030** (`wrlib/load_webp.c`): Replaced `fread(buffer, sizeof(buffer), 1, file)` with exact byte-count verification `fread(buffer, 1, sizeof(buffer), file) != sizeof(buffer)` on header validation.
+- **CID 1686077** (`wrlib/load_ppm.c`): Enforced byte-count checking `fread(buf, 1, w, file) != (size_t)w` when reading raw binary scanlines in `load_graymap`.
+- **Commit**: `0bf8c849` (*wrlib: fix unused image reset in JXL and byte-count checks in WebP and PPM*).
+
+### 2. WINGs Widget Subsystem
+- **CID 1687883** (`WINGs/wfont.c`): Added non-null guards for `scrPtr` and `fontName` in `WMCreateFont()` to prevent null pointer dereference in `wstrdup()`.
+- **CID 1687889** (`WINGs/wfilepanel.c`): Clamped browser list scroll position (`pos = i - visibleItems / 2; if (pos < 0) pos = 0;`) preventing negative index overflow in list positioning.
+- **CID 1686067 & CID 1686106** (`WINGs/wscrollview.c`): Guarded both flags and scroller pointers (`sPtr->flags.hasVScroller && sPtr->vScroller`, `sPtr->flags.hasHScroller && sPtr->hScroller`) in `reorganizeInterior()`.
+- **Commit**: `e0da4354` (*WINGs: fix null checks in wfont, integer overflow in wfilepanel, and scroller checks*).
+
+### 3. Window Maker Core Engine
+- **CID 1687882** (`src/session.c`): Validated drawer chain element and icon instance before accessing `wm_instance`; guarded `sDock` dictionary insertion against null names.
+- **CID 1687885** (`src/switchpanel.c`): Added `!panel->tileTmp` guard in `changeImage()` preventing null surface dereference when tile creation fails.
+- **CID 1686060** (`src/wsmap.c`): Checked `if (!wsmap->win)` before calling `workspace_map_unslide(wsmap)`.
+- **CID 1686063** (`src/defaults.c`): Removed dead store `dict = NULL` after `WMReleasePropList(dict)` in domain corruption branch.
+- **CID 1686058 & CID 1686112** (`src/event.c`): Bounded and null-terminated inotify event filename `char fname[256]` before performing `strcmp()` on configuration files.
+- **Commit**: `dbf27dab` (*wm: address Coverity nullness, dead store and buffer boundary defects*).
+
+### 4. Dock and Drawer Subsystem
+- **CID 240602** (`src/dock.c`): Fixed long-standing resource leak in `execCommand()` by freeing `argv` via `wtokenfree()` when `argc == 0`.
+- **CID 1686080** (`src/dock.c`): Added null check `if (aicon->icon && aicon->icon->owner)` in `openDockMenu()` before querying client application.
+- **CID 1687888** (`src/dock.c`): Checked for null `wapp` return from `wApplicationOf()` in `iconDblClick()` before accessing workspace history.
+- **CID 1686105** (`src/dock.c`): Verified `value && WMIsPLString(value)` before extracting strings via `WMGetFromPLString()` across drawer restoration properties.
+- **Commit**: `f7e191f9` (*wm: fix resource leak and null dereferences in dock and drawer handling*).
+
+### 5. Utilities & Preferences
+- **CID 1687886** (`util/wmmemgraph.c`): Checked return values of all `sscanf()` calls against `/proc/meminfo` metrics.
+- **CID 1687887** (`util/setstyle.c`): Checked return status of `XParseColor()` in `getColor()`.
+- **CID 1686086** (`util/setstyle.c`): Replaced flag-based `getopt_long` option with direct character value `'i'` for `--ignore`, eliminating dead code.
+- **CID 1686049** (`util/wmsetbg.c`): Removed unreachable `if (!image) break` statement in texture parser.
+- **CID 1687884** (`WPrefs.app/Configurations.c`): Validated image pointer returned by `RLoadImage()` before scaling and creating button pixmaps.
+- **Commit**: `880a6887` (*util, WPrefs: address Coverity unchecked return, nullness and dead code*).
+
+### Verification
+- Full tree compiled cleanly with zero warnings (`make -j$(nproc)`).
+- Complete exit and signal test suite passed (`make exit-test`).
+
+
