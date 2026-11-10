@@ -164,7 +164,6 @@ static RImage *loadImage(RContext * rc, const char *file)
 	}
 
 	image = RLoadImage(rc, path, 0);
-	/* coverity[false_positive] CID 1686049: defensive break for the no-image path; correct whether or not it is reachable */
 	if (!image) {
 		wwarning("%s:could not load image file used in texture:%s", path, RMessageForError(RErrorCode));
 	}

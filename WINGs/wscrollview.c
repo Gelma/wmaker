@@ -418,7 +418,6 @@ void WMSetScrollViewHasHorizontalScroller(WMScrollView * sPtr, Bool flag)
 		sPtr->hScroller = NULL;
 		sPtr->flags.hasHScroller = 0;
 
-		/* coverity[false_positive] CID 1686067: flags.hasHScroller is cleared and sPtr->hScroller checked */
 		reorganizeInterior(sPtr);
 	}
 }
@@ -452,7 +451,6 @@ void WMSetScrollViewHasVerticalScroller(WMScrollView * sPtr, Bool flag)
 		WMDestroyWidget(sPtr->vScroller);
 		sPtr->vScroller = NULL;
 
-		/* coverity[false_positive] CID 1686106: flags.hasVScroller is cleared and sPtr->vScroller checked */
 		reorganizeInterior(sPtr);
 	}
 }
