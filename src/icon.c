@@ -27,9 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <ctype.h>
 #include <wraster.h>
-#include <sys/stat.h>
 
 #include "WindowMaker.h"
 #include "wcore.h"

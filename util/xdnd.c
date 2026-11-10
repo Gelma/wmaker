@@ -91,9 +91,6 @@ XClientMessageEvent xclient;
 
 #ifdef DND_DEBUG
 
-#include <sys/time.h>
-#include <unistd.h>
-
 char *xdnd_debug_milliseconds (void)
 {
     struct timeval tv;

@@ -30,7 +30,6 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <pwd.h>
-#include <math.h>
 #include <time.h>
 #include <errno.h>
 #include <poll.h>
@@ -47,7 +46,6 @@
 #include "GNUstep.h"
 #include "screen.h"
 #include "wcore.h"
-#include "window.h"
 #include "framewin.h"
 #include "dialog.h"
 #include "xutil.h"

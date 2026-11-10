@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <ctype.h>
 #include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>

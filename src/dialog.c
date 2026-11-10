@@ -59,7 +59,6 @@
 #include "misc.h"
 #include "stacking.h"
 #include "framewin.h"
-#include "window.h"
 #include "actions.h"
 #include "xinerama.h"
 

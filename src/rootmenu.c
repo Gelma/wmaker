@@ -26,11 +26,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <sys/types.h>
 #include <string.h>
 #include <strings.h>
-#include <ctype.h>
 #include <time.h>
 #include <dirent.h>
 #include <errno.h>

@@ -28,12 +28,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <strings.h>
-#include <ctype.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
-#include <signal.h>
 
 #ifndef PATH_MAX
 #define PATH_MAX DEFAULT_PATH_MAX
