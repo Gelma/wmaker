@@ -85,6 +85,8 @@ wmaker_SOURCES = 	\
 	stacking.h \
 	startup.c \
 	startup.h \
+	subprocess.c \
+	subprocess.h \
 	superfluous.c \
 	superfluous.h \
 	switchmenu.c \
