@@ -1354,3 +1354,41 @@ and is signed with `Made-by-IA: Gemini`.
   - Created [`tools/check-iwyu.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/tools/check-iwyu.sh) implementing automated header hygiene checks adhering to user bash robustness standards (`set -euo pipefail`, local variables, strict quoting).
 - **Commit**: `bb410edb` (*tools: add include-what-you-use mappings and header hygiene runner*).
 - **Verification**: Executed `./tools/check-iwyu.sh` with successful prerequisite check.
+
+---
+
+### Step 6: Header Hygiene Cleanup Across Core Engine and Utilities
+- **Motivation**: Header analysis revealed duplicate includes and unreferenced standard library headers across multiple translation units in `src/` and `util/`.
+- **Implementation**:
+  - Cleaned up duplicate `#include "window.h"` in [`src/dialog.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/dialog.c) and [`src/misc.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/misc.c).
+  - Cleaned up duplicate `#include <sys/time.h>` and `<unistd.h>` in [`util/xdnd.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/xdnd.c).
+  - Removed unused standard library headers across 16 files:
+    - `<ctype.h>` in `src/defaults.c`, `src/icon.c`, `src/rootmenu.c`, `src/wdefaults.c`, `src/workspace.c`, `util/wmmenugen.c`.
+    - `<math.h>` in `src/misc.c`.
+    - `<signal.h>` in `src/defaults.c`.
+    - `<sys/wait.h>` in `src/rootmenu.c`, `src/subprocess.c`.
+    - `<sys/time.h>` in `src/switchpanel.c`, `src/workspace.c`.
+    - `<sys/stat.h>` in `src/appicon.c`, `src/icon.c`, `src/main.c`, `src/osdep_linux.c`, `util/getstyle.c`, `util/wmmenugen_parse_xdg.c`.
+    - `<fcntl.h>` in `util/getstyle.c`.
+- **Commit**: `60321593` (*build: clean up duplicate and unused header includes across src and util*).
+- **Verification**: Compiled cleanly with `make -j$(nproc)` under strict Clang flags; passed `make exit-test`.
+
+---
+
+### Step 7: Mouse-Tracking Eyes DockApp and Parallel `wl*` / `wm*` Naming Convention
+- **Motivation**: `wlmaker` contains `wlmeyes.c`, a clean pointer-following eye dockapp. Furthermore, to support modern desktop workflows alongside legacy setups, both `wm*` and `wl*` (and `wlm*`) binary names must be available in parallel and installed directly into `$PATH`.
+- **Implementation**:
+  - Created [`util/wmeyes.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/wmeyes.c):
+    - Uses `XQueryPointer` and the ellipse bounding formula from `wlmeyes.c` to smoothly track the cursor across the root window without flicker.
+    - Implements double-buffered drawing on a 64x64 NeXTSTEP-beveled canvas with distinct sclera, border, and pupil arcs.
+  - Configured [`util/Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/util/Makefile.am) to build and install parallel binary targets under `bin_PROGRAMS`:
+    - `wmcpugraph`, `wlcpugraph`, `wlmcpugraph`
+    - `wmmemgraph`, `wlmemgraph`, `wlmmemgraph`
+    - `wmbattery`, `wlbattery`, `wlmbattery`
+    - `wmnetgraph`, `wlnetgraph`, `wlmnetgraph`
+    - `wmclock`, `wlclock`, `wlmclock`
+    - `wmeyes`, `wleyes`, `wlmeyes`
+  - Added all generated binaries to [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/.gitignore).
+- **Commit**: `325f1d97` (*util: add wmeyes dockapp and provide parallel wl* and wlm* dockapp binaries*).
+- **Verification**: Tested `wmeyes`, `wleyes`, and `wlmeyes` under headless Xvfb; full `make -j$(nproc)` build and `make exit-test` passed with zero errors.
+
