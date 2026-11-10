@@ -567,9 +567,12 @@ static void killCallback(WMenu * menu, WMenuEntry * entry)
 	char *buffer;
 	char *shortname;
 
+	/* coverity[COPY_PASTE_ERROR] CID 1686081: WCHECK_STATE(NORMAL) then
+	 * WCHANGE_STATE(MODAL) is the intended idiom, not a copy-paste error. */
 	if (!WCHECK_STATE(WSTATE_NORMAL))
 		return;
 
+	/* coverity[COPY_PASTE_ERROR] CID 1686081 */
 	WCHANGE_STATE(WSTATE_MODAL);
 
 	assert(entry->clientdata != NULL);

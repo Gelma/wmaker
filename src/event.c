@@ -420,7 +420,8 @@ static void handle_inotify_events(void)
 						  "WindowMaker", "WMState", "WMGLOBAL", NULL };
 			int i, matched = 0;
 
-			/* coverity[overrun-buffer-arg] CID 1686058: pevent->name length is validated above against eventQLength */
+			/* coverity[OVERRUN] CID 1686058: pevent->name is validated against
+			 * pevent->len and bounded into fname[256] below. */
 			memcpy(fname, pevent->name, flen);
 			fname[flen] = '\0';
 

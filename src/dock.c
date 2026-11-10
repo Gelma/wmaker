@@ -203,7 +203,6 @@ static int matchWindow(const void *item, const void *cdata)
 	return (((WFakeGroupLeader *) item)->leader == (Window) cdata);
 }
 
-/* coverity[copy_paste_error] CID 1686081: killCallback operates on WAppIcon in dock vs WApplication in appicon */
 static void killCallback(WMenu *menu, WMenuEntry *entry)
 {
 	WScreen *scr = menu->menu->screen_ptr;
@@ -212,6 +211,8 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	char *buffer, *shortname, **argv;
 	int argc;
 
+	/* coverity[COPY_PASTE_ERROR] CID 1686081: WCHECK_STATE(NORMAL) then
+	 * WCHANGE_STATE(MODAL) is the intended idiom, not a copy-paste error. */
 	if (!WCHECK_STATE(WSTATE_NORMAL))
 		return;
 
@@ -222,6 +223,7 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	wretain(icon);
 	icon->editing = 1;
 
+	/* coverity[COPY_PASTE_ERROR] CID 1686081 */
 	WCHANGE_STATE(WSTATE_MODAL);
 
 	/* strip away dir names */

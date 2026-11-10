@@ -124,6 +124,8 @@ static int pm_getuint(FILE *const ifP, const char *filename)
 		i += digitVal;
 
 		ch = pm_getc(ifP, filename);
+	/* coverity[TAINTED_SCALAR] CID 1686110: the loop is bounded by EOF and by
+	 * the 10-digit cap above; the input is a local file chosen by the user. */
 	} while (ch >= '0' && ch <= '9');
 
 	return i;
