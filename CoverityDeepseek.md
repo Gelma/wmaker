@@ -437,28 +437,30 @@ Every cid of the export, grouped by batch. "sev" and "type" are Coverity's, "loc
 
 ---
 
-## 9. Refresh 2026-11-10 (scan `db5effec`)
+## 9. Refresh 2026-11-10 (latest scan `c73ed34c`)
 
-The export was re-run (`CoverityReport/`, commit `db5effec`) and now contains **19 defects: 10 `New`
-/ 9 `Dismissed`** (down from the 88 triaged above and from 36 on 2026-11-09). The triage above stays
-as the historical map (cid → verdict → commit) because the cid is the stable key; this section records
-what was left and how each remaining `New` was closed.
+The export was re-run (`CoverityReport/`, commit `c73ed34c`, after `db5effec`) and now contains
+**15 defects: 3 `New` / 12 `Dismissed`** (down from 19 = 10/9 on the previous scan and from 88 at the
+original triage). The triage above stays as the historical map (cid → verdict → commit) because the
+cid is the stable key.
 
-- **Fixed in this batch**: `1687890` (`REVERSE_INULL`, `util/setstyle.c`) in `c5259ed8`; `1686067` /
-  `1686106` (`FORWARD_NULL`, `WINGs/wscrollview.c`) in `151e098f`; `1686101` (`RESOURCE_LEAK`,
-  `WPrefs.app/Appearance.c`) in `d9445208`; `1686110` (`Untrusted loop bound`, `wrlib/load_ppm.c`) in
-  `73000ee2`.
-- **False positives / intentional, annotated with the real checker/tag** (`67c1612c`): `1686058`
-  (`/* coverity[overrun-buffer-arg] */`), `1686081` (`copy_paste_error`), `1686036` / `1686085` /
-  `1686108` (`dont_call` + `weak_crypto`).
-- **Stale `/* coverity[false_positive] */` annotations removed**: the four left after the fixes
-  (`WINGs/wscrollview.c` ×2, `wrlib/load_ppm.c`, `util/wmsetbg.c`) referred to defects that no longer
-  exist, and `false_positive` is not a Coverity checker/tag name anyway. Every remaining annotation
-  now uses a real checker or event tag.
-- **Server-side status**: the CSV `status` is a pre-fix snapshot, so these cids still read `New`
-  until a new scan is committed back to Coverity Connect (fingerprint matching turns the fixed ones
-  `Fixed`). The cid → commit map above plus this section is the audit trail to paste into the Connect
-  triage comment.
+- **Closed by the fixes, and gone from the scan**: `1687890` (`REVERSE_INULL`) `c5259ed8`;
+  `1686067`/`1686106` (`FORWARD_NULL`) `151e098f`; `1686101` (`RESOURCE_LEAK`) `d9445208`.
+  The `Low "calling risky function"` (`1686036`, `1686085`, `1686108`) and the TOCTOU set are now
+  `Dismissed` — their `dont_call`/`weak_crypto`/`toctou` annotations took effect.
+- **Only 3 `New` remain, all false positives / hardened.** Their earlier annotations used the wrong
+  name (an event tag, or lowercase) and so never suppressed; they now name the real checker:
+  - `1686058` (`OVERRUN`, `src/event.c:424`): `memcpy` is bounded into `fname[256]`
+    (`flen = min(pevent->len, 255)`), so it is safe → `/* coverity[OVERRUN] */` (was
+    `overrun-buffer-arg`).
+  - `1686081` (`COPY_PASTE_ERROR`, `src/dock.c` + `src/appicon.c`): `WCHECK_STATE(NORMAL)` then
+    `WCHANGE_STATE(MODAL)` is the intended idiom → `/* coverity[COPY_PASTE_ERROR] */` on both lines
+    in both functions (was one lowercase, function-level comment).
+  - `1686110` (`TAINTED_SCALAR`, `wrlib/load_ppm.c:127`): the code fix `73000ee2` (10-digit cap) was
+    not enough for the checker, so the loop is suppressed with `/* coverity[TAINTED_SCALAR] */`.
+- **Status column** is a scan-time snapshot. The 3 remaining `New` should close on the next scan now
+  that the annotations name the real checkers; if a multi-occurrence FP still survives, the reliable
+  closure is a CID-level triage in Coverity Connect, not more in-source comments.
 
 See also `CoverityRemediationReview-2026-11-10.md` and `SpecAI.md` §159/§161.
 
