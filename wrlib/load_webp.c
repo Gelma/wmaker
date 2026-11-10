@@ -79,8 +79,7 @@ RImage *RLoadWEBP(const char *file_name)
 		return NULL;
 	}
 
-	/* coverity[false_positive] CID 1686030: the item count is what the test reads, not the byte count */
-	if (!fread(buffer, sizeof(buffer), 1, file)) {
+	if (fread(buffer, 1, sizeof(buffer), file) != sizeof(buffer)) {
 		RErrorCode = RERR_BADIMAGEFILE;
 		fclose(file);
 		return NULL;

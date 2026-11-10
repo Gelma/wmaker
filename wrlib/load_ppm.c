@@ -181,8 +181,7 @@ static RImage *load_graymap(FILE *file, int w, int h, int max, int raw, const ch
 					return NULL;
 				}
 				for (y = 0; y < h; y++) {
-					/* coverity[false_positive] CID 1686077: the item count is what the test reads, not the byte count */
-					if (!fread(buf, w, 1, file)) {
+					if (fread(buf, 1, w, file) != (size_t)w) {
 						free(buf);
 						RErrorCode = RERR_BADIMAGEFILE;
 						RReleaseImage(image);

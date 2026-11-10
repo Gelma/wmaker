@@ -152,7 +152,6 @@ RImage *RLoadJXL(const char *file)
 		} else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
 			if (image) {
 				RReleaseImage(image);
-				image = NULL;
 			}
 			if (pixels) {
 				free(pixels);
