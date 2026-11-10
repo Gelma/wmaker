@@ -61,9 +61,12 @@ util/wdread
 util/wdwrite
 util/wmagnify
 util/wmaker.inst
+util/wmbattery
+util/wmcpugraph
 util/wmgenmenu
 util/wmiv
 util/wmmenugen
+util/wmmemgraph
 util/wmsetbg
 util/wmsetup
 util/wxcopy

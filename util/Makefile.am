@@ -5,7 +5,8 @@ AUTOMAKE_OPTIONS =
 pkgdatadir  = $(datadir)/@PACKAGE@
 
 bin_PROGRAMS = wxcopy wxpaste wdwrite wdread getstyle setstyle convertfonts \
-	seticons geticonset wmsetbg wmagnify wmgenmenu wmmenugen wmiv
+	seticons geticonset wmsetbg wmagnify wmgenmenu wmmenugen wmiv \
+	wmcpugraph wmmemgraph wmbattery
 
 bin_SCRIPTS = wmaker.inst wm-oldmenu2new wkdemenu.pl
 
@@ -80,6 +81,15 @@ wmiv_LDADD = \
 	@LIBARCHIVE_LIBS@ @LIBM@ @LIBXRANDR@
 
 wmiv_SOURCES = wmiv.c wmiv.h xdnd.c xdnd.h
+
+wmcpugraph_SOURCES = wmcpugraph.c
+wmcpugraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+
+wmmemgraph_SOURCES = wmmemgraph.c
+wmmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+
+wmbattery_SOURCES = wmbattery.c
+wmbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
 CLEANFILES = wmaker.inst
 
