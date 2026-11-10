@@ -223,12 +223,12 @@ void WMResizeScrollViewContent(WMScrollView * sPtr, unsigned int width, unsigned
 		x = 1;
 	}
 
-	if (sPtr->flags.hasVScroller) {
+	if (sPtr->flags.hasVScroller && sPtr->vScroller) {
 		WMResizeWidget(sPtr->vScroller, 20, h);
 		width -= W_VIEW(sPtr->vScroller)->size.width;
 	}
 
-	if (sPtr->flags.hasHScroller) {
+	if (sPtr->flags.hasHScroller && sPtr->hScroller) {
 		WMResizeWidget(sPtr->hScroller, w, 20);
 		WMMoveWidget(sPtr->hScroller, x, h);
 		height -= W_VIEW(sPtr->hScroller)->size.height;

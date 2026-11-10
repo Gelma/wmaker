@@ -156,10 +156,15 @@ static char *makeFontOfSize(const char *font, int size, const char *fallback)
 
 WMFont *WMCreateFont(WMScreen * scrPtr, const char *fontName)
 {
-	Display *display = scrPtr->display;
+	Display *display;
 	WMFont *font;
 	char *fname;
 	int i;
+
+	if (!scrPtr || !fontName)
+		return NULL;
+
+	display = scrPtr->display;
 #ifdef USE_PANGO
 	PangoFontMap *fontmap;
 	PangoContext *context;

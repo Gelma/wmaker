@@ -135,8 +135,11 @@ static void textChangedObserver(void *observerData, WMNotification * notificatio
 		WMListItem *item = WMGetListItem(list, i);
 		int textLen = strlen(text), itemTextLen = strlen(item->text);
 		int visibleItems = WMWidgetHeight(list) / WMGetListItemHeight(list);
+		int pos = i - visibleItems / 2;
 
-		WMSetListPosition(list, i - visibleItems / 2);
+		if (pos < 0)
+			pos = 0;
+		WMSetListPosition(list, pos);
 
 		if (textEvent != WMDeleteTextEvent) {
 			WMRange range;
