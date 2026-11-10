@@ -435,3 +435,30 @@ Every cid of the export, grouped by batch. "sev" and "type" are Coverity's, "loc
 | 1686036 | Low | Calling risky function | `src/superfluous.c`:Various (DoKaboom) | **accepted** - rand() drives an icon animation; no security property depends on it. `975ded86` |
 | 1686030 | Medium | Ignoring number of bytes read | `wrlib/load_webp.c`:82 (RLoadWEBP) | **false positive** - The result is tested (`if (!fread(buffer, sizeof(buffer), 1, file))`); the checker looks at the byte count, the code checks items. `d6944d8e` |
 
+---
+
+## 9. Refresh 2026-11-10 (scan `db5effec`)
+
+The export was re-run (`CoverityReport/`, commit `db5effec`) and now contains **19 defects: 10 `New`
+/ 9 `Dismissed`** (down from the 88 triaged above and from 36 on 2026-11-09). The triage above stays
+as the historical map (cid → verdict → commit) because the cid is the stable key; this section records
+what was left and how each remaining `New` was closed.
+
+- **Fixed in this batch**: `1687890` (`REVERSE_INULL`, `util/setstyle.c`) in `c5259ed8`; `1686067` /
+  `1686106` (`FORWARD_NULL`, `WINGs/wscrollview.c`) in `151e098f`; `1686101` (`RESOURCE_LEAK`,
+  `WPrefs.app/Appearance.c`) in `d9445208`; `1686110` (`Untrusted loop bound`, `wrlib/load_ppm.c`) in
+  `73000ee2`.
+- **False positives / intentional, annotated with the real checker/tag** (`67c1612c`): `1686058`
+  (`/* coverity[overrun-buffer-arg] */`), `1686081` (`copy_paste_error`), `1686036` / `1686085` /
+  `1686108` (`dont_call` + `weak_crypto`).
+- **Stale `/* coverity[false_positive] */` annotations removed**: the four left after the fixes
+  (`WINGs/wscrollview.c` ×2, `wrlib/load_ppm.c`, `util/wmsetbg.c`) referred to defects that no longer
+  exist, and `false_positive` is not a Coverity checker/tag name anyway. Every remaining annotation
+  now uses a real checker or event tag.
+- **Server-side status**: the CSV `status` is a pre-fix snapshot, so these cids still read `New`
+  until a new scan is committed back to Coverity Connect (fingerprint matching turns the fixed ones
+  `Fixed`). The cid → commit map above plus this section is the audit trail to paste into the Connect
+  triage comment.
+
+See also `CoverityRemediationReview-2026-11-10.md` and `SpecAI.md` §159/§161.
+
