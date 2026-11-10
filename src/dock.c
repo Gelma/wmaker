@@ -3219,6 +3219,7 @@ static pid_t execCommand(WAppIcon *btn, const char *command, WSavedState *state)
 	wtokensplit(cmdline, &argv, &argc);
 
 	if (!argc) {
+		wtokenfree(argv, argc);
 		if (cmdline)
 			wfree(cmdline);
 		if (state)
@@ -3707,7 +3708,7 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		wMenuRealize(dock->menu);
 	}
 
-	if (aicon->icon->owner)
+	if (aicon->icon && aicon->icon->owner)
 		wapp = wApplicationOf(aicon->icon->owner->main_window);
 	else
 		wapp = NULL;
@@ -3792,7 +3793,8 @@ static void iconDblClick(WObjDescriptor *desc, XEvent *event)
 	if (btn->icon->owner && !(event->xbutton.state & ControlMask)) {
 		wapp = wApplicationOf(btn->icon->owner->main_window);
 
-		assert(wapp != NULL);
+		if (!wapp)
+			return;
 
 		unhideHere = (event->xbutton.state & ShiftMask);
 
@@ -5037,7 +5039,7 @@ static WDock * drawerRestoreState(WScreen *scr, WMPropList *drawer_state)
 
 	/* Get the instance name, and create a drawer */
 	value = WMGetFromPLDictionary(drawer_state, dName);
-	drawer = wDockCreate(scr, WM_DRAWER, WMGetFromPLString(value));
+	drawer = wDockCreate(scr, WM_DRAWER, (value && WMIsPLString(value)) ? WMGetFromPLString(value) : NULL);
 
 	/* restore DnD command and paste command */
 #ifdef USE_DOCK_XDND
@@ -5100,12 +5102,12 @@ static WDock * drawerRestoreState(WScreen *scr, WMPropList *drawer_state)
 	/* restore collapsed state */
 	drawer->collapsed = 0;
 	value = WMGetFromPLDictionary(dock_state, dCollapsed);
-	if (value && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
+	if (value && WMIsPLString(value) && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
 		drawer->collapsed = 1;
 	}
 	/* restore auto-collapsed state */
 	value = WMGetFromPLDictionary(dock_state, dAutoCollapse);
-	if (value && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
+	if (value && WMIsPLString(value) && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
 		drawer->auto_collapse = 1;
 		drawer->collapsed = 1;
 	} else {
@@ -5118,7 +5120,7 @@ static WDock * drawerRestoreState(WScreen *scr, WMPropList *drawer_state)
 	/* restore attract icons state */
 	drawer->attract_icons = 0;
 	value = WMGetFromPLDictionary(dock_state, dAutoAttractIcons);
-	if (value && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
+	if (value && WMIsPLString(value) && strcasecmp(WMGetFromPLString(value), "YES") == 0) {
 		drawer->attract_icons = 1;
 		scr->attracting_drawer = drawer;
 	}
