@@ -16,8 +16,10 @@ POTFILES  = \
 	$(top_srcdir)/src/application.c \
 	$(top_srcdir)/src/appmenu.c \
 	$(top_srcdir)/src/balloon.c \
+	$(top_srcdir)/src/backtrace.c \
 	$(top_srcdir)/src/client.c \
 	$(top_srcdir)/src/colormap.c \
+	$(top_srcdir)/src/corner.c \
 	$(top_srcdir)/src/cycling.c \
 	$(top_srcdir)/src/defaults.c \
 	$(top_srcdir)/src/dialog.c \
@@ -50,6 +52,7 @@ POTFILES  = \
 	$(top_srcdir)/src/snihost.c \
 	$(top_srcdir)/src/stacking.c \
 	$(top_srcdir)/src/startup.c \
+	$(top_srcdir)/src/subprocess.c \
 	$(top_srcdir)/src/superfluous.c \
 	$(top_srcdir)/src/switchpanel.c \
 	$(top_srcdir)/src/switchmenu.c \

@@ -62,7 +62,7 @@ static int read_battery(BatteryInfo *info)
 {
 	DIR *dir;
 	struct dirent *ent;
-	char path[256];
+	char path[512];
 	FILE *fp;
 
 	info->present = 0;

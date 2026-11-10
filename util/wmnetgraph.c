@@ -273,14 +273,14 @@ int main(int argc, char **argv)
 		/* Header text */
 		format_rate(total_rate, text_buf, sizeof(text_buf));
 		char title[32];
-		snprintf(title, sizeof(title), "NET: %s", text_buf);
+		snprintf(title, sizeof(title), "NET: %.26s", text_buf);
 		XSetForeground(dpy, gc, col_text);
 		XDrawString(dpy, pixmap, gc, 6, 12, title, (int)strlen(title));
 
 		/* Bottom status: Rx/Tx legend with peak rate */
 		char peak_str[32];
 		format_rate(peak_rate, peak_str, sizeof(peak_str));
-		snprintf(text_buf, sizeof(text_buf), "PK:%s", peak_str);
+		snprintf(text_buf, sizeof(text_buf), "PK:%.28s", peak_str);
 		XSetForeground(dpy, gc, col_text);
 		XDrawString(dpy, pixmap, gc, 6, DOCKAPP_SIZE - 5, text_buf, (int)strlen(text_buf));
 

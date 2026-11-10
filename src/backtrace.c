@@ -40,9 +40,12 @@ static const char *exec_file_path;
 
 static void safe_write_str(int fd, const char *str)
 {
+	ssize_t written;
+
 	if (!str)
 		return;
-	(void)write(fd, str, strlen(str));
+	written = write(fd, str, strlen(str));
+	(void)written;
 }
 
 static void safe_write_int(int fd, int val)
@@ -51,6 +54,7 @@ static void safe_write_int(int fd, int val)
 	char *p = &buf[sizeof(buf) - 1];
 	int neg = (val < 0);
 	unsigned int uval = (unsigned int)(neg ? -val : val);
+	ssize_t written;
 
 	*p = '\0';
 	do {
@@ -61,7 +65,8 @@ static void safe_write_int(int fd, int val)
 	if (neg && p > buf)
 		*--p = '-';
 
-	(void)write(fd, p, (size_t)(&buf[sizeof(buf) - 1] - p));
+	written = write(fd, p, (size_t)(&buf[sizeof(buf) - 1] - p));
+	(void)written;
 }
 
 void wBacktraceDump(int fd)
