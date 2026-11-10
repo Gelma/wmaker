@@ -105,10 +105,11 @@ static int pm_getuint(FILE *const ifP, const char *filename)
 	}
 
 	i = 0;
+	int digits = 0;
 	do {
 		unsigned int const digitVal = ch - '0';
 
-		if (i > INT_MAX / 10) {
+		if (++digits > 10 || i > INT_MAX / 10) {
 			fprintf(stderr, _("wrlib: ASCII decimal integer in PPM file \"%s\" is too large to be processed\n"), filename);
 			return -1;
 		}
