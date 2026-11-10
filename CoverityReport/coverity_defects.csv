@@ -1,37 +1,20 @@
 cid,displayImpact,displayCategory,displayType,displayFile,lineNumber,displayFunction,status,firstDetected
-240602,High,Resource leaks,Resource leak,/src/dock.c,3226,execCommand,New,12/04/13
-1686030,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_webp.c,83,RLoadWEBP,New,11/04/26
 1686036,Low,Security best practices violations,Calling risky function,/src/superfluous.c,Various,DoKaboom,New,11/04/26
 1686041,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3034,customPaletteMenuNewFromFile,Dismissed,11/04/26
 1686042,Low,Security best practices violations,Time of check time of use,/src/monitor.c,161,MonitorLoop,Dismissed,11/04/26
 1686044,Low,Security best practices violations,Time of check time of use,/util/wmmenugen.c,160,main,Dismissed,11/04/26
-1686049,Medium,Control flow issues,Logically dead code,/util/wmsetbg.c,568,parseTexture,New,11/04/26
 1686058,High,Memory - illegal accesses,Out-of-bounds read,/src/event.c,423,handle_inotify_events,New,11/04/26
-1686060,Medium,Null pointer dereferences,Dereference before null check,/src/wsmap.c,117,workspace_map_destroy,New,11/04/26
-1686063,Low,Code maintainability issues,Unused value,/src/defaults.c,1121,wDefaultsCheckDomains,New,11/04/26
 1686067,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,422,WMSetScrollViewHasHorizontalScroller,New,11/04/26
-1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,707,deleteFile,Dismissed,11/04/26
+1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,710,deleteFile,Dismissed,11/04/26
 1686073,Low,Security best practices violations,Time of check time of use,/WPrefs.app/Appearance.c,Various,createPanel,Dismissed,11/04/26
 1686074,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3121,customPaletteMenuRename,Dismissed,11/04/26
-1686077,Medium,Error handling issues,Ignoring number of bytes read,/wrlib/load_ppm.c,185,load_graymap,New,11/04/26
-1686080,Medium,Null pointer dereferences,Dereference after null check,/src/dock.c,Various,openDockMenu,New,11/04/26
 1686081,Medium,Incorrect expression,Copy-paste error,/src/dock.c,Various,killCallback,New,11/04/26
 1686085,Low,Security best practices violations,Calling risky function,/src/placement.c,Various,randomPlaceWindow,New,11/04/26
-1686086,Medium,Control flow issues,Logically dead code,/util/setstyle.c,434,main,New,11/04/26
-1686089,Low,Security best practices violations,Time of check time of use,/util/setstyle.c,466,main,Dismissed,11/04/26
+1686089,Low,Security best practices violations,Time of check time of use,/util/setstyle.c,467,main,Dismissed,11/04/26
 1686097,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1789,wmkdirhier,Dismissed,11/04/26
+1686101,High,Resource leaks,Resource leak,/WPrefs.app/Appearance.c,Various,renderTexture,New,11/04/26
 1686102,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1867,wrmdirhier,Dismissed,11/04/26
-1686105,Medium,Null pointer dereferences,Dereference null return value,/src/dock.c,5040,drawerRestoreState,New,11/04/26
 1686106,Medium,Null pointer dereferences,Explicit null dereferenced,/WINGs/wscrollview.c,456,WMSetScrollViewHasVerticalScroller,New,11/04/26
 1686108,Low,Security best practices violations,Calling risky function,/src/actions.c,1356,animateResize,New,11/04/26
 1686110,Medium,Insecure data handling,Untrusted loop bound,/wrlib/load_ppm.c,127,pm_getuint,New,11/04/26
-1686112,High,Memory - illegal accesses,String not null terminated,/src/event.c,Various,handle_inotify_events,New,11/04/26
-1687878,Low,Code maintainability issues,Unused value,/wrlib/load_jxl.c,155,RLoadJXL,New,11/09/26
-1687882,Medium,Null pointer dereferences,Dereference after null check,/src/session.c,262,makeWindowState,New,11/10/26
-1687883,Medium,Null pointer dereferences,Dereference after null check,/WINGs/wfont.c,175,WMCreateFont,New,11/10/26
-1687884,Medium,Null pointer dereferences,Dereference null return value,/WPrefs.app/Configurations.c,226,createPanel,New,11/10/26
-1687885,Medium,Null pointer dereferences,Explicit null dereferenced,/src/switchpanel.c,Various,wInitSwitchPanel,New,11/10/26
-1687886,Medium,Error handling issues,Unchecked return value,/util/wmmemgraph.c,Various,read_meminfo,New,11/10/26
-1687887,Medium,Error handling issues,Unchecked return value,/util/setstyle.c,Various,getColor,New,11/10/26
-1687888,Medium,Null pointer dereferences,Dereference null return value,/src/dock.c,3800,iconDblClick,New,11/10/26
-1687889,High,Insecure data handling,Overflowed integer argument,/WINGs/wfilepanel.c,139,textChangedObserver,New,11/10/26
+1687890,Medium,Null pointer dereferences,Dereference before null check,/util/setstyle.c,275,getColor,New,11/10/26
