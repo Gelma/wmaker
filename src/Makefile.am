@@ -17,6 +17,8 @@ wmaker_SOURCES = 	\
 	application.h \
 	appmenu.c \
 	appmenu.h \
+	backtrace.c \
+	backtrace.h \
 	balloon.c \
 	balloon.h \
 	client.c \

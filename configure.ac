@@ -438,7 +438,8 @@ AC_FUNC_MEMCMP
 AC_FUNC_VPRINTF
 WM_FUNC_SECURE_GETENV
 AC_CHECK_FUNCS(gethostname select poll strcasecmp strncasecmp \
-	       setsid mallinfo2 mkstemp sysconf)
+	       setsid mallinfo2 mkstemp sysconf \
+	       backtrace backtrace_symbols_fd)
 AC_SEARCH_LIBS([strerror], [cposix])
 
 dnl nanosleep is generally available in standard libc, although not always the
@@ -507,7 +508,7 @@ dnl Checks for header files
 dnl =======================
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(fcntl.h limits.h sys/ioctl.h libintl.h poll.h malloc.h ctype.h \
-		 string.h strings.h)
+		 string.h strings.h execinfo.h)
 
 
 dnl Checks for typedefs, structures, and compiler characteristics

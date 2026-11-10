@@ -57,6 +57,7 @@
 #include "main.h"
 #include "monitor.h"
 #include "misc.h"
+#include "backtrace.h"
 
 #include <WINGs/WUtil.h>
 
@@ -646,6 +647,7 @@ static int real_main(int argc, char **argv)
 	int d, s;
 
 	setlocale(LC_ALL, "");
+	wBacktraceInit(argv[0]);
 	wsetabort(wAbort);
 
 	/* for telling WPrefs what's the name of the wmaker binary being ran */
