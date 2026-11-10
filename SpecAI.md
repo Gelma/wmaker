@@ -1392,3 +1392,23 @@ and is signed with `Made-by-IA: Gemini`.
 - **Commit**: `325f1d97` (*util: add wmeyes dockapp and provide parallel wl* and wlm* dockapp binaries*).
 - **Verification**: Tested `wmeyes`, `wleyes`, and `wlmeyes` under headless Xvfb; full `make -j$(nproc)` build and `make exit-test` passed with zero errors.
 
+---
+
+## 157. Review of the wlmaker-Ported Subsystems (2026-11-10)
+
+Review of commits `005f07f2`..`930ce071` (backtrace, hot corners, subprocess monitor, dockapp suite, header hygiene, README).
+
+- **Build warnings fixed** (the tree must stay 0-warning; they only showed on a forced rebuild, the cached objects had hidden them):
+  - `src/backtrace.c`: the two `write()` calls cast the result to `void`, which GCC still reports under `-Wunused-result`; the return is now captured in a `ssize_t` and discarded explicitly.
+  - `util/wmbattery.c`: `path[256]` → `path[512]` so `/sys/class/power_supply/<d_name>/capacity|status` (`d_name` ≤ 255) cannot truncate.
+  - `util/wmnetgraph.c`: bounded the `%s` precision (`"NET: %.26s"`, `"PK:%.28s"`) so the 32-byte `title`/`text_buf` cannot truncate.
+- **`make check` fixed**: the new `src/backtrace.c`, `src/corner.c`, `src/subprocess.c` were missing from `POTFILES` in `po/Makefile.am`, so `script/check-translation-sources.sh` failed the check; they are now registered in alphabetical order.
+
+### Design notes (not fixed here)
+- `src/subprocess.c` has **no callers yet** (`wSubprocessRun`/`wSubprocessKill` unused): it is scaffolding for a future feature. Before first use, note that the child inherits the WM's X and D-Bus file descriptors (only the pipe read ends are `FD_CLOEXEC`), and that `stdout_buffer` is unbounded.
+- `wCornerReset()` is also currently unused.
+- `src/backtrace.c` calls `backtrace()`/`signal()`/`kill()` from a signal handler, which are not strictly async-signal-safe; this is a best-effort dump (same trade-off as wlmaker). The `HAVE_LIBBACKTRACE` block is dead scaffolding (`configure.ac` only checks `backtrace`/`backtrace_symbols_fd`).
+
+### Verification
+- `make -j` 0 warnings, `make check` PASS, `make exit-test` PASS, `EXIT_TEST_ARGS=--valgrind make exit-test` PASS.
+
