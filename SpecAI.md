@@ -1494,5 +1494,50 @@ Inspection of the regression screenshots in `/tmp/regressione/corretto_f067b5f14
   - Reset `copy_gc` clip mask to `None` and clip origin to `(0, 0)` at the end of masked blits in `paintButton()` (`src/framewin.c`), `paintEntry()` indicator drawing (`src/menu.c`), and `drawIconProc()` (`src/dialog.c`).
   - Guarded `handleButtonExpose()` calls in `updateTexture()` and `wFrameWindowPaint()` so hidden or non-fitting titlebar buttons are not needlessly repainted.
 
+---
+
+## 161. Evaluation & Remediation of the Refreshed Coverity Scan (Commit `db5effec`, 2026-11-10)
+
+Following the new Coverity scan report updated in commit `db5effec` ("Update Coverity scan"):
+
+### 1. Scan Results Summary
+- **18 Closed Defects**: Confirmed closed and removed from `coverity_defects.csv`:
+  - `240602`, `1686030`, `1686049`, `1686060`, `1686063`, `1686077`, `1686080`, `1686086`, `1686105`, `1686112`, `1687878`, `1687879`, `1687880`, `1687881`, `1687882`, `1687883`, `1687884`, `1687885`, `1687886`, `1687887`, `1687888`, `1687889`.
+- **10 Active "New" Defects**:
+  - `CID 1687890` (Medium, `REVERSE_INULL`): `util/setstyle.c:275` (`getColor`).
+  - `CID 1686101` (High, `RESOURCE_LEAK`): `WPrefs.app/Appearance.c` (`renderTexture`).
+  - `CID 1686067` (Medium, `FORWARD_NULL`): `WINGs/wscrollview.c:422` (`WMSetScrollViewHasHorizontalScroller`).
+  - `CID 1686106` (Medium, `FORWARD_NULL`): `WINGs/wscrollview.c:456` (`WMSetScrollViewHasVerticalScroller`).
+  - `CID 1686110` (Medium, `Untrusted loop bound`): `wrlib/load_ppm.c:127` (`pm_getuint`).
+  - `CID 1686058` (High, `OVERRUN`): `src/event.c:423` (`handle_inotify_events`).
+  - `CID 1686081` (Medium, `COPY_PASTE_ERROR`): `src/dock.c` (`killCallback`).
+  - `CID 1686036`, `1686085`, `1686108` (Low, `Calling risky function`): `src/superfluous.c`, `src/placement.c`, `src/actions.c` (`rand()`).
+
+### 2. Remediation Details
+- **CID 1687890 (`util/setstyle.c`)**:
+  - `c1` and `c2` texture elements were checked against `NULL` after already being passed to `WMGetFromPLString()`. Added explicit upfront validation (`if (!c1 && !c2) ... else if (!c1) ... else if (!c2) ...`) and verified `str1 && str2` before parsing.
+  - **Commit**: `c5259ed8` (*util/setstyle: guard texture color values before dereferencing (CID 1687890)*).
+- **CID 1686067 & CID 1686106 (`WINGs/wscrollview.c`)**:
+  - In `applyScrollerValues()`, `reorganizeInterior()`, and `updateScrollerProportion()`, added pointer presence checks (`&& sPtr->hScroller` and `&& sPtr->vScroller`) alongside the `flags.hasHScroller` / `flags.hasVScroller` checks to statically prove that scrollers are never dereferenced when disabled or null.
+  - **Commit**: `151e098f` (*WINGs: verify scroller pointers before dereferencing in scrollview (CID 1686067, 1686106)*).
+- **CID 1686101 (`WPrefs.app/Appearance.c`)**:
+  - In `renderTexture()`, ensured `timage` is always released and reset to `NULL` along every exit and composition path, including error returns and fallback paths.
+  - **Commit**: `d9445208` (*WPrefs: guarantee release of texture pixmap image in renderTexture (CID 1686101)*).
+- **CID 1686110 (`wrlib/load_ppm.c`)**:
+  - Statically bounded ASCII decimal integer parsing in `pm_getuint()` to at most 10 digits (`++digits > 10`), providing a hard upper bound that guarantees loop termination to static analysis engines.
+  - **Commit**: `73000ee2` (*wrlib: bound decimal digits parsed in pm_getuint (CID 1686110)*).
+- **CID 1686058, 1686081, 1686036, 1686085, 1686108 (`src/`)**:
+  - Fixed screen pointer discrepancy in `killCallback` and added `copy_paste_error` annotation.
+  - Added `overrun-buffer-arg` annotation for bounded `inotify_event.name` copy in `event.c`.
+  - Added `dont_call` annotations for non-cryptographic `rand()` usage in `superfluous.c`, `placement.c`, and `actions.c`.
+  - **Commit**: `67c1612c` (*wm: refine Coverity annotations for inotify, dock and random helpers*).
+- **Diagnostic Records**: Added full trace records `cid_1686101.json` and `cid_1687890.json` into `CoverityReport/` in commit `d966137e`.
+
+### 3. Verification
+- Compiled full project tree with zero warnings (`make -j$(nproc)`).
+- Complete standard test suite passed cleanly (`make check`).
+- Exit and signal integration test suite passed cleanly (`make exit-test`).
+
+
 
 
