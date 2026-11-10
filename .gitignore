@@ -64,6 +64,7 @@ util/wmaker.inst
 util/wmbattery
 util/wmclock
 util/wmcpugraph
+util/wmeyes
 util/wmgenmenu
 util/wmiv
 util/wmmenugen
@@ -71,6 +72,18 @@ util/wmmemgraph
 util/wmnetgraph
 util/wmsetbg
 util/wmsetup
+util/wlbattery
+util/wlclock
+util/wlcpugraph
+util/wleyes
+util/wlmemgraph
+util/wlnetgraph
+util/wlmbattery
+util/wlmclock
+util/wlmcpugraph
+util/wlmeyes
+util/wlmmemgraph
+util/wlmnetgraph
 util/wxcopy
 util/wxpaste
 
