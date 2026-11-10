@@ -84,6 +84,12 @@ util/wlmcpugraph
 util/wlmeyes
 util/wlmmemgraph
 util/wlmnetgraph
+util/wlwmbattery
+util/wlwmclock
+util/wlwmcpugraph
+util/wlwmeyes
+util/wlwmmemgraph
+util/wlwmnetgraph
 util/wxcopy
 util/wxpaste
 

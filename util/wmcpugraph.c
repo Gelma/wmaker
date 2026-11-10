@@ -191,8 +191,8 @@ int main(int argc, char **argv)
 
 	class_hint = XAllocClassHint();
 	if (class_hint) {
-		class_hint->res_name = "wmcpugraph";
-		class_hint->res_class = "DockApp";
+		class_hint->res_name = "wlcpugraph";
+		class_hint->res_class = "WLDockApp";
 		XSetClassHint(dpy, win, class_hint);
 		XFree(class_hint);
 	}

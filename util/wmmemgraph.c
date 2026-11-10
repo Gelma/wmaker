@@ -164,8 +164,8 @@ int main(int argc, char **argv)
 
 	class_hint = XAllocClassHint();
 	if (class_hint) {
-		class_hint->res_name = "wmmemgraph";
-		class_hint->res_class = "DockApp";
+		class_hint->res_name = "wlmemgraph";
+		class_hint->res_class = "WLDockApp";
 		XSetClassHint(dpy, win, class_hint);
 		XFree(class_hint);
 	}

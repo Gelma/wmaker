@@ -163,11 +163,11 @@ int main(int argc, char **argv)
 	size_hints.max_height = DOCKAPP_SIZE;
 	XSetWMNormalHints(dpy, win, &size_hints);
 
-	class_hint.res_name = (char *)"wmeyes";
-	class_hint.res_class = (char *)"WMEyes";
+	class_hint.res_name = (char *)"wleyes";
+	class_hint.res_class = (char *)"WLEyes";
 	XSetClassHint(dpy, win, &class_hint);
 
-	XStoreName(dpy, win, "WMEyes");
+	XStoreName(dpy, win, "WLEyes");
 	XSelectInput(dpy, win, ExposureMask | StructureNotifyMask);
 	XMapWindow(dpy, win);
 

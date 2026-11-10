@@ -6,9 +6,9 @@ pkgdatadir  = $(datadir)/@PACKAGE@
 
 bin_PROGRAMS = wxcopy wxpaste wdwrite wdread getstyle setstyle convertfonts \
 	seticons geticonset wmsetbg wmagnify wmgenmenu wmmenugen wmiv \
-	wmcpugraph wmmemgraph wmbattery wmnetgraph wmclock wmeyes \
 	wlcpugraph wlmemgraph wlbattery wlnetgraph wlclock wleyes \
-	wlmcpugraph wlmmemgraph wlmbattery wlmnetgraph wlmclock wlmeyes
+	wlmcpugraph wlmmemgraph wlmbattery wlmnetgraph wlmclock wlmeyes \
+	wlwmcpugraph wlwmmemgraph wlwmbattery wlwmnetgraph wlwmclock wlwmeyes
 
 bin_SCRIPTS = wmaker.inst wm-oldmenu2new wkdemenu.pl
 
@@ -84,47 +84,52 @@ wmiv_LDADD = \
 
 wmiv_SOURCES = wmiv.c wmiv.h xdnd.c xdnd.h
 
-wmcpugraph_SOURCES = wmcpugraph.c
-wmcpugraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlcpugraph_SOURCES = wmcpugraph.c
 wlcpugraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmcpugraph_SOURCES = wmcpugraph.c
 wlmcpugraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmcpugraph_SOURCES = wmcpugraph.c
+wlwmcpugraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-wmmemgraph_SOURCES = wmmemgraph.c
-wmmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmemgraph_SOURCES = wmmemgraph.c
 wlmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmmemgraph_SOURCES = wmmemgraph.c
 wlmmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmmemgraph_SOURCES = wmmemgraph.c
+wlwmmemgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-wmbattery_SOURCES = wmbattery.c
-wmbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlbattery_SOURCES = wmbattery.c
 wlbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmbattery_SOURCES = wmbattery.c
 wlmbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmbattery_SOURCES = wmbattery.c
+wlwmbattery_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-wmnetgraph_SOURCES = wmnetgraph.c
-wmnetgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlnetgraph_SOURCES = wmnetgraph.c
 wlnetgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmnetgraph_SOURCES = wmnetgraph.c
 wlmnetgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmnetgraph_SOURCES = wmnetgraph.c
+wlwmnetgraph_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-wmclock_SOURCES = wmclock.c
-wmclock_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlclock_SOURCES = wmclock.c
 wlclock_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmclock_SOURCES = wmclock.c
 wlmclock_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmclock_SOURCES = wmclock.c
+wlwmclock_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-wmeyes_SOURCES = wmeyes.c
-wmeyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wleyes_SOURCES = wmeyes.c
 wleyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 wlmeyes_SOURCES = wmeyes.c
 wlmeyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+wlwmeyes_SOURCES = wmeyes.c
+wlwmeyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
+
+install-exec-hook:
+	rm -f $(DESTDIR)$(bindir)/wmcpugraph $(DESTDIR)$(bindir)/wmmemgraph \
+		$(DESTDIR)$(bindir)/wmbattery $(DESTDIR)$(bindir)/wmnetgraph \
+		$(DESTDIR)$(bindir)/wmclock $(DESTDIR)$(bindir)/wmeyes
 
 CLEANFILES = wmaker.inst
 
