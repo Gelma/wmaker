@@ -588,8 +588,11 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 		str2rcolor(rc, str, &rcolor);
 
 		image = RCreateImage(width, height, False);
-		if (!image)
+		if (!image) {
+			if (timage)
+				RReleaseImage(timage);
 			return None;
+		}
 		RClearImage(image, &rcolor);
 	} else if (strcasecmp(type, "igradient") == 0) {
 		int t1, t2;
@@ -665,6 +668,7 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 
 		image = RMakeTiledImage(timage, width, height);
 		RReleaseImage(timage);
+		timage = NULL;
 
 		i = atoi(WMGetFromPLString(WMGetFromPLArray(texture, 2)));
 
@@ -724,31 +728,31 @@ static Pixmap renderTexture(WMScreen * scr, WMPropList * texture, int width, int
 		switch (toupper(type[0])) {
 		case 'T':
 			image = RMakeTiledImage(timage, width, height);
-			RReleaseImage(timage);
 			break;
 		case 'C':
 			image = RMakeCenteredImage(timage, width, height, &color);
-			RReleaseImage(timage);
 			break;
 		case 'F':
 		case 'S':
 		case 'M':
 			image = RScaleImage(timage, width, height);
-			RReleaseImage(timage);
 			break;
 
 		default:
 			wwarning(_("type '%s' is not a supported type for a texture"), type);
 			RReleaseImage(timage);
+			timage = NULL;
 			return None;
 		}
+		RReleaseImage(timage);
+		timage = NULL;
 	}
 
-	/* coverity[leaked_storage]
-	 * CID 1686101 needs a texture whose type is both "...pixmap" and
-	 * "solid/mgradient": timage is only loaded for the first, and every
-	 * branch that can then run releases it.  The reported path combines two
-	 * mutually exclusive strcasecmp() results. */
+	if (timage != NULL) {
+		RReleaseImage(timage);
+		timage = NULL;
+	}
+
 	if (!image)
 		return None;
 
