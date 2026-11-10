@@ -958,6 +958,7 @@ static void paintEntry(WMenu * menu, int index, int selected)
 			 XCopyArea(dpy, indicator->image, win, scr->copy_gc, 0, 0,
 			 iw, ih, 5, y+(h-ih)/2);
 			*/
+			XSetClipMask(dpy, scr->copy_gc, None);
 			XSetClipOrigin(dpy, scr->copy_gc, 0, 0);
 		}
 	}

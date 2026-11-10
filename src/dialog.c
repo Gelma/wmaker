@@ -800,6 +800,8 @@ static void drawIconProc(WMList * lPtr, int index, Drawable d, char *text, int s
 	XCopyArea(dpy, WMGetPixmapXID(pixmap), d, copygc, 0, 0,
 		  size.width > 100 ? 100 : size.width, size.height > 64 ? 64 : size.height,
 		  x + (width - size.width) / 2, y + 2);
+	XSetClipMask(dpy, copygc, None);
+	XSetClipOrigin(dpy, copygc, 0, 0);
 
 	{
 		int i, j;

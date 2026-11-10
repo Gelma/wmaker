@@ -892,17 +892,17 @@ static void updateTexture(WFrameWindow * fwin)
 		}
 		XClearWindow(dpy, fwin->titlebar->window);
 
-		if (fwin->left_button) {
+		if (fwin->left_button && !fwin->flags.hide_left_button && !fwin->flags.lbutton_dont_fit) {
 			XClearWindow(dpy, fwin->left_button->window);
 			handleButtonExpose(&fwin->left_button->descriptor, NULL);
 		}
 #ifdef XKB_BUTTON_HINT
-		if (fwin->language_button) {
+		if (fwin->language_button && !fwin->flags.hide_language_button && !fwin->flags.languagebutton_dont_fit) {
 			XClearWindow(dpy, fwin->language_button->window);
 			handleButtonExpose(&fwin->language_button->descriptor, NULL);
 		}
 #endif
-		if (fwin->right_button) {
+		if (fwin->right_button && !fwin->flags.hide_right_button && !fwin->flags.rbutton_dont_fit) {
 			XClearWindow(dpy, fwin->right_button->window);
 			handleButtonExpose(&fwin->right_button->descriptor, NULL);
 		}
@@ -1142,6 +1142,8 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 				 * valid, so an Expose or a focus switch is one XCopyArea
 				 * instead of ShrinkString + Pango shaping + a pixmap
 				 * round-trip. */
+				XSetClipMask(dpy, scr->copy_gc, None);
+				XSetClipOrigin(dpy, scr->copy_gc, 0, 0);
 				XCopyArea(dpy, fwin->title_strip[state], fwin->titlebar->window,
 					  scr->copy_gc, 0, 0, fwin->title_strip_w[state] + 2,
 					  fwin->title_strip_h[state], fwin->title_strip_x[state] - 1, fwin->title_strip_y[state]);
@@ -1188,6 +1190,7 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 			buf = XCreatePixmap(dpy, fwin->titlebar->window, w + 2, h, scr->w_depth);
 
 			XSetClipMask(dpy, scr->copy_gc, None);
+			XSetClipOrigin(dpy, scr->copy_gc, 0, 0);
 
 			if (fwin->title_texture[state]->any.type != WTEX_SOLID) {
 				XCopyArea(dpy, fwin->title_back[state], buf, scr->copy_gc,
@@ -1236,12 +1239,12 @@ title_done:
 			;
 		}
 
-		if (fwin->left_button)
+		if (fwin->left_button && !fwin->flags.hide_left_button && !fwin->flags.lbutton_dont_fit)
 			handleButtonExpose(&fwin->left_button->descriptor, NULL);
-		if (fwin->right_button)
+		if (fwin->right_button && !fwin->flags.hide_right_button && !fwin->flags.rbutton_dont_fit)
 			handleButtonExpose(&fwin->right_button->descriptor, NULL);
 #ifdef XKB_BUTTON_HINT
-		if (fwin->language_button)
+		if (fwin->language_button && !fwin->flags.hide_language_button && !fwin->flags.languagebutton_dont_fit)
 			handleButtonExpose(&fwin->language_button->descriptor, NULL);
 #endif
 	}
@@ -1672,6 +1675,8 @@ static void paintButton(WCoreWindow * button, WTexture * texture, unsigned long 
 				XCopyArea(dpy, image->image, button->window, copy_gc,
 					left, 0, width, image->height, x, y);
 		}
+		XSetClipMask(dpy, copy_gc, None);
+		XSetClipOrigin(dpy, copy_gc, 0, 0);
 	}
 }
 
