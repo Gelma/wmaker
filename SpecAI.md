@@ -1457,4 +1457,15 @@ Following the Coverity scan update (`632f84ca`), a systematic remediation sweep 
 - Full tree compiled cleanly with zero warnings (`make -j$(nproc)`).
 - Complete exit and signal test suite passed (`make exit-test`).
 
+---
+
+## 159. Independent Review of the Coverity Remediation Batch (2026-11-10)
+
+Full report in [`CoverityRemediationReview-2026-11-10.md`](CoverityRemediationReview-2026-11-10.md). Summary:
+
+- **Coverage**: the refreshed report has 36 defects (27 `New`, 9 `Dismissed`) with 9 new CIDs (`1687878`–`1687889`); the five fix commits (`0bf8c849`, `e0da4354`, `dbf27dab`, `f7e191f9`, `880a6887`) address 22 of the 27 `New`. The remaining `New` are `1686081` and `1686110` (both already annotated as false positives in code) and three Low "calling risky function" entries (intentional). The CSV `status` is a pre-fix snapshot, so a re-scan is all that is left to close them.
+- **Correctness spot-checks**: `name` in `session.c` is initialized to `NULL` before `if (name != NULL)`; `getColor()`'s `value = c1 ? c1 : c2` keeps the refcount balanced because the caller's `WMCreatePLArray` retains before `WMReleasePropList(value)`; `wmsetbg.c`'s removed `if (!image)` is dead (`image` is checked right after `loadImage`); `defaults.c`'s removed `dict = NULL` is a true dead store.
+- **Verification**: forced rebuild of all 16 touched files = 0 warnings; `make check` PASS; `make exit-test` PASS; `EXIT_TEST_ARGS=--valgrind make exit-test` PASS.
+- **Minor note (pre-existing, not this batch)**: the first `getColor()` caller in `setstyle.c` does not release `value` when a freshly created string is returned (trivial one-shot leak).
+
 
