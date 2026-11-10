@@ -258,12 +258,14 @@ static WMPropList *makeWindowState(WWindow * wwin, WApplication * wapp)
 					if (dc->adrawer == wapp->app_icon->dock)
 						break;
 				}
-				assert(dc != NULL);
-				name = dc->adrawer->icon_array[0]->wm_instance;
+				if (dc && dc->adrawer && dc->adrawer->icon_array && dc->adrawer->icon_array[0])
+					name = dc->adrawer->icon_array[0]->wm_instance;
 			}
-			dock = WMCreatePLString(name);
-			WMPutInPLDictionary(win_state, sDock, dock);
-			WMReleasePropList(dock);
+			if (name != NULL) {
+				dock = WMCreatePLString(name);
+				WMPutInPLDictionary(win_state, sDock, dock);
+				WMReleasePropList(dock);
+			}
 		}
 	} else {
 		win_state = NULL;

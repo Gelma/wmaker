@@ -110,14 +110,14 @@ static void workspace_map_unslide(WWorkspaceMap *wsmap)
 
 static void workspace_map_destroy(WWorkspaceMap *wsmap)
 {
-	workspace_map_unslide(wsmap);
-
-	/* WMUnmapWidget() dereferences its argument, so the test has to come
-	 * first (Coverity CID 1686060). */
+	/* The window test has to come first to prevent null dereferences in
+	 * unslide and teardown (Coverity CID 1686060). */
 	if (!wsmap->win) {
 		wfree(wsmap);
 		return;
 	}
+
+	workspace_map_unslide(wsmap);
 
 	{
 		Window info_win = wsmap->scr->info_window;

@@ -122,7 +122,7 @@ static void changeImage(WSwitchPanel *panel, int idecks, int selected, Bool dim,
 	int desired = 0;
 
 	/* This whole function is a no-op if we aren't drawing the panel */
-	if (!wPreferences.swtileImage)
+	if (!wPreferences.swtileImage || !panel->tileTmp)
 		return;
 
 	icon = WMGetFromArray(panel->icons, idecks);

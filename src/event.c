@@ -414,10 +414,14 @@ static void handle_inotify_events(void)
 		}
 		/* Only react when a known config file inside the Defaults directory is affected */
 		if (pevent->len > 0) {
-			char *fname = pevent->name;
+			char fname[256];
+			size_t flen = pevent->len < sizeof(fname) ? pevent->len : sizeof(fname) - 1;
 			const char *allowed[] = { "WMRootMenu", "WMWindowAttributes",
 						  "WindowMaker", "WMState", "WMGLOBAL", NULL };
 			int i, matched = 0;
+
+			memcpy(fname, pevent->name, flen);
+			fname[flen] = '\0';
 
 			for (i = 0; allowed[i]; i++) {
 				if (strcmp(fname, allowed[i]) == 0) {

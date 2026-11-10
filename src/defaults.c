@@ -1118,7 +1118,6 @@ void wDefaultsCheckDomains(void* arg)
 		if (dict) {
 			if (!WMIsPLDictionary(dict)) {
 				WMReleasePropList(dict);
-				dict = NULL;
 				wwarning(_("Domain %s (%s) of defaults database is corrupted!"),
 					 "WindowMaker", w_global.domain.wmaker->path);
 			} else {
