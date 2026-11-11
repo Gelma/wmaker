@@ -36,7 +36,15 @@ enum {
 
 static wmMenuEntry *findEntry(WMMenu * menu, int tag)
 {
-	wmMenuEntry *entry = menu->first;
+	wmMenuEntry *entry;
+
+	/* An application may be created without a main menu (WMAppCreate sets
+	 * main_menu = NULL), and a _WINDOWMAKER_MENU ClientMessage can arrive
+	 * anyway: treat "no menu" as "no matching entry". */
+	if (!menu)
+		return NULL;
+
+	entry = menu->first;
 
 	while (entry) {
 		if (entry->tag == tag) {
