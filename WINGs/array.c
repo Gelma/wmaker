@@ -295,7 +295,10 @@ WMArray *WMGetSubarrayWithRange(WMArray * array, WMRange aRange)
 {
 	WMArray *newArray;
 
-	if (aRange.count <= 0 || array == NULL)
+	/* An empty array must bail out before the clamps below: position would be
+	 * clamped to -1 and count recomputed to 1, so the memcpy read one pointer
+	 * *before* the allocation. */
+	if (aRange.count <= 0 || array == NULL || array->itemCount == 0)
 		return WMCreateArray(0);
 
 	if (aRange.position < 0)
