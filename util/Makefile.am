@@ -17,7 +17,7 @@ EXTRA_DIST = wmaker.inst.in bughint wm-oldmenu2new wkdemenu.pl
 AM_CPPFLAGS = \
 	 $(DFLAGS) -I$(top_srcdir)/WINGs -I$(top_builddir)/wrlib \
 	@HEADER_SEARCH_PATH@ \
-	-DETCDIR=\"sysconfdir\" -DDATADIR=\"pkgdatadir\"
+	-DETCDIR=\"$(sysconfdir)/WindowMaker\" -DDATADIR=\"$(pkgdatadir)\"
 
 liblist= @LIBRARY_SEARCH_PATH@ @INTLIBS@
 
@@ -126,10 +126,13 @@ wlmeyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -
 wlwmeyes_SOURCES = wmeyes.c
 wlwmeyes_LDADD = $(top_builddir)/WINGs/libWUtil.la @XLFLAGS@ @XLIBS@ $(liblist) -lm
 
-install-exec-hook:
-	rm -f $(DESTDIR)$(bindir)/wmcpugraph $(DESTDIR)$(bindir)/wmmemgraph \
-		$(DESTDIR)$(bindir)/wmbattery $(DESTDIR)$(bindir)/wmnetgraph \
-		$(DESTDIR)$(bindir)/wmclock $(DESTDIR)$(bindir)/wmeyes
+# No install-exec-hook here on purpose.  This package installs the dockapps
+# under the wl*/wlm*/wlwm* names only; an earlier hook removed the unprefixed
+# wmcpugraph/wmmemgraph/wmbattery/wmnetgraph/wmclock/wmeyes from $(bindir),
+# which silently deleted the distro's own dockapps (wmgoodies, wmclock, ...)
+# whenever the prefix was shared (/usr, /usr/local).  When upgrading from an
+# old fork build that did install the unprefixed names, remove those files
+# manually.
 
 CLEANFILES = wmaker.inst
 

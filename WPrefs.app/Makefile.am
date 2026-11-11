@@ -52,7 +52,10 @@ WPrefs_SOURCES = \
 	editmenu.h \
 	xmodifier.c
 
-# not_yet_fully_implemented
+# Work in progress: these two panels are distributed but deliberately not
+# built or linked yet (no panel registration in WPrefs.c).  They are still
+# analysed by tools/static-analysis.sh so they cannot bit-rot silently; add
+# them to WPrefs_SOURCES together with the UI wiring when they are finished.
 #WPrefs_SOURCES += \
 #	KeyboardSettings.c \
 #	Themes.c
