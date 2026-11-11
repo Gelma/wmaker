@@ -254,16 +254,54 @@ static WMData *getSelectionData(Display * dpy, Window win, Atom where)
 	Atom rtype;
 	int bits, bpi;
 	unsigned long len, bytes;
+	unsigned long offset = 0, total = 0;
+	unsigned char *accum = NULL;
+	int format = 0;
 
-	if (XGetWindowProperty(dpy, win, where, 0, MAX_PROPERTY_SIZE,
-			       False, AnyPropertyType, &rtype, &bits, &len, &bytes, &data) != Success) {
-		return NULL;
+	/* XGetWindowProperty() returns at most MAX_PROPERTY_SIZE items per call and
+	 * reports the remainder in bytes_after: keep reading until the whole
+	 * property is in, otherwise a selection larger than 8 KiB is silently
+	 * truncated on paste. */
+	for (;;) {
+		if (XGetWindowProperty(dpy, win, where, offset, MAX_PROPERTY_SIZE,
+				       False, AnyPropertyType, &rtype, &bits, &len, &bytes,
+				       &data) != Success) {
+			wfree(accum);
+			return NULL;
+		}
+
+		if (len == 0 || bits == 0) {
+			if (data)
+				XFree(data);
+			break;
+		}
+
+		bpi = bits / 8;
+		if (bpi <= 0) {
+			XFree(data);
+			wfree(accum);
+			return NULL;
+		}
+
+		accum = wrealloc(accum, total + len * bpi);
+		memcpy(accum + total, data, len * bpi);
+		total += len * bpi;
+		format = bits;
+		XFree(data);
+
+		if (bytes == 0)
+			break;
+
+		/* the offset argument of XGetWindowProperty is in 32-bit units */
+		offset += (len * bpi + 3) / 4;
 	}
 
-	bpi = bits / 8;
+	if (!accum)
+		return NULL;
 
-	wdata = WMCreateDataWithBytesNoCopy(data, len * bpi, (void *) XFree);
-	WMSetDataFormat(wdata, bits);
+	wdata = WMCreateDataWithBytes(accum, total);
+	wfree(accum);
+	WMSetDataFormat(wdata, format);
 
 	return wdata;
 }
