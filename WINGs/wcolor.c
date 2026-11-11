@@ -90,8 +90,12 @@ WMColor *WMCreateRGBColor(WMScreen * scr, unsigned short red, unsigned short gre
 	if (!exact || !(color = createRGBAColor(scr, red, green, blue, 0xffff))) {
 		color = findCloseColor(scr, red, green, blue, 0xffff);
 	}
-	if (!color)
-		color = scr->black;
+	if (!color) {
+		/* The fallback must carry a reference like a freshly created colour:
+		 * callers follow the create/use/WMReleaseColor idiom and would
+		 * otherwise drop the screen's own reference to black. */
+		return scr->black ? WMRetainColor(scr->black) : NULL;
+	}
 
 	return color;
 }
@@ -116,8 +120,12 @@ WMColor *WMCreateRGBAColor(WMScreen * scr, unsigned short red, unsigned short gr
 	if (!exact || !(color = createRGBAColor(scr, red, green, blue, alpha))) {
 		color = findCloseColor(scr, red, green, blue, alpha);
 	}
-	if (!color)
-		color = scr->black;
+	if (!color) {
+		/* The fallback must carry a reference like a freshly created colour:
+		 * callers follow the create/use/WMReleaseColor idiom and would
+		 * otherwise drop the screen's own reference to black. */
+		return scr->black ? WMRetainColor(scr->black) : NULL;
+	}
 
 	return color;
 }

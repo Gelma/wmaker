@@ -769,8 +769,10 @@ WMScreen *WMCreateScreenWithRContext(Display * display, int screen, RContext * c
 
 	scrPtr->boldFont = WMBoldSystemFontOfSize(scrPtr, 0);
 
-	if (!scrPtr->boldFont)
-		scrPtr->boldFont = scrPtr->normalFont;
+	if (!scrPtr->boldFont && scrPtr->normalFont)
+		/* Own a reference: WMSetWidgetDefaultFont() releases normalFont, and
+		 * an unretained alias would leave boldFont dangling. */
+		scrPtr->boldFont = WMRetainFont(scrPtr->normalFont);
 
 	if (!scrPtr->normalFont) {
 		wwarning(_("could not load any fonts. Make sure your font installation"
@@ -1255,7 +1257,9 @@ void WMDestroyScreen(WMScreen *scr)
 		scr->stipple = None;
 	}
 
-	if (scr->boldFont && scr->boldFont != scr->normalFont) {
+	/* boldFont owns its own reference even when it aliases normalFont, so
+	 * release it unconditionally (the old != test skipped the alias case). */
+	if (scr->boldFont) {
 		WMReleaseFont(scr->boldFont);
 		scr->boldFont = NULL;
 	}
