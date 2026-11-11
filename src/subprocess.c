@@ -47,7 +47,10 @@ static void subprocess_read_fd(WSubprocess *proc, int *fd_ptr, WMHandlerID **han
 	while ((n = read(*fd_ptr, buf, sizeof(buf) - 1)) > 0) {
 		buf[n] = '\0';
 		if (!is_stderr && proc->stdout_buffer) {
-			WMAppendDataBytes(proc->stdout_buffer, buf, (unsigned int)n);
+			/* Cap the capture: a chatty child must not be able to grow the
+			 * WM's heap without bound.  Output past the cap is dropped. */
+			if (WMGetDataLength(proc->stdout_buffer) < W_SUBPROCESS_MAX_CAPTURE)
+				WMAppendDataBytes(proc->stdout_buffer, buf, (unsigned int)n);
 		} else {
 			if (is_stderr)
 				wwarning("[subprocess %s:%d stderr]: %s",
@@ -170,6 +173,13 @@ WSubprocess *wSubprocessRun(const char *command,
 
 	set_nonblocking_cloexec(stdout_pipe[0]);
 	set_nonblocking_cloexec(stderr_pipe[0]);
+
+	/* The write ends must not survive an exec either: the child dup2()s them
+	 * onto 1/2 (which clears FD_CLOEXEC on the new descriptor) and closes the
+	 * originals, but any other process forked in between would keep the pipe
+	 * open and the read side would never see EOF. */
+	fcntl(stdout_pipe[1], F_SETFD, FD_CLOEXEC);
+	fcntl(stderr_pipe[1], F_SETFD, FD_CLOEXEC);
 
 	pid = fork();
 	if (pid < 0) {

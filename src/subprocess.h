@@ -29,6 +29,17 @@
 
 typedef struct WSubprocess WSubprocess;
 
+/* Upper bound on the captured stdout of a single subprocess: output beyond
+ * this is dropped so a chatty child cannot grow the WM heap without bound. */
+#define W_SUBPROCESS_MAX_CAPTURE (1024 * 1024)
+
+/*
+ * Termination callback.  exit_status is the *raw* wait status as delivered by
+ * waitpid() (same convention as wAddDeathHandler()): decode it with
+ * WIFEXITED()/WEXITSTATUS()/WIFSIGNALED(), do not treat it as an exit code.
+ * The WSubprocess handle is freed right after the callback returns: it must
+ * not be used afterwards.
+ */
 typedef void (*WSubprocessTerminatedCallback)(WSubprocess *proc, int exit_status, void *user_data);
 
 struct WSubprocess {
@@ -46,7 +57,10 @@ struct WSubprocess {
 
 /*
  * Run a subprocess with monitored non-blocking stdout/stderr capture.
- * If capture_stdout is True, stdout is collected in proc->stdout_buffer.
+ * If capture_stdout is True, stdout is collected in proc->stdout_buffer (a
+ * WMData, readable with WMGetDataBytes()/WMGetDataLength()) up to
+ * W_SUBPROCESS_MAX_CAPTURE bytes; stderr is logged, not captured.
+ * Returns NULL if the command is empty or the pipes/fork fail.
  */
 WSubprocess *wSubprocessRun(const char *command,
 			    Bool capture_stdout,
