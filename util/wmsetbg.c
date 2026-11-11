@@ -1167,9 +1167,12 @@ static char *getPixmapPath(const char *domain)
 		*ptr = ':';
 		ptr++;
 	}
-	if (i > 0)
-		ptr--;
-	*(ptr--) = 0;
+	/* Replace the trailing ':' with the terminator.  Gate on "did we write
+	 * anything", not on the loop counter: i == count even when every element
+	 * was skipped as a non-string, and backing off from data would write a
+	 * NUL one byte *before* the allocation. */
+	if (ptr != data)
+		ptr[-1] = 0;
 
 	WMReleasePropList(val);
 
