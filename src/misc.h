@@ -56,4 +56,8 @@ char *StrConcatDot(const char *a, const char *b);
 char *GetCommandForWindow(Window win);
 int WMStrEqual(const char *x, const char *y);
 int WMPLGetBool(WMPropList *value);
+
+/* Path of the "clean exit" sentinel shared by the WM child and its monitor.
+ * Both processes must compute the same path, so keep it in one place. */
+void wExitSentinelPath(char *buf, size_t buflen, pid_t pid);
 #endif

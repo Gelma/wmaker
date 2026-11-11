@@ -24,6 +24,9 @@
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <limits.h>
+#include <sys/stat.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -32,6 +35,7 @@
 #include "window.h"
 #include "client.h"
 #include "main.h"
+#include "misc.h"
 #include "properties.h"
 #include "session.h"
 #include "winspector.h"
@@ -63,11 +67,26 @@ void Shutdown(WShutdownMode mode)
 	case WSKillMode:
 	case WSExitMode:
 		{
-			char exit_sentinel[64];
+			char exit_sentinel[PATH_MAX];
 			int fd;
 
-			snprintf(exit_sentinel, sizeof(exit_sentinel), "/tmp/.wmaker-exit-%d", (int)getpid());
-			fd = open(exit_sentinel, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+			wExitSentinelPath(exit_sentinel, sizeof(exit_sentinel), getpid());
+			/* O_EXCL|O_NOFOLLOW: the sentinel name is predictable, so a
+			 * symlink planted by another local user must never be followed
+			 * (O_TRUNC through it would truncate a file of our own). */
+			fd = open(exit_sentinel, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+			if (fd < 0 && errno == EEXIST) {
+				struct stat st;
+
+				/* Stale sentinel from an earlier run with the same pid:
+				 * replace it only if it is a regular file we own. */
+				if (lstat(exit_sentinel, &st) == 0 && S_ISREG(st.st_mode)
+				    && st.st_uid == getuid()) {
+					unlink(exit_sentinel);
+					fd = open(exit_sentinel,
+						  O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+				}
+			}
 			if (fd >= 0)
 				close(fd);
 		}

@@ -26,6 +26,8 @@
 #include <errno.h>
 #include <time.h>
 #include <signal.h>
+#include <limits.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #ifdef __FreeBSD__
 #include <sys/signal.h>
@@ -40,6 +42,7 @@
 #include "window.h"
 #include "dialog.h"
 #include "main.h"
+#include "misc.h"
 
 
 static int showCrashDialog(int sig)
@@ -154,11 +157,16 @@ int MonitorLoop(int argc, char **argv)
 		child_argv[argc] = "--for-real-";
 
 		{
-			char exit_sentinel[64];
+			char exit_sentinel[PATH_MAX];
+			struct stat st;
 
-			snprintf(exit_sentinel, sizeof(exit_sentinel), "/tmp/.wmaker-exit-%d", (int)pid);
-			/* coverity[toctou] CID 1686042: the sentinel is created and consumed by the same user in /tmp */
-			if (access(exit_sentinel, F_OK) == 0) {
+			wExitSentinelPath(exit_sentinel, sizeof(exit_sentinel), pid);
+			/* Only a regular file we own counts as the clean-exit sentinel:
+			 * a symlink or a file planted by another user must not make the
+			 * monitor skip the crash/restart handling.  lstat() + unlink()
+			 * replaces the old access()/unlink() pair (Coverity CID 1686042). */
+			if (lstat(exit_sentinel, &st) == 0 && S_ISREG(st.st_mode)
+			    && st.st_uid == getuid()) {
 				unlink(exit_sentinel);
 				break;
 			}

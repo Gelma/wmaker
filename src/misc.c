@@ -1260,3 +1260,16 @@ char *GetCommandForWindow(Window win)
 {
 	return getCommandForWindow(win, 0);
 }
+
+void wExitSentinelPath(char *buf, size_t buflen, pid_t pid)
+{
+	const char *runtime = getenv("XDG_RUNTIME_DIR");
+
+	/* Prefer the private per-user runtime directory: /tmp is world-writable
+	 * and the sentinel name is predictable, so another local user could plant
+	 * a symlink there.  The creator still uses O_EXCL|O_NOFOLLOW. */
+	if (runtime && *runtime && access(runtime, W_OK) == 0)
+		snprintf(buf, buflen, "%s/wmaker-exit-%d", runtime, (int)pid);
+	else
+		snprintf(buf, buflen, "/tmp/.wmaker-exit-%d", (int)pid);
+}
