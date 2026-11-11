@@ -138,8 +138,6 @@ static void sanitize_log_string(const char *src, char *dst, size_t dst_len)
 static void describe_window(Window win, char *buf, size_t len)
 {
 	WObjDescriptor *desc = NULL;
-	char clean_title[64];
-	char clean_class[64];
 	int s;
 
 	if (!buf || len == 0)
@@ -152,7 +150,7 @@ static void describe_window(Window win, char *buf, size_t len)
 	}
 
 	for (s = 0; s < w_global.screen_count; s++) {
-		WScreen *scr = wScreenWithNumber(s);
+		const WScreen *scr = wScreenWithNumber(s);
 		if (scr && scr->root_win == win) {
 			snprintf(buf, len, "role=root screen=%d", s);
 			return;
@@ -160,9 +158,12 @@ static void describe_window(Window win, char *buf, size_t len)
 	}
 
 	if (dpy && XFindContext(dpy, win, w_global.context.client_win, (XPointer *)&desc) != XCNOENT && desc) {
+		char clean_title[64];
+		char clean_class[64];
+
 		switch (desc->parent_type) {
 		case WCLASS_WINDOW: {
-			WWindow *wwin = (WWindow *)desc->parent;
+			const WWindow *wwin = (const WWindow *)desc->parent;
 			if (wwin) {
 				const char *title = (wwin->frame && wwin->frame->title) ? wwin->frame->title : NULL;
 				sanitize_log_string(wwin->wm_class, clean_class, sizeof(clean_class));
@@ -176,9 +177,9 @@ static void describe_window(Window win, char *buf, size_t len)
 			return;
 		}
 		case WCLASS_FRAME: {
-			WFrameWindow *fwin = (WFrameWindow *)desc->parent;
+			const WFrameWindow *fwin = (const WFrameWindow *)desc->parent;
 			if (fwin && fwin->flags.is_client_window_frame && fwin->child) {
-				WWindow *wwin = fwin->child;
+				const WWindow *wwin = fwin->child;
 				const char *title = fwin->title ? fwin->title : NULL;
 				sanitize_log_string(wwin->wm_class, clean_class, sizeof(clean_class));
 				sanitize_log_string(title, clean_title, sizeof(clean_title));
@@ -194,7 +195,7 @@ static void describe_window(Window win, char *buf, size_t len)
 			return;
 		}
 		case WCLASS_MENU: {
-			WMenu *menu = (WMenu *)desc->parent;
+			const WMenu *menu = (const WMenu *)desc->parent;
 			if (menu && menu->frame && menu->frame->title) {
 				sanitize_log_string(menu->frame->title, clean_title, sizeof(clean_title));
 				snprintf(buf, len, "role=menu title=\"%s\"", clean_title);
@@ -204,7 +205,7 @@ static void describe_window(Window win, char *buf, size_t len)
 			return;
 		}
 		case WCLASS_DOCK_ICON: {
-			WAppIcon *aicon = (WAppIcon *)desc->parent;
+			const WAppIcon *aicon = (const WAppIcon *)desc->parent;
 			if (aicon && aicon->dock) {
 				const char *dtype = (aicon->dock->type == WM_CLIP) ? "clip"
 				                  : (aicon->dock->type == WM_DRAWER) ? "drawer" : "dock";
@@ -217,7 +218,7 @@ static void describe_window(Window win, char *buf, size_t len)
 			return;
 		}
 		case WCLASS_APPICON: {
-			WAppIcon *aicon = (WAppIcon *)desc->parent;
+			const WAppIcon *aicon = (const WAppIcon *)desc->parent;
 			const char *cmd = (aicon && aicon->command) ? aicon->command
 			                : (aicon && aicon->wm_instance ? aicon->wm_instance : "?");
 			sanitize_log_string(cmd, clean_title, sizeof(clean_title));
