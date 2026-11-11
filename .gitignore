@@ -3,7 +3,8 @@
 *Makefile.in
 .deps/
 .libs/
-INSTALL
+# Anchor to the top level: wrlib/INSTALL is a tracked source file.
+/INSTALL
 aclocal.m4
 autom4te.cache*
 compile
@@ -22,7 +23,8 @@ ltmain.sh
 missing
 mkinstalldirs
 stamp-h1
-m4/ld-version-script.m4
+# m4/ld-version-script.m4 is tracked in this tree, so it must not be listed
+# here (it used to be, which hid it from git status).
 m4/libtool.m4
 m4/ltoptions.m4
 m4/ltsugar.m4
@@ -116,16 +118,46 @@ wrlib/wrlib.pc
 WINGs/WINGs.pc
 WINGs/WUtil.pc
 wmlib/wmlib.pc
-doc/*.1
+# Only these two man pages are generated (from wmaker.in / wmsetbg.in, see
+# doc/Makefile.am); the other doc/*.1 are tracked sources.
+doc/wmaker.1
+doc/wmsetbg.1
 
 wrlib/libwraster.map
 
+# Generated menus: exactly the GENERATED_MENUS list of WindowMaker/Makefile.am.
+# Do not use a menu.[a-z][a-z]* glob here: it also matches the *tracked*
+# translations (menu.ca, menu.de, ...) and the .in templates, so a new locale
+# or a new source file would be silently ignored by git.
 WindowMaker/appearance.menu
-WindowMaker/appearance.menu.[a-z][a-z]*
+WindowMaker/appearance.menu.fy
+WindowMaker/appearance.menu.nl
+WindowMaker/appearance.menu.sr
 WindowMaker/menu
-WindowMaker/menu.[a-z][a-z]*
+WindowMaker/menu.bg
+WindowMaker/menu.fi
+WindowMaker/menu.fy
+WindowMaker/menu.hu
+WindowMaker/menu.ko
+WindowMaker/menu.nl
+WindowMaker/menu.ro
+WindowMaker/menu.sk
+WindowMaker/menu.sr
+WindowMaker/menu.zh_TW
 WindowMaker/plmenu
-WindowMaker/plmenu.[a-z][a-z]*
+WindowMaker/plmenu.bg
+WindowMaker/plmenu.es
+WindowMaker/plmenu.fi
+WindowMaker/plmenu.fy
+WindowMaker/plmenu.ja
+WindowMaker/plmenu.ko
+WindowMaker/plmenu.nl
+WindowMaker/plmenu.pl
+WindowMaker/plmenu.ro
+WindowMaker/plmenu.sk
+WindowMaker/plmenu.sr
+WindowMaker/plmenu.zh_CN
+WindowMaker/plmenu.zh_TW
 WindowMaker/wmmacros
 
 
