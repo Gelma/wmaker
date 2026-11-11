@@ -292,6 +292,13 @@ static WMData *getSelectionData(Display * dpy, Window win, Atom where)
 		if (bytes == 0)
 			break;
 
+		/* The loop is driven by data another client controls: refuse to grow
+		 * without bound if bytes_after never reaches zero. */
+		if (total >= 64u * 1024u * 1024u) {
+			wwarning("selection larger than 64 MiB, truncating");
+			break;
+		}
+
 		/* the offset argument of XGetWindowProperty is in 32-bit units */
 		offset += (len * bpi + 3) / 4;
 	}
