@@ -1,16 +1,18 @@
 cid,displayImpact,displayCategory,displayType,displayFile,lineNumber,displayFunction,status,firstDetected
 1686036,Low,Security best practices violations,Calling risky function,/src/superfluous.c,Various,DoKaboom,Dismissed,11/04/26
 1686041,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3034,customPaletteMenuNewFromFile,Dismissed,11/04/26
-1686042,Low,Security best practices violations,Time of check time of use,/src/monitor.c,161,MonitorLoop,Dismissed,11/04/26
+1686042,Low,Security best practices violations,Time of check time of use,/src/monitor.c,168,MonitorLoop,Dismissed,11/04/26
 1686044,Low,Security best practices violations,Time of check time of use,/util/wmmenugen.c,160,main,Dismissed,11/04/26
-1686058,High,Memory - illegal accesses,Out-of-bounds read,/src/event.c,424,handle_inotify_events,New,11/04/26
-1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,710,deleteFile,Dismissed,11/04/26
+1686058,High,Memory - illegal accesses,Out-of-bounds read,/src/event.c,425,handle_inotify_events,New,11/04/26
+1686069,Low,Security best practices violations,Time of check time of use,/WINGs/wfilepanel.c,716,deleteFile,Dismissed,11/04/26
 1686073,Low,Security best practices violations,Time of check time of use,/WPrefs.app/Appearance.c,Various,createPanel,Dismissed,11/04/26
 1686074,Low,Security best practices violations,Time of check time of use,/WINGs/wcolorpanel.c,3121,customPaletteMenuRename,Dismissed,11/04/26
-1686081,Medium,Incorrect expression,Copy-paste error,/src/dock.c,Various,killCallback,New,11/04/26
+1686081,Medium,Incorrect expression,Copy-paste error,/src/appicon.c,579,killCallback,Dismissed,11/04/26
 1686085,Low,Security best practices violations,Calling risky function,/src/placement.c,Various,randomPlaceWindow,Dismissed,11/04/26
 1686089,Low,Security best practices violations,Time of check time of use,/util/setstyle.c,475,main,Dismissed,11/04/26
-1686097,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1789,wmkdirhier,Dismissed,11/04/26
-1686102,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1867,wrmdirhier,Dismissed,11/04/26
+1686097,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1815,wmkdirhier,Dismissed,11/04/26
+1686102,Low,Security best practices violations,Time of check time of use,/WINGs/proplist.c,1893,wrmdirhier,Dismissed,11/04/26
 1686108,Low,Security best practices violations,Calling risky function,/src/actions.c,1357,animateResize,Dismissed,11/04/26
-1686110,Medium,Insecure data handling,Untrusted loop bound,/wrlib/load_ppm.c,127,pm_getuint,New,11/04/26
+1686110,Medium,Insecure data handling,Untrusted loop bound,/wrlib/load_ppm.c,129,pm_getuint,New,11/04/26
+1687892,Medium,Error handling issues,Unchecked return value from library,/src/subprocess.c,Various,wSubprocessRun,New,11/11/26
+1687893,Low,Security best practices violations,Time of check time of use,/src/shutdown.c,83,Shutdown,New,11/11/26
