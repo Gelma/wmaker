@@ -1783,11 +1783,21 @@ int wmkdirhier(const char *path)
 	p = strlen(buf);
 	plen = strlen(thePath);
 
+	/* thePath is copied into buf component by component and the scan below
+	 * can reach plen + 1: a path that does not fit would overflow the stack
+	 * buffer, or fill it without a terminator.  Refuse it instead. */
+	if (plen >= sizeof(buf) - 1) {
+		werror(_("path too long: %s"), thePath);
+		wfree(thePath);
+		return 0;
+	}
+
 	do {
 		while (p++ < plen && thePath[p] != '/')
 			;
 
 		strncpy(buf, thePath, p);
+		buf[sizeof(buf) - 1] = '\0';
 		/* coverity[toctou] CID 1686097: defaults hierarchy owned by the same user */
 		if (mkdir(buf, 0777) == -1 && errno == EEXIST &&
 		    stat(buf, &st) == 0 && !S_ISDIR(st.st_mode)) {
