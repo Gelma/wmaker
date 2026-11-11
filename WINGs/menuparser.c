@@ -605,7 +605,11 @@ static void menu_parser_condition_ifmacro(WMenuParser parser, Bool check_exists)
 
 	parser->cond.depth++;
 
-	if (parser->cond.stack[1].skip) {
+	/* Only a *containing* #if can force skipping.  At depth 1 stack[1] still
+	 * holds the leftovers of a previously closed nested #if (condition_end
+	 * does not clear it), which would silently skip this whole section - the
+	 * #else handler below already guards with depth > 1. */
+	if ((parser->cond.depth > 1) && parser->cond.stack[1].skip) {
 		parser->cond.stack[0].skip = True;
 	} else {
 		macro = menu_parser_find_macro(parser, macro_name);
