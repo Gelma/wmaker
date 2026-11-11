@@ -1674,6 +1674,9 @@ Bool WMWritePropListToFile(WMPropList * plist, const char *path)
 	 */
 	mask = umask(S_IRWXG | S_IRWXO);
 	if ((fd = mkstemp(thePath)) < 0) {
+		/* Restore the process umask before leaving: the aggressive mask
+		 * would otherwise stay in effect for every later file creation. */
+		umask(mask);
 		werror(_("mkstemp (%s) failed"), thePath);
 		goto failure;
 	}
