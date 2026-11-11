@@ -131,8 +131,13 @@ int main(int argc, char **argv)
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-display") == 0 && i + 1 < argc)
 			display_name = argv[++i];
-		else if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc)
+		else if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
 			delay_ms = atoi(argv[++i]);
+			/* 0 or negative makes select() return immediately and the app
+			 * spins at full CPU; atoi() also accepts "0xyz". */
+			if (delay_ms < 50)
+				delay_ms = 50;
+		}
 		else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
 			printf("Usage: wmnetgraph [-display <display>] [-delay <ms>]\n");
 			return 0;
