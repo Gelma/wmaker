@@ -102,6 +102,11 @@ static void initDragCursor(WMDraggingInfo * info)
 	WMScreen *scr = sourceScreen(info);
 	XColor cursorFgColor, cursorBgColor;
 
+	/* sourceScreen() returns NULL once the source view is gone; the other
+	 * users of it (recolorCursor, sendDnDClientMessage paths) already guard. */
+	if (!scr)
+		return;
+
 	/* green */
 	cursorFgColor.red = 0x4500;
 	cursorFgColor.green = 0xb000;
@@ -387,6 +392,9 @@ static Bool sendPositionMessage(WMDraggingInfo * info, WMPoint * mousePos)
 {
 	WMScreen *scr = sourceScreen(info);
 	WMRect *noPosZone = &(XDND_NO_POS_ZONE(info));
+
+	if (!scr)
+		return False;
 
 	if (noPosZone->size.width != 0 || noPosZone->size.height != 0) {
 		if (mousePos->x < noPosZone->pos.x || mousePos->x > (noPosZone->pos.x + noPosZone->size.width)
@@ -725,12 +733,20 @@ static Window findDestination(WMDraggingInfo * info, WMPoint * mousePos)
 {
 	WMScreen *scr = sourceScreen(info);
 	unsigned nchildren;
-	Window *children = windowChildren(scr->display, scr->rootWin, &nchildren);
+	Window *children;
+	Window dest = None;
 	int i;
 	XWindowAttributes attr;
 
-	if (isXdndAware(scr, scr->rootWin))
-		return scr->rootWin;
+	if (!scr)
+		return None;
+
+	children = windowChildren(scr->display, scr->rootWin, &nchildren);
+
+	if (isXdndAware(scr, scr->rootWin)) {
+		dest = scr->rootWin;
+		goto out;
+	}
 
 	/* exclude drag icon (and upper) from search */
 	/* nchildren is unsigned: cast before subtracting, or the empty-children
@@ -743,11 +759,6 @@ static Window findDestination(WMDraggingInfo * info, WMPoint * mousePos)
 		}
 	}
 
-	if (i < 0) {
-		/* root window has no child under drag icon, and is not xdnd aware. */
-		return None;
-	}
-
 	/* inspecting children, from upper to lower */
 	for (; i >= 0; i--) {
 		if (XGetWindowAttributes(scr->display, children[i], &attr)
@@ -755,12 +766,17 @@ static Window findDestination(WMDraggingInfo * info, WMPoint * mousePos)
 		    && mousePos->x >= attr.x
 		    && mousePos->y >= attr.y
 		    && mousePos->x < attr.x + attr.width && mousePos->y < attr.y + attr.height) {
-			return lookForAwareWindow(scr, mousePos, children[i]);
+			dest = lookForAwareWindow(scr, mousePos, children[i]);
+			break;
 		}
 	}
 
-	/* No child window under drag pointer */
-	return None;
+out:
+	/* XQueryTree's child list belongs to us: this function runs once per
+	 * motion event during a drag, so leaking it grows the Xlib heap for the
+	 * whole drag. */
+	XFree(children);
+	return dest;
 }
 
 static void storeDestinationProtocolVersion(WMDraggingInfo * info)
