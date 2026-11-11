@@ -418,11 +418,17 @@ static char *indentedDescription(WMPropList * plist, int level)
 	case WPLData:
 		retstr = dataDescription(plist);
 		break;
-	case WPLArray:
+	case WPLArray: {
+		int emitted = 0;
+
 		retstr = wstrdup("(\n");
 		for (i = 0; i < WMGetArrayItemCount(plist->d.array); i++) {
 			str = indentedDescription(WMGetFromArray(plist->d.array, i), level + 1);
-			if (i == 0) {
+			/* A non-proplist element yields NULL: description() already
+			 * skips those, do the same here instead of strlen(NULL). */
+			if (!str)
+				continue;
+			if (!emitted) {
 				tmp = (char *)wmalloc(2 * (level + 1) + strlen(retstr) + strlen(str) + 1);
 				sprintf(tmp, "%s%*s%s", retstr, 2 * (level + 1), "", str);
 				wfree(retstr);
@@ -433,6 +439,7 @@ static char *indentedDescription(WMPropList * plist, int level)
 				wfree(retstr);
 				retstr = tmp;
 			}
+			emitted = 1;
 			wfree(str);
 		}
 		tmp = (char *)wmalloc(strlen(retstr) + 2 * level + 3);
@@ -440,12 +447,18 @@ static char *indentedDescription(WMPropList * plist, int level)
 		wfree(retstr);
 		retstr = tmp;
 		break;
+	}
 	case WPLDictionary:
 		retstr = wstrdup("{\n");
 		e = WMEnumerateHashTable(plist->d.dict);
 		while (WMNextHashEnumeratorItemAndKey(&e, (void **)&val, (void **)&key)) {
 			skey = indentedDescription(key, level + 1);
 			sval = indentedDescription(val, level + 1);
+			if (!skey || !sval) {
+				wfree(skey);
+				wfree(sval);
+				continue;
+			}
 			tmp = (char *)wmalloc(2 * (level + 1) + strlen(retstr) + strlen(skey)
 					      + strlen(sval) + 6);
 			sprintf(tmp, "%s%*s%s = %s;\n", retstr, 2 * (level + 1), "", skey, sval);
