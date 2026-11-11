@@ -74,7 +74,9 @@ You can find each step documented in [SpecAI.md](https://github.com/Gelma/wmaker
 
 (By the way, playing [Urban Terror](https://www.urbanterror.info/home/) has more or less the same FPS, but a complete different refresh sync on display!)
 
-Using right now the SNI/DBus implementation. So, something like nm-applet works completely in WMaker!
+The SNI/DBus system tray host is implemented and working: something like nm-applet works completely
+in WMaker. It is **optional at build time** — configure with `--enable-sni` (the default is `no`), so
+a plain `./configure && make` does not include it.
 
 Import of features and ideas from [WayLand porting](https://github.com/phkaeser/wlmaker). Also, notify the author about what he can probably "up-port" to its wonderful project.
 

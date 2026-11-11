@@ -1,17 +1,25 @@
 # Coverity report - triage and corrective plan
 
+> **Scope of this document.** Sections 1-8 describe the **2026-11-04 snapshot** (88 defects,
+> 90 files in `CoverityReport/`) and the triage carried out on it; they are kept as the historical
+> record. The export committed in the tree today is the **2026-11-10 scan `c73ed34c`**:
+> **15 defects** (12 `Dismissed`, 3 `New`), 17 files in `CoverityReport/` (15 `cid_<n>.json` plus
+> the CSV/JSON indexes). See **§9** for the current state; the four fixed CIDs dropped out of the
+> report entirely.
+
 Static-analysis export committed under `CoverityReport/`: `coverity_defects.csv` and
-`coverity_defects.json` (the 88-row table), plus one `cid_<n>.json` per defect with the checker name
+`coverity_defects.json` (the defect table), plus one `cid_<n>.json` per defect with the checker name
 and the full event path.
 
 | item | value |
 |---|---|
-| report | Coverity, 88 defects |
-| tree | `gelma` branch, as of 2026-11-04 |
-| files triaged | all 90 files in `CoverityReport/` |
+| report (historical, §§1-8) | Coverity, 88 defects as of 2026-11-04 |
+| report (current, §9) | Coverity scan `c73ed34c`, 15 defects as of 2026-11-10 |
+| tree | `master` (`gelma_github_repo` checkout) |
+| files triaged | all 90 files of the 2026-11-04 export; 17 files in the current one |
 | plan key | the `cid` (Coverity id); line numbers drift, ids do not |
 
-## 1. What the report contains
+## 1. What the report contains (2026-11-04 snapshot)
 
 88 defects: **30 High**, **44 Medium**, **14 Low**. 83 were first seen in the 2026-11-04 run;
 5 are old ones (2013-2014) that were still open.

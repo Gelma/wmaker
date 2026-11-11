@@ -6,40 +6,40 @@
 - **Custom Installation Directory**: `/opt/wmaker`.
 - **Language Convention**: Always write all documentation (`SpecAI.md`) and user responses in English.
 
-86. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
+86. **[`src/wmspec.c`](src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
     - **Stack Allocation**: In `updateClientList()` and `updateClientListStacking()`, replaced heap allocations (`wmalloc`/`wfree`) on every window map, unmap, or stacking order change with a 64-window stack buffer (`Window stack_list[64]`), avoiding dynamic heap memory churn for normal desktop sessions ($\le 64$ managed windows).
     - **In-Place Reversal**: Eliminated the secondary reverse heap buffer `client_list_reverse` entirely in `updateClientListStacking()`, swapping array elements in-place ($O(N/2)$ operations, 0 additional memory).
 
-87. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/xinerama.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xinerama.c) - Ultra-Fast L1 Direct-Mapped `wWindowFor` Cache & Round-Trip Pruning**:
+87. **[`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/xinerama.c`](src/xinerama.c) - Ultra-Fast L1 Direct-Mapped `wWindowFor` Cache & Round-Trip Pruning**:
     - **L1 Cache for Window Resolution**: Implemented a 128-entry direct-mapped L1 CPU cache for `wWindowFor(Window window)`. Repeat lookups during event bursts completely bypass `XFindContext()` (which acquires display mutex locks and traverses internal Xlib linked lists), resolving `WWindow*` in 2 ALU instructions (~1-2 ns).
     - **Safe Invalidation**: Added `wWindowCacheInvalidate(wwin)` automatically called during `wWindowDestroy()`.
     - **XSync Pruning**: Removed redundant blocking `XSync(dpy, False)` in `wManageWindow()` immediately prior to `XGetWindowAttributes()`.
     - **Single-Head Fast-Path**: Short-circuited `wGetHeadForPoint()` to return `primary_head` in $O(1)$ time when `count <= 1`.
 
-88. **[`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/moveres.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/moveres.c) - Motion Event Compression & ButtonPress Round-Trip Elimination**:
+88. **[`src/event.c`](src/event.c), [`src/moveres.c`](src/moveres.c) - Motion Event Compression & ButtonPress Round-Trip Elimination**:
     - **Motion Compression**: Added non-blocking event queue compression in `handleMotionNotify()` via `XCheckTypedWindowEvent()`, collapsing high-frequency motion event bursts (e.g., 1000 Hz mice) to the latest coordinates and avoiding redundant boundary and corner recalculations. Added `PointerMotionMask` compression to rubber-band selection and window positioning loops in `src/moveres.c`.
     - **ButtonPress Latency Reduction**: Eliminated 4 redundant `XSync(dpy, 0)` calls surrounding `XAllowEvents()` in `handleButtonPress()`, making window click-to-focus and icon clicks instantaneous with zero socket round-trips.
     - **ProcessPendingEvents Optimization**: Replaced blocking `XSync(dpy, False)` with `XFlush(dpy)` in `ProcessPendingEvents()`.
 
-89. **[`src/actions.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c), [`src/client.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/client.c) - Focus/Protocol Asynchrony & Mini-Preview Screenshot Bypass**:
+89. **[`src/actions.c`](src/actions.c), [`src/client.c`](src/client.c) - Focus/Protocol Asynchrony & Mini-Preview Screenshot Bypass**:
     - **Protocol Asynchrony**: In `wClientSendProtocol()`, replaced blocking `XSync(dpy, False)` with `XFlush(dpy)`. Eliminated duplicate `XSync` in `wSetFocusTo()` and `flushExpose()`.
     - **Expensive Screenshot Bypass**: In `wIconifyWindow()`, guarded full-window screenshot captures (`XRaiseWindow`, `XTranslateCoordinates`, `XGetImage`, `RSmoothScaleImage`) behind `wPreferences.miniwin_preview_balloon`. When disabled (default), saves megabytes of socket data transfers and millions of CPU cycles on window minimize operations.
 
-90. **[`src/misc.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/misc.c), [`WINGs/wtextfield.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtextfield.c) - Eliminate Busy-Wait Spin Loops & Static Atom Caching**:
+90. **[`src/misc.c`](src/misc.c), [`WINGs/wtextfield.c`](WINGs/wtextfield.c) - Eliminate Busy-Wait Spin Loops & Static Atom Caching**:
     - **Busy-Wait Elimination**: In `getTextSelection()` (`src/misc.c`), replaced a tight empty `while (!XCheckTypedWindowEvent(...) && !timeout) ;` busy loop that burned 100% of a CPU core with `poll(2)` on `ConnectionNumber(dpy)` bounded by a high-resolution monotonic clock timeout.
     - **Static Atom Caching**: In `WINGs/wtextfield.c`, statically cached `TARGETS`, `TEXT`, and `COMPOUND_TEXT` atoms using a single initial `XInternAtoms` batch, eliminating 3 synchronous round-trips on every clipboard/selection request.
 
-91. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - Enhanced Runtime Performance Metrics**:
+91. **[`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h) - Enhanced Runtime Performance Metrics**:
     - Extended telemetry to track `motion_events_compressed`, `mini_preview_bypassed`, and `wwindow_cache_hits`/`wwindow_cache_misses` with automatic hit rate percentage reporting in both `/tmp/wmaker_runtime_logs/runtime_stats.json` and `runtime_stats.log`.
 
-92. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/screen.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.h), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
+92. **[`src/wmspec.c`](src/wmspec.c), [`src/screen.c`](src/screen.c), [`src/screen.h`](src/screen.h), [`src/defaults.c`](src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
     - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
     - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
 
-93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
+93. **[`src/telemetry.c`](src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
     - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
 
-94. **[`test/wm_stress.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/wm_stress.c), [`test/run_stress.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_stress.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
+94. **[`test/wm_stress.c`](test/wm_stress.c), [`test/run_stress.sh`](test/run_stress.sh), [`Makefile.am`](Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
     - Developed `wm_stress`, a standalone multithreaded X11 client tool configured by default to saturate all available CPU cores (8 threads on 8 cores).
     - Emits aggressive concurrent window management operations on `:0` or custom displays:
       - Rapid window creation, mapping, unmapping, and destruction.
@@ -51,7 +51,7 @@
     - Handled clean termination via `SIGINT`/`SIGTERM` with full X11 resource deallocation.
     - Added Makefile target `make stress` and convenience launcher script `test/run_stress.sh`.
 
-95. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`src/rootmenu.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c), [`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c) - Root-Window Global Key Grabs & Signal Safety**:
+95. **[`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/screen.c`](src/screen.c), [`src/defaults.c`](src/defaults.c), [`src/rootmenu.c`](src/rootmenu.c), [`WINGs/wballoon.c`](WINGs/wballoon.c) - Root-Window Global Key Grabs & Signal Safety**:
     - **Global Root Window Key Grabs**: Eliminated the per-window installation of keyboard grabs in `wManageWindow()`. Replaced repetitive $O(N_{windows} \times N_{keys})$ wire requests with global passive grabs established once per screen on `scr->root_win` (`wScreenSetKeyGrabs()`). This completely eliminates ~70 asynchronous X11 protocol requests per window creation (over 2.3 million wire requests eliminated during high-concurrency stress tests), drastically reducing socket buffer serialization and context-switching overhead.
     - **Dynamic Grab Suspension for `no_bind_keys`**: Automatically suspends root key grabs (`wScreenUngrabKeys()`) when focusing client windows with `no_bind_keys` set (e.g. VMs, DOSBox, emulators, games) and restores them when focus transitions back to normal windows.
     - **Clean Menu/Binding Rebinds**: Updated `wSetKeyBinding()` to rebind globally on `scr->root_win` instead of iterating over every managed window.
@@ -71,17 +71,17 @@
     - **Finding 17 (.gitignore Updates)**: Added wildcards for generated menu files (`appearance.menu*`, `menu*`, `plmenu*`), man pages (`doc/*.1`), and `wmlib/wmlib.pc`.
     - **Finding 19 (MapRequest Defensive Guard)**: Added defensive screen resolution check in `handleMapRequest()` (`src/event.c`) preventing NULL dereferences when processing events on unknown root windows.
 
-97. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/wmspec.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.h), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/properties.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
+97. **[`src/wmspec.c`](src/wmspec.c), [`src/wmspec.h`](src/wmspec.h), [`src/window.c`](src/window.c), [`src/properties.c`](src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
     - **De-advertisement**: Removed `_NET_WM_SYNC_REQUEST` and `_NET_WM_SYNC_REQUEST_COUNTER` from the `_NET_SUPPORTED` atom array on root windows, informing clients (GTK, Qt, Chrome) that Window Maker does not implement synchronous frame acknowledgment.
     - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
     - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
 
-98. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c), [`src/main.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c), [`WINGs/wapplication.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
+98. **[`wrlib/raster.c`](wrlib/raster.c), [`src/main.c`](src/main.c), [`WINGs/wapplication.c`](WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
     - **Single Process-Wide KSM Invocation**: Eliminated the redundant `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` call in `src/main.c`. Process-wide KSM is now cleanly established exactly once per process inside `WMInitializeApplication()` (`WINGs/wapplication.c`), ensuring all WINGs applications and Window Maker itself run with anonymous memory deduplication active by default.
     - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
     - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
 
-99. **[`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c), [`WINGs/widgets.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`test/run_exit_test.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_exit_test.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
+99. **[`WINGs/wballoon.c`](WINGs/wballoon.c), [`WINGs/widgets.c`](WINGs/widgets.c), [`src/defaults.c`](src/defaults.c), [`test/run_exit_test.sh`](test/run_exit_test.sh), [`Makefile.am`](Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
     - **Shutdown SIGSEGV (`151ccd71`)**: `WMDestroyScreen()` detaches `scr->balloon` before calling `W_DestroyBalloon()`; `destroyView()` then reaches `WMSetBalloonTextForView()`, which dereferenced the detached pointer. Every `SIGTERM`/`SIGUSR1` exit ended with an `Invalid read of size 8` at address `0x8` (status 139), so `Exit()`, `ExecExitScript()` and `wCleanupSignalPipe()` never ran. The balloon API now tolerates a missing `scr->balloon`; exit status is 0 again.
     - **Uninitialised defaults (`52e1029a`)**: `wDefaultsInitDomain()` allocated `WDDomain` with `wmalloc()` (not zeroed) and compared `stbuf.st_mtime` even when `stat()` had failed, which is the normal case on a fresh `$HOME`. The structure is zeroed and `st_mtime` is only used when `stat()` succeeded.
     - **Exit regression test (`7b9f8e8e`)**: `test/run_exit_test.sh` (target `make exit-test`, `EXIT_TEST_ARGS=--valgrind` for the Valgrind case) starts `src/.libs/wmaker --for-real` on an isolated Xvfb display with a throw-away `$HOME` and asserts exit status 0 on `SIGTERM`, a working restart on `SIGUSR1`, a telemetry dump on `SIGUSR2` and no invalid memory accesses under Valgrind. It never uses the caller's `DISPLAY`.
@@ -92,7 +92,7 @@
 ## Objectives and Completed Activities
 
 ### 1. Build and Installation Script (`build_and_install.sh`)
-- Created the executable script [build_and_install.sh](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/build_and_install.sh).
+- Created the executable script [build_and_install.sh](build_and_install.sh).
 - **Script Features**:
   - Automatic check and installation of required packages/dependencies on Ubuntu 24.04 (`libx11-dev`, `libxext-dev`, `libxinerama-dev`, `libxrandr-dev`, `libxpm-dev`, `libxft-dev`, `libxmu-dev`, `libpango1.0-dev`, `libpng-dev`, `libjpeg-dev`, `libgif-dev`, `libtiff-dev`, `libwebp-dev`, `libexif-dev`, `libarchive-dev`, `autoconf`, `automake`, `libtool`).
   - Target directory management for `/opt/wmaker` (creation and ownership assigned to the current user).
@@ -103,167 +103,167 @@
   - Registration of the X11 session for the Display Manager in `/usr/share/xsessions/wmaker-opt.desktop`.
 
 ### 2. Lifecycle Control Scripts
-- [start.sh](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/start.sh): Starts Window Maker from `/opt/wmaker` in the current X11 session or initializes an `xinit` display if none is running.
-- [stop.sh](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/stop.sh): Cleanly stops running Window Maker processes by sending the appropriate signal (`SIGTERM`).
+- [start.sh](start.sh): Starts Window Maker from `/opt/wmaker` in the current X11 session or initializes an `xinit` display if none is running.
+- [stop.sh](stop.sh): Cleanly stops running Window Maker processes by sending the appropriate signal (`SIGTERM`).
 
 ### 3. Patches and Bug Fixes Applied to the Codebase
 All fixes have been applied in individual, incremental Git commits, each signed with `Made-by-IA: Gemini`:
 
-1. **[`74351e8b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c#L990-L1015) - `wmspec`: Fix `sizeof(pointer)` in `updateWorkspaceNames`**:
+1. **[`74351e8b`](src/wmspec.c#L990-L1015) - `wmspec`: Fix `sizeof(pointer)` in `updateWorkspaceNames`**:
    - `sizeof(pos)` returned 8 bytes (pointer size on 64-bit architectures), truncating the copy to 7 bytes and leaving `_NET_DESKTOP_NAMES` corrupted.
    - Replaced with a safe copy bounded by `MAX_WORKSPACENAME_WIDTH` and explicit null-termination.
-2. **[`61e5fc9e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L4745-L4870) - `dock`: Guard against stack corruption and VLAs in Drawers and Menus**:
+2. **[`61e5fc9e`](src/dock.c#L4745-L4870) - `dock`: Guard against stack corruption and VLAs in Drawers and Menus**:
    - Replaced stack VLA buffers (`WAppIcon *aicons_to_shift[drawer->icon_count]` and `Window wins[n]`) with safe dynamic heap allocations sized to `max_icons`.
    - Added defensive bounds checking on `wins[idx]` to prevent out-of-bounds stack writes.
    - In `updateWorkspaceMenu()`: moved the `!menu` null-check before accessing `menu->frame`.
    - In `makeWorkspaceMenu()`: added an immediate `return NULL` if `wMenuCreate()` fails.
-3. **[`2fb52eaf`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c#L198-L215) - `actions`: NULL check on `focused` in `wSetFocusTo`**:
+3. **[`2fb52eaf`](src/actions.c#L198-L215) - `actions`: NULL check on `focused` in `wSetFocusTo`**:
    - When `scr->focused_window` is NULL (e.g., when closing the last window in a workspace), `focused->next` caused a `SIGSEGV`. Added the defensive guard `if (focused) focused->next = wwin;`.
-4. **[`d61746b3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/client.c#L105-L150) - `client`: Default case in `wClientGetGravityOffsets`**:
+4. **[`d61746b3`](src/client.c#L105-L150) - `client`: Default case in `wClientGetGravityOffsets`**:
    - Added a `default` branch to initialize `*ofs_x = 0; *ofs_y = 0;` when non-standard `win_gravity` values are sent by clients.
-5. **[`a474b925`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L1175-L1190) - `WINGs`: Early return on NULL text block in `wtext.c`**:
+5. **[`a474b925`](WINGs/wtext.c#L1175-L1190) - `WINGs`: Early return on NULL text block in `wtext.c`**:
    - Removed the `...for this app will surely crash` comment/printf and added `return;` to avoid dereferencing `tb->sections[s]` when `tb` is NULL.
-6. **[`8e56bf09`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c#L375-L395) - `WINGs`: NULL pointer arithmetic in `wballoon.c`**:
+6. **[`8e56bf09`](WINGs/wballoon.c#L375-L395) - `WINGs`: NULL pointer arithmetic in `wballoon.c`**:
    - When `strchr` did not find a `\n`, `ptr2` became NULL and `ptr = ptr2 + 1` performed NULL pointer arithmetic.
-7. **[`223810ed`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGs.h#L965-L975) - `WINGs`: Align parameter order in headers**:
+7. **[`223810ed`](WINGs/WINGs/WINGs.h#L965-L975) - `WINGs`: Align parameter order in headers**:
    - Synchronized the `WMSetViewExpandsToParent` prototype with its actual definition (`leftOffs` before `topOffs`), as well as the parameters of `W_SendDnDClientMessage` in `WINGsP.h.in`.
-8. **[`35006a0f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/session.c#L438-L445) - `session`: `%u` format specifier in `sscanf`**:
+8. **[`35006a0f`](src/session.c#L438-L445) - `session`: `%u` format specifier in `sscanf`**:
    - Fixed the format specifier from `%i` to `%u` for the `unsigned int w, h` fields of `WSavedState`.
-9. **[`b58f0abe`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c#L510-L525) - `rootmenu`: NULL check on `line` in `next_token`**:
+9. **[`b58f0abe`](src/rootmenu.c#L510-L525) - `rootmenu`: NULL check on `line` in `next_token`**:
    - Prevented immediate dereference of `*line` when passed a NULL pointer.
-10. **[`a9f0042e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L285-L300) - `menu`: Defensive checks in `wMenuEntrySetCascade`**:
+10. **[`a9f0042e`](src/menu.c#L285-L300) - `menu`: Defensive checks in `wMenuEntrySetCascade`**:
     - Added an early guard `if (!menu || !entry || !cascade) return;`.
-11. **[`c431060f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WUtil.h#L525-L530) - `WINGs`: Align parameter names in `WMAppendBag`**:
+11. **[`c431060f`](WINGs/WINGs/WUtil.h#L525-L530) - `WINGs`: Align parameter names in `WMAppendBag`**:
     - Synchronized parameter names between prototype (`WUtil.h`) and definition (`bagtree.c`).
-12. **[`306917c9`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L2005-L4525) - `dock`: NULL checks on `old_top` and single appicon removal in drawer**:
+12. **[`306917c9`](src/dock.c#L2005-L4525) - `dock`: NULL checks on `old_top` and single appicon removal in drawer**:
     - In `wDockRestoreState()`: checked `old_top != NULL` before updating default icon coordinates.
     - In `removeDrawerCallback()`: checked `aicon != NULL` before moving the remaining appicon back to the main dock.
-13. **[`8e562f7d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.c#L900-L915) - `workspace`: Truncate workspace names restored from WMState**:
+13. **[`8e562f7d`](src/workspace.c#L900-L915) - `workspace`: Truncate workspace names restored from WMState**:
     - Used `wstrndup()` bounded by `MAX_WORKSPACENAME_WIDTH` to prevent overly long workspace names in configuration files from overflowing Window Maker buffers.
-14. **[`588e572d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wxpaste.c#L80-L150) - `wxpaste`: Fix event loop and uninitialized variable**:
+14. **[`588e572d`](util/wxpaste.c#L80-L150) - `wxpaste`: Fix event loop and uninitialized variable**:
     - In `fetchSelection()`, the wait loop for the `SelectionNotify` event was erroneously written as `while (0)`, skipping reception completely and leaving `res` uninitialized.
     - In `main()`, the length variable `l` passed to `write(STDOUT_FILENO, buf, l)` was not set by `fetchSelection()`, causing random bytes to be written to stdout.
     - Fixed the loop to `while (1)`, initialized `res = 0`, returned the actual property length in `l`, and initialized `l = 0`.
-15. **[`4d8a5118`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L1170-L1185) - `WINGs`: Preventive NULL check on `tb` in `wtext.c`**:
+15. **[`4d8a5118`](WINGs/wtext.c#L1170-L1185) - `WINGs`: Preventive NULL check on `tb` in `wtext.c`**:
     - When jumping to `_doneH:` inside `findClosestPositionTo()`, `tb->graphic` was dereferenced before the `if (!tb) return;` check located under `_doNothing:`.
     - Moved the validity check `if (!tb) return;` to the start of the `_doneH:` block, preventing NULL pointer dereferences in text widgets.
-16. **[`45de612a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/Extras/wtableview.c#L870-L895) - `WINGs`: Initialize `range` struct in `columnsInRect`**:
+16. **[`45de612a`](WINGs/Extras/wtableview.c#L870-L895) - `WINGs`: Initialize `range` struct in `columnsInRect`**:
     - When `totalColumns == 0` or no column intersected the rectangle, `range.position` and `range.count` remained uninitialized, causing out-of-bounds accesses in `drawRow()`.
     - Initialized `range.position = 0; range.count = 0;` with an early return if no columns exist or match.
-17. **[`d0053942`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/appmenu.c#L130-L140) - `appmenu`: Width limit in `sscanf` to prevent stack overflow**:
+17. **[`d0053942`](src/appmenu.c#L130-L140) - `appmenu`: Width limit in `sscanf` to prevent stack overflow**:
     - When parsing the X11 application menu in `parseMenu()`, an unbounded `%s` read a string from a client window into the stack buffer `char rtext[300]`.
     - Added the `%299s` width limit to prevent stack buffer overflows from malicious or corrupted payloads sent by X clients.
-18. **[`c4172978`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c#L80-L86), [`b22c8da1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmiv.c#L1595-L1605), [`26370998`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/setstyle.c#L225-L235), [`cfe35312`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WPrefs.app/Appearance.c#L1315-L1330) - Fix `%x`/`%X` types in `sscanf`/`fscanf`**:
+18. **[`c4172978`](src/xdnd.c#L80-L86), [`b22c8da1`](util/wmiv.c#L1595-L1605), [`26370998`](util/setstyle.c#L225-L235), [`cfe35312`](WPrefs.app/Appearance.c#L1315-L1330) - Fix `%x`/`%X` types in `sscanf`/`fscanf`**:
     - Resolved type mismatches where pointers to signed integers (`int *`) were passed to hexadecimal specifiers `%x`/`%2X`, which strictly require `unsigned int *`.
-19. **[`ae59afa4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wcolorpanel.c#L1890-L3490) - `WINGs`: Initialize `CPColor` struct, fix format and base length in Color Panel**:
+19. **[`ae59afa4`](WINGs/wcolorpanel.c#L1890-L3490) - `WINGs`: Initialize `CPColor` struct, fix format and base length in Color Panel**:
     - Initialized all local stack instances of `CPColor` with `{ 0 }` in callbacks to avoid garbage values in `cpColor.hsv` when only `cpColor.rgb` is set.
     - Fixed a potential buffer overflow in `hsbInit()` by enlarging `tmp` to 16 bytes and using `snprintf()` with `%d` instead of `%hu`.
     - In `generateNewFilename()`, checked for a space before `{` to prevent negative indices and buffer underflow in `strncpy()` on specific color names.
-20. **[`bb0727d2`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1157-L1160) - Align `printf`/`snprintf` format specifiers and buffer sizes**:
+20. **[`bb0727d2`](src/dialog.c#L1157-L1160) - Align `printf`/`snprintf` format specifiers and buffer sizes**:
     - `src/dialog.c`: Fixed `%hu` to `%u` for the current year in `COPYRIGHT_TEXT`.
     - `src/dock.c`: Used `%d` for `current_workspace` and enlarged the `ws_number` buffer to 32 bytes to eliminate truncation warnings.
     - `src/geomview.c`: Replaced `%+5i` with `%5u` for unsigned width and height dimensions.
     - `src/session.c`: Replaced `%ix%i` with `%ux%u` to store unsigned width and height.
     - `WINGs/wruler.c`: Enlarged the `c` buffer to 16 bytes and fixed `%hu` to `%d` with dynamic `strlen(c)`.
-21. **[`b4499511`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/client.c#L310-L320) - `client`: NULL guards in `wClientCheckProperty`**:
+21. **[`b4499511`](src/client.c#L310-L320) - `client`: NULL guards in `wClientCheckProperty`**:
     - Added an early check `if (!wwin || !event) return;` to avoid immediate dereferencing of `wwin->flags` when handling a `PropertyNotify` event on unassociated or invalid windows.
-22. **[`c7dfaef1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c#L732-L1590) - `event`: Verify `main_window_desc` pointer in event handlers**:
+22. **[`c7dfaef1`](src/event.c#L732-L1590) - `event`: Verify `main_window_desc` pointer in event handlers**:
     - In `handleDestroyNotify`, `handlePropertyNotify`, and the `WKBD_HIDE` keybinding handler, verified that `wapp->main_window_desc` is non-NULL before accessing `screen_ptr` or `WFLAGP`, preventing Window Maker crashes when an X11 application terminates abnormally.
-23. **[`1b03ad80`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c#L2014-L2018) - `actions`: NULL check in `wUnhideApplication`**:
+23. **[`1b03ad80`](src/actions.c#L2014-L2018) - `actions`: NULL check in `wUnhideApplication`**:
     - Added the guard `if (!wapp || !wapp->main_window_desc) return;` to avoid NULL dereference of `wapp->main_window_desc->screen_ptr`.
-24. **[`d8f5f4cd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/winmenu.c#L638) - `winmenu`: NULL guard on `main_window_desc` in window menu**:
+24. **[`d8f5f4cd`](src/winmenu.c#L638) - `winmenu`: NULL guard on `main_window_desc` in window menu**:
     - In `updateMenu()`, checked `wapp->main_window_desc` before evaluating the `WFLAGP(wapp->main_window_desc, no_appicon)` macro, avoiding crashes when opening the window commands menu.
-25. **[`6d46cd4b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1329) - `window`: NULL check on `main_window_desc` in `wManageWindow`**:
+25. **[`6d46cd4b`](src/window.c#L1329) - `window`: NULL check on `main_window_desc` in `wManageWindow`**:
     - Checked `app->main_window_desc != NULL` before accessing the `start_hidden` attribute.
-26. **[`8dcb6567`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/wraster.h.in#L65) - `wrlib`: Variadic `__wrlib_nonnull` macro in `wraster.h.in` template**:
+26. **[`8dcb6567`](wrlib/wraster.h.in#L65) - `wrlib`: Variadic `__wrlib_nonnull` macro in `wraster.h.in` template**:
     - In the fallback template, `#define __wrlib_nonnull(argidx)` accepted only a single argument instead of `(...)`, causing macro expansion and static analysis parsers to fail. Fixed to variadic `__wrlib_nonnull(...)`.
-27. **[`99a11f75`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/xdnd.c#L525-L545) - `xdnd`: Fix out-of-bounds pointer arithmetic and add heap allocation checks**:
+27. **[`99a11f75`](util/xdnd.c#L525-L545) - `xdnd`: Fix out-of-bounds pointer arithmetic and add heap allocation checks**:
     - In `util/xdnd.c:526`, `*descriptions` has type `char **`. The statement `memcpy(*descriptions + l, data, dcount)` added the offset multiplied by `sizeof(char *)`, causing severe heap corruption and stack smashing. Fixed by casting to byte pointer `(char *)*descriptions + l`.
     - Added allocation failure checks on `*descriptions` and `*types`.
-28. **[`2873c117`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmmenugen_parse_wmconfig.c#L105) - `wmmenugen`: NULL guard on `label` in `parse_wmconfig_file`**:
+28. **[`2873c117`](util/wmmenugen_parse_wmconfig.c#L105) - `wmmenugen`: NULL guard on `label` in `parse_wmconfig_file`**:
     - If a configuration line did not provide a label (`label == NULL`), calling `strcmp(lastlabel, label)` caused `wmmenugen` to crash immediately. Added the `if (label)` guard condition.
-29. **[`14f5d37e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/session.c#L188-L195) - `session`: Fix memory leak and potential NULL crash on window class**:
+29. **[`14f5d37e`](src/session.c#L188-L195) - `session`: Fix memory leak and potential NULL crash on window class**:
     - Reassigning `class = strdup(wwin->wm_class)` leaked the pointer allocated by `XGetClassHint` and did not check `wwin->wm_class != NULL`. Replaced with a safe temporary `const char *c` pointer.
-30. **[`9dc319ea`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/superfluous.c#L145-L155) - `superfluous`: Check `malloc` return value in `wAppBounce`**:
+30. **[`9dc319ea`](src/superfluous.c#L145-L155) - `superfluous`: Check `malloc` return value in `wAppBounce`**:
     - Verified memory allocation for the `points` buffer before entering the animation calculation loop.
-31. **[`83ebd261`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1840) - `window`: Clean up redundant `focus_mode` check in `wUnmanageWindow`**:
+31. **[`83ebd261`](src/window.c#L1840) - `window`: Clean up redundant `focus_mode` check in `wUnmanageWindow`**:
     - Removed duplicate nested check `focus_mode == WKF_CLICK` already guaranteed by the outer condition.
-32. **[`5625724f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c#L365) - `main`: Use `wmalloc` for `wVisualID`**:
+32. **[`5625724f`](src/main.c#L365) - `main`: Use `wmalloc` for `wVisualID`**:
     - Replaced unchecked `malloc()` call with the safe `wmalloc()` wrapper.
-33. **[`0a48ac89`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c#L445) - `xdnd`: Allocation failure check in `wXDNDGetTypeList`**:
+33. **[`0a48ac89`](src/xdnd.c#L445) - `xdnd`: Allocation failure check in `wXDNDGetTypeList`**:
     - Checked allocation of the `typelist` array to prevent NULL dereference under OOM conditions.
-34. **[`22f090e0`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1158) - `dialog`: Align `%d` format specifier for `current_year`**:
+34. **[`22f090e0`](src/dialog.c#L1158) - `dialog`: Align `%d` format specifier for `current_year`**:
     - Replaced unsigned specifier `%u` with `%d` for signed integer in `COPYRIGHT_TEXT`.
-35. **[`58f2a261`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/menuparser_macros.c#L205) - `WINGs`: `%u` specifier for unsigned count in `menuparser_macros`**:
+35. **[`58f2a261`](WINGs/menuparser_macros.c#L205) - `WINGs`: `%u` specifier for unsigned count in `menuparser_macros`**:
     - Fixed format specifier from `%d` to `%u` for an `unsigned int` variable.
-36. **[`757e51a2`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/scale.c#L740-L750) - `wrlib`: Check memory allocations in `RSmoothScaleImage`**:
+36. **[`757e51a2`](wrlib/scale.c#L740-L750) - `wrlib`: Check memory allocations in `RSmoothScaleImage`**:
     - Verified proper allocation of raster lines `wlines[0]` and `wlines[1]` to prevent crashes when scaling images under low-memory conditions.
-37. **[`f3fd4576`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/Tests/wtest.c#L360) - `WINGs/Tests`: Close file descriptor and convert encoding to UTF-8**:
+37. **[`f3fd4576`](WINGs/Tests/wtest.c#L360) - `WINGs/Tests`: Close file descriptor and convert encoding to UTF-8**:
     - Added `fclose(f)` inside the test file reading loop and converted a Latin-1 accented character to valid UTF-8.
-38. **[`42bdb767`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/gradient.c#L47) - `wrlib`: NULL check on `colors` array in `RRenderMultiGradient`**:
+38. **[`42bdb767`](wrlib/gradient.c#L47) - `wrlib`: NULL check on `colors` array in `RRenderMultiGradient`**:
     - Added `if (!colors) return NULL;` guard before looping through gradient stops.
-39. **[`f2a3be62`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/string.c#L209) - `WINGs`: Simplify null pointer checks in `wstrconcat`**:
+39. **[`f2a3be62`](WINGs/string.c#L209) - `WINGs`: Simplify null pointer checks in `wstrconcat`**:
     - Streamlined the pointer guard sequence for concatenated strings.
-40. **[`4b7b4e79`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L355-L2085) - `WINGs`: Wrap debug `printf` calls in `DEBUG` macro and clean up logic**:
+40. **[`4b7b4e79`](WINGs/wtext.c#L355-L2085) - `WINGs`: Wrap debug `printf` calls in `DEBUG` macro and clean up logic**:
     - Wrapped low-level diagnostic logging statements in `#ifdef DEBUG` and fixed unsigned `%u` specifier for `tb->first`.
     - Removed redundant conditions on `tb->graphic` and simplified text alignment assignment.
-41. **[`84cca8a3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/memory.c#L195) - `WINGs`: Remove dead assignment to `ptr` in `wfree`**:
+41. **[`84cca8a3`](WINGs/memory.c#L195) - `WINGs`: Remove dead assignment to `ptr` in `wfree`**:
     - Removed `ptr = NULL;` at the end of `wfree(void *ptr)` since the parameter is passed by value, has no external effect, and was flagged by Cppcheck as `uselessAssignmentPtrArg`.
-42. **[`053afe12`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L1660) - `WINGs`: `%u` specifier for `nitems` in `wtext.c`**:
+42. **[`053afe12`](WINGs/wtext.c#L1660) - `WINGs`: `%u` specifier for `nitems` in `wtext.c`**:
     - Fixed format specifier from `%d` to `%u` for the `unsigned int nitems` variable in the diagnostic `printf`.
-43. **[`ec434c8b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/tests/testgrad.c#L109-L120) - `wrlib/tests`: Check `malloc` return value in gradient tests**:
+43. **[`ec434c8b`](wrlib/tests/testgrad.c#L109-L120) - `wrlib/tests`: Check `malloc` return value in gradient tests**:
     - Verified allocation of the `colors` array and individual `colors[i]` structures in `testgrad.c` prior to dereferencing.
-44. **[`199419bd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WUtil.h#L48-L208) - `WINGs`: Protect assertion macros with `do-while` and parenthesize `WMScale`**:
+44. **[`199419bd`](WINGs/WINGs/WUtil.h#L48-L208) - `WINGs`: Protect assertion macros with `do-while` and parenthesize `WMScale`**:
     - Wrapped assertion macros `wassertr` and `wassertrv` in `do { ... } while (0)` blocks to prevent dangling-else bugs when used in `if-else` statements.
     - Added parentheses around `(value)` in `(double)(value)` inside `WMScaleX` and `WMScaleY` macros to prevent operator precedence bugs when complex arithmetic expressions are passed.
-45. **[`d54c888c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/WindowMaker.h#L261-L274) - `wmaker`: Wrap `WCHANGE_STATE` and `SIG_WCHANGE_STATE` in `do-while`**:
+45. **[`d54c888c`](src/WindowMaker.h#L261-L274) - `wmaker`: Wrap `WCHANGE_STATE` and `SIG_WCHANGE_STATE` in `do-while`**:
     - Replaced bare `{ ... }` compound blocks with safe `do { ... } while (0)` constructs.
-46. **[`bff27388`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.h#L33-L42) - `xdnd`: Parenthesize index parameter in `XDND_ENTER_TYPE` and `do-while` for `XDND_STATUS_RECT_SET`**:
+46. **[`bff27388`](src/xdnd.h#L33-L42) - `xdnd`: Parenthesize index parameter in `XDND_ENTER_TYPE` and `do-while` for `XDND_STATUS_RECT_SET`**:
     - In `src/xdnd.h` and `util/xdnd.h`, fixed `2 + i` to `2 + (i)` and wrapped `XDND_STATUS_RECT_SET` in `do { ... } while (0)`.
-47. **[`819e62e8`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h#L83) - `window`: Parenthesize comma expression in `WSETUFLAG`**:
+47. **[`819e62e8`](src/window.h#L83) - `window`: Parenthesize comma expression in `WSETUFLAG`**:
     - Enclosed `((wwin)->user_flags.FLAG = (VAL), ...)` in parentheses to prevent operator precedence issues with ternary or assignment operators.
-48. **[`84e8f018`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/stacking.h#L32) - `stacking`: Remove obsolete `CommitStackingForFrame` prototype**:
+48. **[`84e8f018`](src/stacking.h#L32) - `stacking`: Remove obsolete `CommitStackingForFrame` prototype**:
     - Removed unimplemented declaration historically superseded by `CommitStackingForWindow`.
-49. **[`fdf528c5`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.h#L40) - `workspace`: Remove orphaned `wWorkspaceMenuEdit` prototype**:
+49. **[`fdf528c5`](src/workspace.h#L40) - `workspace`: Remove orphaned `wWorkspaceMenuEdit` prototype**:
     - Removed prototype not defined in any translation unit.
-50. **[`64d03409`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/texture.h#L168-L177) - `texture`: Remove unimplemented prototypes and harden `FREE_PIXMAP`**:
+50. **[`64d03409`](src/texture.h#L168-L177) - `texture`: Remove unimplemented prototypes and harden `FREE_PIXMAP`**:
     - Removed unimplemented prototypes `wTexturePaint`, `wTextureRender`, and `wTexturePaintTitlebar`.
     - Wrapped the `FREE_PIXMAP` macro in a safe `do { ... } while (0)` block.
-51. **[`e907a7c3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.h#L39) - `defaults`: Remove dead `wSaveDefaults` prototype**:
+51. **[`e907a7c3`](src/defaults.h#L39) - `defaults`: Remove dead `wSaveDefaults` prototype**:
     - Removed unimplemented declaration.
-52. **[`6a09948f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xutil.h#L25-L28) - `xutil`: Remove orphaned `RequestSelection` and `GetSelection` prototypes**:
+52. **[`6a09948f`](src/xutil.h#L25-L28) - `xutil`: Remove orphaned `RequestSelection` and `GetSelection` prototypes**:
     - Removed leftover declarations from legacy X11 selection code.
-53. **[`ec224d35`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/keybind.h#L195) - `keybind`: Remove dead `wKeyboardInitialize` prototype**:
+53. **[`ec224d35`](src/keybind.h#L195) - `keybind`: Remove dead `wKeyboardInitialize` prototype**:
     - Removed prototype undefined in `src/misc.c` or anywhere else in the project.
-54. **[`e09bbed4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGsP.h.in#L332) - `WINGs`: Remove obsolete `W_FreeDragOperationItem` prototype**:
+54. **[`e09bbed4`](WINGs/WINGs/WINGsP.h.in#L332) - `WINGs`: Remove obsolete `W_FreeDragOperationItem` prototype**:
     - Removed unimplemented prototype in the drag-and-drop module.
-55. **[`510eb8c4`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L553-L573) - `menu`: Cancel `jump_back` timer on menu destruction (Fix Segfault in `wMenuMove` at offset `0x4a903`)**:
+55. **[`510eb8c4`](src/menu.c#L553-L573) - `menu`: Cancel `jump_back` timer on menu destruction (Fix Segfault in `wMenuMove` at offset `0x4a903`)**:
     - Analyzed the kernel crash (`segfault at 51 ip 000055555559e903 ... in wmaker[4a903]`), pinpointed to `wMenuMove` (`src/menu.c:2126`) while dereferencing `menu->frame->core->window` on an already-freed `WMenu` structure (use-after-free).
     - `wMenuScroll()` registered a 400ms timer (`MENU_JUMP_BACK_DELAY`, `callback_leaving`) passing `menu->jump_back`, whereas `wMenuDestroy()` only cancelled `menu->timer` and forgot `menu->jump_back`. If the menu was destroyed before the 400ms elapsed, `callback_leaving` invoked `wMenuMove(dl->menu, ...)` on the freed menu.
     - Fixed `wMenuDestroy` to cancel and free `menu->jump_back`, and fixed `wMenuScroll` when `jump_back` is cleared by clicking the titlebar.
-56. **[`e999a4bd`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/winmenu.c#L849-L879) - `winmenu`: Reset `scr->workspace_submenu` and clean up `rtext` in `DestroyWindowMenu`**:
+56. **[`e999a4bd`](src/winmenu.c#L849-L879) - `winmenu`: Reset `scr->workspace_submenu` and clean up `rtext` in `DestroyWindowMenu`**:
     - `DestroyWindowMenu()` recursively destroyed `scr->window_menu` (including `scr->workspace_submenu`) without resetting `scr->workspace_submenu = NULL` and without freeing the shortcut `rtext` strings in the options submenu beforehand (preventing a double-free with `setModifierKeyLabels`/`setModifierShortKeyLabels`).
-57. **[`108f91eb`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c#L1623-L1687) - `rootmenu`: Prevent destroying `scr->root_menu` while active/mapped and rebuild `wKeyTreeRoot`**:
+57. **[`108f91eb`](src/rootmenu.c#L1623-L1687) - `rootmenu`: Prevent destroying `scr->root_menu` while active/mapped and rebuild `wKeyTreeRoot`**:
     - Prevented `wRootMenuReparse()` from destroying `scr->root_menu` (e.g., upon an `inotify` event in `wDefaultsCheckDomains`) while the menu or any of its submenus/brothers is mapped or inside `menuMouseDown` (`flags.inside_handler`), avoiding a use-after-free in `menuMouseDown` -> `wMenuMove(parentMenu(desc->parent), ...)`.
     - Added a call to `wKeyTreeRebuild(scr)` whenever root menu shortcuts change in `wRootMenuReparse()`, `OpenRootMenu()`, and `executeButtonAction()`, avoiding dangling `WMenu *` / `WMenuEntry *` pointers in the `wKeyTreeRoot` tree.
-58. **[`55a742a3`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c#L604-L2189) - `menu`: Harden `wMenuMove`, `wMenuDestroy`, and `menuMouseDown` against NULL or dangling pointers**:
+58. **[`55a742a3`](src/menu.c#L604-L2189) - `menu`: Harden `wMenuMove`, `wMenuDestroy`, and `menuMouseDown` against NULL or dangling pointers**:
     - Added guards on `menu->frame`, `menu->frame->core`, `selected_entry` bounds, and `menu->cascades[i] != NULL` in `wMenuMove`, `selectEntry`, `closeBrotherCascadesOf`, `parentMenu`, `raiseMenus`, `keyboardMenu`, `saveMenuRecurs`, and `restoreMenuRecurs`.
     - In `wMenuDestroy(menu, False)`, unlinked `menu->cascades[i]->parent = NULL` to prevent dangling `parent` pointers in undestroyed submenus.
     - In `menuMouseDown()`, avoided overwriting `desc` when opening the window menu via right-click on `scr->switch_menu`, ensuring `flags.inside_handler` is properly cleared.
-59. **[`806206a5`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c#L1424-L1442) - `defaults`, `event`: Fix Use-After-Free in key-chain trie rebuild and action dispatch**:
+59. **[`806206a5`](src/defaults.c#L1424-L1442) - `defaults`, `event`: Fix Use-After-Free in key-chain trie rebuild and action dispatch**:
     - In `wKeyTreeRebuild()`, cancelled any active key-chain timeout timer (`w_global.shortcut.chain_timeout_handler`), released the keyboard grab, and reset `w_global.shortcut.curpos` to `NULL` before destroying `wKeyTreeRoot`, preventing `curpos` from becoming a dangling pointer if the key trie is rebuilt mid-keychain.
     - In `handleKeyPress()` (`src/event.c`), snapshotted `match->actions` into a local array and retained `wwin` before invoking menu callbacks or `dispatchWKBDCommand()`, preventing Use-After-Free when an action (such as `WKBD_ROOTMENU`) rebuilds the key trie or closes the focused window mid-loop.
-60. **[`f31c0744`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c#L747-L875) - `rootmenu`, `event`: Fix Use-After-Free in dynamic root submenus and `switch_menu` replacement**:
+60. **[`f31c0744`](src/rootmenu.c#L747-L875) - `rootmenu`, `event`: Fix Use-After-Free in dynamic root submenus and `switch_menu` replacement**:
     - Rebuilt the key-binding trie (`wKeyTreeRebuild`) and rebound key grabs (`rebindKeygrabs`) in `constructMenu()` and `constructPLMenuFromPipe()` whenever replacing an `OPEN_MENU` / `OPEN_PLMENU` cascade changes root-menu shortcuts, preventing `wKeyTreeRoot` from retaining dangling `WMenu *` and `WMenuEntry *` pointers.
     - Destroyed any existing standalone `scr->switch_menu` (`scr->switch_menu->parent == NULL`) in `addWindowsMenu()` before overwriting `scr->switch_menu`, preventing a mapped standalone window list menu from keeping dangling `WWindow *` pointers when windows later close.
     - Guarded `OpenRootMenu()` and `executeButtonAction()` with `wRootMenuIsInUse()`, and preserved `added_workspace_menu` / `added_windows_menu` flags when `scr->root_menu` is not replaced.
-61. **[`3683df72`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L204-L1435) - `dock`, `appicon`, `dockedapp`, `superfluous`: Fix Use-After-Free in dock/clip/drawer timers and modal appicon dialogs**:
+61. **[`3683df72`](src/dock.c#L204-L1435) - `dock`, `appicon`, `dockedapp`, `superfluous`: Fix Use-After-Free in dock/clip/drawer timers and modal appicon dialogs**:
     - Cancelled `auto_collapse_magic`, `auto_expand_magic`, `auto_lower_magic`, and `auto_raise_magic` timers in `wDockDestroy()` and `drawerDestroy()` before freeing the dock/drawer structure.
     - Called `WMDeleteTimerWithClientData(aicon)` in `wAppIconDestroy()` to cancel pending `dockIconPaint` launch timers targeting a destroyed appicon.
     - In `appicon.c:killCallback()`, captured and retained `wwin = wapp->main_window_desc` before `wMessageDialog()` instead of dereferencing `wapp` after the modal loop returns (when `wapp` may have already been destroyed).
     - Retained `WAppIcon` across modal dialogs in `dock.c` (`killCallback`, `removeIconsCallback`, `keepIconsCallback`) and `dockedapp.c` (`ShowDockAppSettingsPanel`, `panelBtnCallback`, `DestroyDockAppSettingsPanel`), re-evaluating selected icons after confirmation dialogs return.
     - Cleaned up the persistent bounce timer, `bouncing` flag, and `WApplication` reference in `doAppBounce()` (`src/superfluous.c`) if `data->wapp->app_icon` becomes `NULL`.
-62. **[`7520cc4b`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L1653-L1774) - `stacking`, `window`, `wmspec`, `balloon`, `dialog`, `winspector`, `switchpanel`, `cycling`: Fix Use-After-Free in window lifecycle, stacking, NETWM, inspector, and cycling**:
+62. **[`7520cc4b`](src/window.c#L1653-L1774) - `stacking`, `window`, `wmspec`, `balloon`, `dialog`, `winspector`, `switchpanel`, `cycling`: Fix Use-After-Free in window lifecycle, stacking, NETWM, inspector, and cycling**:
     - Cleared dangling `wlist->stacking->child_of` pointers in `RemoveFromStackList()` (`src/stacking.c`) when an owner frame is removed from the stack list.
     - In `wUnmanageWindow()` (`src/window.c`), cancelled `scr->autoRaiseTimer` when `scr->autoRaiseWindow` matches the unmanaged frame, and cleared `oapp->last_focused` when the unmanaged window was the application's `last_focused` window.
     - In `wmspec.c`, removed unmanaged windows from `ndata->show_desktop` upon `WMNUnmanaged` notifications to prevent `wDeiconifyWindow()` from dereferencing freed `WWindow *` pointers when leaving `_NET_SHOWING_DESKTOP` mode; also cleaned up `scr->netdata` and its observers in `wNETWMCleanup()` and guarded `NULL` `src_image`.
@@ -271,26 +271,26 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - In `winspector.c`, removed notification observers in `wDestroyInspectorPanels()` before unmanaging, and guarded `showIconFor()` and `applySettings()` modal `wMessageDialog()` calls with `choosingIcon`/`destroyed` checks.
     - In `switchpanel.c` and `cycling.c`, retained `WWindow` references while the switch panel is open and verified windows remain managed before focusing or raising them during `Alt+Tab` cycling.
     - In `balloon.c`, unconditionally cancelled `scr->balloon->timer` in `wBalloonHide()` even when the balloon is currently mapped, and guarded `NULL` `aicon->wm_instance` for GNUstep appicons.
-63. **[`5f4bf48f`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dialog.c#L1144-L1765) - `client`, `cycling`, `dialog`, `switchpanel`, `window`: Fix dangling pointer dereferences and resource leaks in window lifecycle and dialogs**:
+63. **[`5f4bf48f`](src/dialog.c#L1144-L1765) - `client`, `cycling`, `dialog`, `switchpanel`, `window`: Fix dangling pointer dereferences and resource leaks in window lifecycle and dialogs**:
     - In `switchpanel.c` and `cycling.c`, avoided dereferencing unverified `WWindow *` pointers before verifying they remain in the screen's live window list; also guarded `sameWindowClass()` against checking `wm_class` if either window has `flags.destroyed` set (since `wWindowDestroy` frees `wm_class` while the struct is kept alive by `wretain`).
     - In `window.c`, explicitly reset `normal_hints`, `wm_hints`, `wm_instance`, `wm_class`, `wm_gnustep_attr`, and `cmap_windows` to `NULL` upon freeing them in `wWindowDestroy()`, ensuring any retained references do not hold dangling member pointers.
     - In `dialog.c`, recorded the parent X11 window in `InfoPanel` and `LegalPanel` structs and destroyed them on panel closure via `XDestroyWindow(dpy, parent)` to eliminate orphaned X11 window leaks; also released the logo pixmap with `WMReleasePixmap(logo)` in `wShowCrashingDialogPanel()`.
     - In `client.c`, reset `wapp->menu = NULL` immediately after calling `wAppMenuDestroy(wapp->menu)` when handling `WM_COMMAND` property updates.
-64. **[`6e2d2065`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wmaker-opt-valgrind.desktop#L1-L7) - `wmaker-opt-valgrind.desktop`, `wmaker-valgrind-session`: Valgrind supervision environment for /opt/wmaker**:
+64. **[`6e2d2065`](wmaker-opt-valgrind.desktop#L1-L7) - `wmaker-opt-valgrind.desktop`, `wmaker-valgrind-session`: Valgrind supervision environment for /opt/wmaker**:
     - Created `wmaker-valgrind-session` wrapper script with strict Bash directives (`set -euo pipefail`), launching `/opt/wmaker/bin/wmaker` under Valgrind Memcheck with `--trace-children=yes` and `--trace-children-skip='/bin/*,/usr/bin/*,!/opt/wmaker/bin/wmaker'` to follow the inner child `wmaker` process while skipping dock/menu apps.
     - Automatically creates and redirects Valgrind memory diagnostic reports and stdout/stderr to `~/.local/share/wmaker/logs/valgrind-wmaker-<TIMESTAMP>-<PID>.log` and `wmaker-<TIMESTAMP>.log`.
     - Created and added `wmaker-opt-valgrind.desktop` matching `/usr/share/xsessions/wmaker-opt.desktop` with target `Exec=/opt/wmaker/bin/wmaker-valgrind-session`. Installed the runner script to `/opt/wmaker/bin/wmaker-valgrind-session`.
-65. **[`4f9838d8`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L76-L173) - `monitor`: Forward lifecycle signals to child process in `MonitorLoop`**:
+65. **[`4f9838d8`](src/monitor.c#L76-L173) - `monitor`: Forward lifecycle signals to child process in `MonitorLoop`**:
     - In `MonitorLoop()` (`src/monitor.c`), registered signal handlers for `SIGHUP`, `SIGTERM`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, and `SIGUSR2` in the parent monitor process to forward them via `kill()` to the active child `wmaker` process. Handled `EINTR` in `waitpid()`.
     - Prevented the monitor process from crashing or leaking child argument memory upon receiving session termination signals (`SIGHUP`/`SIGTERM` from GDM/X11), allowing graceful child shutdown and `child_argv` freeing.
-66. **[`de93034c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c#L1040-L1057) - `defaults`: Release unmerged global PropList in `wDefaultsInitDomain`**:
+66. **[`de93034c`](src/defaults.c#L1040-L1057) - `defaults`: Release unmerged global PropList in `wDefaultsInitDomain`**:
     - In `wDefaultsInitDomain()` (`src/defaults.c`), fixed a leak of the system global domain `shared_dict` (e.g. `PKGCONFDIR/WMRootMenu`, ~13 KB) when the user domain was already loaded as an array (not a dictionary). Added an explicit `WMReleasePropList(shared_dict)` in the unmerged branch, achieving 0 definitely lost blocks on clean exit.
-67. **[`41742a92`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c#L2331-L2370) - `actions`, `framewin`, `screen`, `switchmenu`, `window`, `winmenu`, `workspace`: Fix active session memory leaks and Use-After-Free crashes**:
+67. **[`41742a92`](src/actions.c#L2331-L2370) - `actions`, `framewin`, `screen`, `switchmenu`, `window`, `winmenu`, `workspace`: Fix active session memory leaks and Use-After-Free crashes**:
     - In `wWorkspaceMenuUpdate()` (`src/workspace.c`) and `updateWorkspaceMenu()` (`src/winmenu.c`), freed existing `entry->rtext` shortcut labels before reassigning new ones, eliminating thousands of repetitive leaked heap blocks during workspace switching.
     - In `wFrameWindowUpdateBorders()` and `wFrameWindowDestroy()` (`src/framewin.c`), freed previously allocated `fwin->border_pixel`, `fwin->focused_border_pixel`, and `fwin->selected_border_pixel` heap blocks, and freed RGB description strings returned by `WMGetColorRGBDescription()`. Also freed color strings in `wScreenInit()` (`src/screen.c`).
     - In `wWindowGetLanguageLabel()` (`src/window.c`), freed all dynamically allocated string members (`rules`, `model`, `layout`, `variant`, `options`) returned by `XkbRF_GetNamesProp()`.
     - Implemented `wWindowIsManaged()` in `src/window.c` and `src/window.h`. In `wWindowSingleFocus()` (`src/window.c`) and `wMakeWindowVisible()` (`src/actions.c`), retained window references and checked `wWindowIsManaged(scr, wwin)` and `!wwin->flags.destroyed` before and after workspace switching or unhiding applications, preventing Use-After-Free when client windows close during `ProcessPendingEvents()`.
-68. **[`8479a4f0`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c#L848-L860) - `WINGs`, `dock`, `event`, `misc`, `session`, `wdefaults`, `window`: Fix uninitialized `XColor`/`XEvent` and remaining session memory leaks**:
+68. **[`8479a4f0`](WINGs/widgets.c#L848-L860) - `WINGs`, `dock`, `event`, `misc`, `session`, `wdefaults`, `window`: Fix uninitialized `XColor`/`XEvent` and remaining session memory leaks**:
     - Zero-initialized stack `XColor bla` in `WMCreateScreenWithRContext()` (`WINGs/widgets.c`) before passing it to `XCreatePixmapCursor()`, eliminating the Valgrind `writev(vector[0]) points to uninitialised byte(s)` error when Xlib flushes the request buffer during `XInternAtoms()`.
     - Freed `classHint->res_name` and `classHint->res_class` via `XFree()` in `fixLeaderProperties()` (`src/window.c`) when `XGetClassHint()` succeeds, fixing a 651-byte / 70-block leak across mapped windows.
     - Freed the dynamically allocated icon path strings in `get_default_image()` and `get_icon_image()` (`src/wdefaults.c`), fixing path string leaks during startup, dock icon restoration, and `UpdateSwitchMenu()`.
@@ -298,33 +298,33 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Removed unused static `dHost` and `sHost` `WMPropList` keys in `make_keys()` (`src/dock.c`, `src/session.c`) that compiler optimization turned into orphaned allocations, and removed redundant `WMRetainPropList()` calls on `WMCreatePLString()`.
     - Zero-initialized stack `XSelectionEvent notify` and freed `XGetAtomName()` strings in `handle_selection_request()` (`src/event.c`).
     - Expanded `--trace-children-skip` in `wmaker-valgrind-session` to also skip external binaries in `/tmp/*`, `/home/*`, `/var/*`, `/sbin/*`, `/etc/*`, and `/lib*`.
-69. **[`05944be1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wcore.c#L46-L95) - `wmaker`, `WINGs`: Zero-initialize X11 attributes/events and enable Valgrind FD tracking**:
+69. **[`05944be1`](src/wcore.c#L46-L95) - `wmaker`, `WINGs`: Zero-initialize X11 attributes/events and enable Valgrind FD tracking**:
     - Zero-initialized `XSetWindowAttributes attribs` in `wCoreCreateTopLevel()` and `wCoreCreate()` (`src/wcore.c`) and explicitly set `attribs.border_pixel = 0` when `CWBorderPixel` is included in `vmask`, resolving the Valgrind `Syscall param writev(vector[0]) points to uninitialised byte(s)` error during `XCreateWindow`.
     - Zero-initialized stack `XEvent` structures with `memset(&ev, 0, sizeof(ev))` before `XSendEvent()` in `wSwitchPanelDestroy()`, `workspace_map_destroy()`, `wClientSendProtocol()`, `sendMessage()`, `notifyClient()`, `wScreenInit()`, `W_SendDnDClientMessage()`, and `notifySelection()`.
     - Added `--track-fds=yes` to `wmaker-valgrind-session` and confirmed 0 leaked file descriptors in the live session (`PID 104468`).
-70. **[`e12b3662`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/icon.c#L259-L335) - `wmaker`: Fix `XTextProperty`, `Pixmap`, icon image, and `WMPropList` leaks**:
+70. **[`e12b3662`](src/icon.c#L259-L335) - `wmaker`: Fix `XTextProperty`, `Pixmap`, icon image, and `WMPropList` leaks**:
     - Freed `text_prop.value` with `XFree()` after `XGetTextProperty()` in `wManageWindow()` (`src/window.c`).
     - Initialized `Pixmap pixmap = None` in `icon_update_pixmap()` (`src/icon.c`), freed any existing `icon->pixmap` before overwriting it, and avoided creating a redundant `Pixmap` for dockapp windows in `update_icon_pixmap()`.
     - Called `unset_icon_image(icon)` at the start of `set_icon_image_from_database()` (`src/icon.c`) to prevent leaking previous `icon->file` and `icon->file_image` when detaching dockapps.
     - Released temporary `WMCreatePLString()` items after `WMAddToPLArray()` in `SaveHistory()` (`src/dialog.c`) and `saveMenuInfo()` (`src/menu.c`), zero-initialized `XEvent` in `wWindowSynthConfigureNotify()`, and guarded `wwin->normal_hints` in `wWindowConfigure()`.
-71. **[`d0755906`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/gradient.c#L118-L125) - `wrlib`: Fix negative left-shift UB in gradients and allocation checks**:
+71. **[`d0755906`](wrlib/gradient.c#L118-L125) - `wrlib`: Fix negative left-shift UB in gradients and allocation checks**:
     - Replaced signed left-shift of negative color deltas (`(rf - r0) << 16`) with multiplication by `65536L` in `renderHGradient()`, `renderVGradient()`, `renderMHGradient()`, `renderMVGradient()`, and `RRenderInterwovenGradient()` (`wrlib/gradient.c`), fixing `UndefinedBehaviorSanitizer` runtime errors when rendering gradients from brighter to darker colors.
     - Clamped grayscale colormap allocation depth to 8 bits and guarded `ncolors <= 1` in `allocateGrayScale()` (`wrlib/context.c`) to prevent signed shift overflow.
     - Checked `calloc()` return values for `contrib[i].p` in `RSmoothScaleImage()` (`wrlib/scale.c`) and cleaned up partial allocations on failure.
-72. **[`3275e04d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/dragdestination.c#L173-L195) - `WINGs`, `WPrefs`, `wmaker`, `util`: Fix null dereferences and leaks found by static analysis**:
+72. **[`3275e04d`](WINGs/dragdestination.c#L173-L195) - `WINGs`, `WPrefs`, `wmaker`, `util`: Fix null dereferences and leaks found by static analysis**:
     - Guarded null pointers and allocation failures reported by `cppcheck`, `gcc -fanalyzer`, and `clang-tidy` across `src/`, `WINGs/`, `WPrefs.app/`, and `util/`.
     - Checked `XDND_DEST_INFO(info)` after `sendStatusMessage()` in `suspendDropAuthorization()` (`WINGs/dragdestination.c`).
     - Checked `wusergnusteppath()` and `wdefaultspathfordomain()` for `NULL` in `WINGs/userdefaults.c`.
     - Added fallback to `WMBlackColor()` if `createRGBAColor()` fails in `WMGrayColor()` and `WMDarkGrayColor()` (`WINGs/wcolor.c`).
     - Eliminated leaked fallback `WMPropList` in `renderTexture()` (`WPrefs.app/Appearance.c`), freed buffer before early exit in `util/wxcopy.c`, and guarded `rescale_image()` in `util/wmiv.c`.
-73. **[`cdec12e1`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1405-L1630) - `screen`, `main`, `WINGs`, `workspace`: Complete teardown of fonts, textures, GCs, and Fontconfig on exit**:
+73. **[`cdec12e1`](src/screen.c#L1405-L1630) - `screen`, `main`, `WINGs`, `workspace`: Complete teardown of fonts, textures, GCs, and Fontconfig on exit**:
     - In `wScreenDestroy()` (`src/screen.c`), implemented full teardown of internal windows (`no_focus_win`, `dock_shadow`, `workspace_name`), destroyed all screen textures (`window_title_texture`, `menu_title_texture`, `resizebar_texture`, `menu_item_texture`, auxtextures, widget and icon textures), released all screen colors, released all 7 `WMFont` descriptors (`title_font`, `menu_title_font`, `menu_entry_font`, `icon_title_font`, `clip_title_font`, `info_text_font`, `workspace_name_font`), released session state, freed usable/reserved areas, freed stipple/dock pixmaps, and destroyed all screen GCs.
     - In `src/workspace.c` and `src/workspace.h`, implemented `wWorkspaceResetName(scr)` to delete `workspace_name_timer` and release `workspace_name_data` background and text images.
     - In `WINGs/wfont.c` and `WINGs/WINGs/WINGs.h`, provided `W_FontShutdown()` calling `FcFini()` to free all internal Fontconfig pattern caches.
     - In `WINGs/wapplication.c`, freed `WMApplication.resourcePath` in `WMReleaseApplication()`.
     - In `src/main.c`, called `WMReleaseApplication()` and `W_FontShutdown()` in `Exit()`.
     - In `src/screen.c` (`createInternalWindows`), zero-initialized `XSetWindowAttributes` to avoid passing uninitialized memory to the X server.
-74. **[`ac8bf07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xmodifier.c#L125-L165) - `Clang 23`, `scan-build-23`, `flawfinder`: Phase 1 static analysis & security audit across all modules**:
+74. **[`ac8bf07a`](src/xmodifier.c#L125-L165) - `Clang 23`, `scan-build-23`, `flawfinder`: Phase 1 static analysis & security audit across all modules**:
     - **Clang Compatibility**: Replaced GNU C nested functions in `src/xmodifier.c` with standard C macros (`modwarn`, `modbarf`, `check_modifier`, `store_modifier`) matching `WPrefs.app/xmodifier.c`, enabling clean native Clang 23 compilation.
     - **Security Audit (`flawfinder`)**: In `WPrefs.app/MouseSettings.c` (`storeCommandInScript`), eliminated a TOCTOU race condition (CWE-362) by calling `fchmod()` directly on the open file descriptor before closing and renaming.
     - **`wrlib` Fixes**: In `wrlib/load_ppm.c`, checked `feof`/`ferror` before reading to prevent infinite loops and invalid stream state errors; in `wrlib/scale.c`, clamped filter contribution coordinate `n` between `0` and `max_dim - 1` and zero-initialized the row buffer `sp` with `calloc` to eliminate potential out-of-bounds access; in `wrlib/save_xpm.c`, added guards for `image` and `image->data` and checked `fclose()` return codes.
@@ -332,7 +332,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **`src` Window Maker Core Fixes**: In `src/actions.c`, initialized `new_width`/`new_height` to current window dimensions during partial maximization; in `src/appicon.c`, zero-initialized the VLA `allDocks` array; in `src/cycling.c`, verified `newFocused` and `newFocused->frame` before dereferencing; in `src/defaults.c`, fixed token parsing in `parse_texture`; in `src/dock.c`, guarded `drawer->icon_array[0]->wm_instance`; in `src/main.c`, checked `argc > 0 && a[0]` before calling `execvp`; in `src/moveres.c`, fixed loop termination in `wMouseResizeWindow` ensuring post-loop icon arrangement executes properly and added default case to `do_snap`; in `src/texture.c`, guarded `colors` and `colors[0]` in `wTextureMakeMGradient`; in `src/wsmap.c`, zero-initialized `wsmap_array` and added bounds checking to prevent buffer overflow in `FocusIn`.
     - **`util` & Tools Fixes**: In `util/wxcopy.c`, restructured input stream reading to check `fread` return values directly and close files cleanly; in `util/wmiv.c`, checked `start_dir` before calling `opendir`; in `util/wmgenmenu.c`, `util/wmmenugen_parse_wmconfig.c`, `util/xdnd.c`, and `WPrefs.app/Icons.c`, cleaned up dead assignments and dead increments.
     - **Static Analysis Result**: Clang 23 `scan-build-23` achieved a completely clean analysis run with **0 bugs found** across the entire codebase.
-75. **[`00c0c04a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1620) - Valgrind log analysis & live session profiling fix (`wcore`, `application`, `geomview`, `widgets`, `screen`, `main`)**:
+75. **[`00c0c04a`](src/screen.c#L1620) - Valgrind log analysis & live session profiling fix (`wcore`, `application`, `geomview`, `widgets`, `screen`, `main`)**:
     - **Live Session Log Inspection & Profiling**: Inspected Valgrind session logs in `/home/gelma/.local/share/wmaker/logs` and queried the active session via `vgdb --pid=149624 leak_check full definiteleak any` without interrupting or restarting the user's running Window Maker session.
     - **Stack & Uninitialized Memory Fix in `wcore.c`**: In `wCoreCreateTopLevel` and `wCoreCreate`, changed `vmask` from `int` to `unsigned long` matching `XCreateWindow` valuemask and zero-initialized `WCoreWindow` allocations via `memset(core, 0, sizeof(WCoreWindow))` to ensure `core->stacking` is explicitly initialized, eliminating the Valgrind stack allocation writev warning.
     - **`WApplication` Zero-initialization & List Linkage in `application.c`**: Zero-initialized `WApplication` memory upon creation and correctly linked new applications into `scr->wapp_list`. This ensures `wapp->flags` (e.g. `bouncing`) are not set with garbage bits that previously blocked cleanup in `wApplicationDestroy`, eliminating definite leaks of `WApplication` instances.
@@ -345,7 +345,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - In `WMDestroyScreen()`, tore down shared panels, system pixmaps, GCs, stipple pixmap, XftDraw, balloon, all fonts in `scr->fontCache`, base colors (white, black, gray, darkGray), and invoked `pango_xft_shutdown_display(scr->display, scr->screen)` to release Pango display fontmaps.
     - **Screen Teardown in `src/screen.c`**: In `wScreenDestroy()`, added teardown for all remaining applications in `scr->wapp_list`, destroyed `scr->gview`, cancelled mini-screenshot timers/windows, destroyed `scr->wmscreen` via `WMDestroyScreen()`, and freed `scr->rcontext` via `RDestroyContext()`.
     - **Clean Exit Sequence in `src/main.c`**: In `Exit()`, called `WMReleaseApplication()` and `W_FontShutdown()` before `XCloseDisplay(dpy)` so that all WINGs and fontconfig resources are cleanly finalized before the X display connection is closed.
-76. **[`4e711d6c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c#L410-L435) - Performance Optimizations across `wrlib`, `WINGs`, and `wmaker`**:
+76. **[`4e711d6c`](src/event.c#L410-L435) - Performance Optimizations across `wrlib`, `WINGs`, and `wmaker`**:
     - **`wrlib/scale.c` Image Scaling (`482c0b3d`)**: Precomputed horizontal sampling indices in `sx_table` once per image instead of recomputing fixed-point steps per pixel per row. Replaced per-channel byte math with 32-bit integer scanline pointer writes for RGBA images. Benchmark demonstrated a **2.54x speedup (60% CPU cycle reduction)** with bit-for-bit identical output.
     - **`wrlib/alpha_combine.c` Alpha Blending (`0b6f7544`)**: Hoisted `opacity == 255` checks out of the nested image loops. Added zero-math fast-path for fully transparent pixels (`sa == 0`), direct 32-bit copy fast-path for fully opaque pixels (`sa == 255`), direct opaque source replacement for non-alpha sources, and compiler branch prediction hints (`__builtin_expect`).
     - **`wrlib/convert.c` TrueColor Image Conversion (`16cba0ac`)**: Implemented direct scanline `uint32_t *line` writing for 32bpp TrueColor displays with native byte order in `image2TrueColor()`, eliminating millions of per-pixel indirect `XPutPixel()` function calls during icon, menu, and background texture conversions.
@@ -356,7 +356,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **`WINGs/array.c` Dynamic Array Growth (`0871f1b8`)**: Replaced the fixed `RESIZE_INCREMENT 8` policy in `WMAddToArray()`, `WMInsertInArray()`, and `WMAppendArray()` with geometric 1.5x capacity growth, reducing memory reallocations from $O(N)$ to $O(\log N)$ and giving amortized $O(1)$ push time.
     - **`WINGs/hashtable.c` & `WINGs/proplist.c` Hashing (`2468be80`)**: Replaced weak 8-bit rotating shift hashing with 32-bit FNV-1a hashing for strings and property list keys, utilizing full 32-bit entropy and eliminating hash collisions. Replaced pointer division with Knuth's golden ratio multiplicative hashing in `hashPtr()`.
     - **`src/event.c`, `src/WindowMaker.h`, `src/main.c`, `src/shutdown.c` Event Loop Syscall Elimination (`4e711d6c`)**: Registered the `inotify` queue file descriptor with WINGs input handlers via `WMAddInputHandler(..., WIReadMask, ...)`. Completely eliminated the redundant zero-timeout `select()` system call executed on every single X event in `EventLoop()`, eliminating thousands of unnecessary system calls per second during mouse motion and window interaction.
-77. **[`8465210e`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c#L44-L125) - Kernel Memory Advising: KSM Deduplication, Transparent Huge Pages, and Direct Huge Pages**:
+77. **[`8465210e`](wrlib/raster.c#L44-L125) - Kernel Memory Advising: KSM Deduplication, Transparent Huge Pages, and Direct Huge Pages**:
     - **Kernel Samepage Merging (KSM / UKSM)**:
       - Activated process-wide KSM deduplication on Linux 6.4+ via `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` in `WINGs/wapplication.c` (WINGs apps, tools, and Window Maker core).
       - Applied `madvise(addr, size, MADV_MERGEABLE)` on all page-aligned allocations (`posix_memalign` and `mmap`) in `wrlib/raster.c`, `wrlib/xutil.c`, and `WINGs/memory.c`. Identical background patterns, desktop wallpapers, menu gradients, and theme textures are deduplicated into single Copy-On-Write pages by the kernel.
@@ -365,7 +365,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Allows the Linux kernel (which operates with THP in `madvise` mode) to collapse 512 4KB pages into a single 2MB huge page, drastically cutting CPU TLB cache misses and accelerating graphics rendering.
       - Tracks allocation metadata in `RImage` (`allocSize`, `is_mmap`) to ensure clean deallocation with `munmap()` or `free()`.
 
-78. **[`c7190761`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c#L1620-L1645), [`b9fce07a`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/monitor.c#L150-L168) & [`75f7e16d`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wview.c#L524-L555) - Fix Session Exit Crash Loop & Process Monitor Restart**:
+78. **[`c7190761`](src/screen.c#L1620-L1645), [`b9fce07a`](src/monitor.c#L150-L168) & [`75f7e16d`](WINGs/wview.c#L524-L555) - Fix Session Exit Crash Loop & Process Monitor Restart**:
     - **Diagnosed Exit Loop Issue**: When selecting `Session -> Exit` from the root menu, Window Maker crashed with signal 11 (SIGSEGV) instead of cleanly terminating. In `src/monitor.c`, `MonitorLoop()` caught the SIGSEGV crash, assumed Window Maker crashed unexpectedly, and automatically respawned a new session instead of returning to GDM3.
     - **Valgrind Stack Trace Root Cause (`WINGs/wview.c`)**: Inspection of `/home/gelma/.local/share/wmaker/logs/wmaker-20261103_044240.log` revealed the exact point of crash:
       ```
@@ -382,7 +382,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Fontconfig / Display Exit Sequence (`src/main.c`)**: In `Exit()`, removed premature `W_FontShutdown()` (`FcFini()`) call before `XCloseDisplay(dpy)`. Calling `FcFini()` destroyed internal Fontconfig pattern caches while Xft and Xlib display connections were still open, causing invalid memory accesses when `XCloseDisplay()` flushed display font resources.
     - **Monitor Defense (`src/shutdown.c` & `src/monitor.c`)**: In `Shutdown()` (`WSExitMode`, `WSLogoutMode`, `WSKillMode`), created an intentional exit sentinel file (`/tmp/.wmaker-exit-<pid>`). In `MonitorLoop()`, if the sentinel file is present upon child process termination, it removes the sentinel and breaks out of the loop cleanly (exiting with code 0) rather than restarting the window manager.
 
-79. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) & [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c) - Extended EWMH Sync Protocol & Bypass Compositor**:
+79. **[`src/wmspec.c`](src/wmspec.c) & [`src/window.c`](src/window.c) - Extended EWMH Sync Protocol & Bypass Compositor**:
     - **EWMH Sync Request Protocol (`_NET_WM_SYNC_REQUEST`, `_NET_WM_SYNC_REQUEST_COUNTER`)**:
       - Integrated X11 Synchronization Extension (XSync) support via `libXext` for flicker-free, tear-free window resizing with modern GUI toolkits (GTK3/4, Qt5/6, Chromium, Electron, mpv).
       - Detects `XSync` support dynamically at startup via `XSyncQueryExtension()` and `XSyncInitialize()` in `src/startup.c`.
@@ -396,7 +396,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Implemented reading and tracking of `_NET_WM_BYPASS_COMPOSITOR` (values: 0 = no preference, 1 = bypass compositor for direct scanout/unredirection, 2 = do not bypass) in `WWindow.bypass_compositor`.
       - Handles dynamic updates via `PropertyNotify` in `wNETWMCheckClientHintChange()`.
 
-80. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/rootmenu.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c), [`src/startup.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/startup.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - High-Performance Key Grab Precompilation & Deduplication**:
+80. **[`src/window.c`](src/window.c), [`src/rootmenu.c`](src/rootmenu.c), [`src/startup.c`](src/startup.c), [`src/defaults.c`](src/defaults.c) - High-Performance Key Grab Precompilation & Deduplication**:
     - **Performance Profiling Analysis (`/tmp/wmaker_perf_report.txt`)**: Real Linux `perf` analysis of the active user session revealed that `XGrabKey` / `wHackedGrabKey` consumed 31.47% of the entire CPU runtime, executing hundreds of synchronous X11 requests per window.
     - **Duplicate Grab Removal**: In `src/window.c:wManageInternalWindow()`, redundant duplicate invocations of `wWindowResetMouseGrabs(wwin)` and `wWindowSetKeyGrabs(wwin)` were eliminated (previously called at both lines 1492-1495 and lines 1635-1636).
     - **Precompiled & Deduplicated Grabs**:
@@ -405,7 +405,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Deduplicates identical grabs occurring between different shortcuts or modifier masks, cutting redundant X11 request traffic by over 60%.
       - Added `wWindowInvalidateKeyGrabs()` invoked when `wKeyTreeRebuild()` or runtime shortcut configurations change. Subsequent window creations simply iterate over the precompiled list without repeated modifier mathematics or redundant calls.
 
-81. **[`WINGs/wfont.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wfont.c), [`WINGs/WINGs/WINGsP.h.in`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGsP.h.in) - Multi-Tier Pango Text Shaping & Layout Extents Caching**:
+81. **[`WINGs/wfont.c`](WINGs/wfont.c), [`WINGs/WINGs/WINGsP.h.in`](WINGs/WINGs/WINGsP.h.in) - Multi-Tier Pango Text Shaping & Layout Extents Caching**:
     - **Bottleneck Analysis**: Pango and HarfBuzz text shaping consumed 20-25% of total session CPU runtime (`pango_xft_render_layout` 11.82%, `pango_renderer_draw_layout` 11.29%, `pango_layout_get_pixel_size` 10.94%, `hb_shape_full` 6.35%). Whenever `WMWidthOfString()` or `WMDrawString()` was called, the layout's text was overwritten, discarding shaped glyphs and forcing full itemization and glyph shaping from scratch repeatedly (e.g. loops in `wbrowser.c` and `wtext.c`).
     - **Tier 1 (L1 Direct ASCII Width Table)**:
       - Added `short ascii_widths[256]` directly to `struct W_Font`.
@@ -420,69 +420,69 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - Redrawing window titlebars, desktop icons, workspace indicators, and menus completely bypasses HarfBuzz shaping, directly rendering pre-shaped glyph lines to X11.
       - Fully integrates font destruction invalidation in `WMReleaseFont()` and application shutdown cleanup in `W_FontShutdown()`, guaranteeing 0 memory leaks.
 
-82. **[`build_and_install.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/build_and_install.sh) - LLVM/Clang Toolchain Support (`clang-23` + `lld-23`)**:
+82. **[`build_and_install.sh`](build_and_install.sh) - LLVM/Clang Toolchain Support (`clang-23` + `lld-23`)**:
     - **Dual Toolchain Selection**: Enhanced `build_and_install.sh` to accept `--clang` and `--gcc` CLI flags, or the `USE_CLANG=1` environment variable.
     - **LLVM Integration**: Automatically detects `clang-23` (or generic `clang`) and `lld-23` (or generic `lld`), passing `-march=native -O2 -g -Wall -Wno-unknown-warning-option` and `-fuse-ld=lld`.
     - **Verification**: Built and verified clean compilation and linking with Ubuntu Clang 23.1.5 and LLD 23.1.5, verified embedded ELF compiler sections, and confirmed clean installation into `/opt/wmaker`.
 
-83. **[`wmaker-valgrind-session`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wmaker-valgrind-session) - Multi-Tool Profiling Support (`callgrind`, `massif`, `dhat`, `cachegrind`, `helgrind`, `memcheck`)**:
+83. **[`wmaker-valgrind-session`](wmaker-valgrind-session) - Multi-Tool Profiling Support (`callgrind`, `massif`, `dhat`, `cachegrind`, `helgrind`, `memcheck`)**:
     - **Tool Dispatching**: Added dedicated profiles for `callgrind` (with `--collect-jumps=yes`), `cachegrind`, `helgrind`, `massif`, `dhat`, and `memcheck`.
     - **Configurability**: Supported specifying the target tool either via environment variable `VALGRIND_TOOL=<tool>` or via command-line flags (`--tool=<tool>` or `--<tool>`).
     - **Deployment**: Updated both the in-repo script and `/opt/wmaker/bin/wmaker-valgrind-session`.
 
-84. **[`WINGs/wevent.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wevent.c), [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) - Eliminate Blocking `XSync` and Modernize Event Polling**:
+84. **[`WINGs/wevent.c`](WINGs/wevent.c), [`WINGs/handlers.c`](WINGs/handlers.c) - Eliminate Blocking `XSync` and Modernize Event Polling**:
     - **Bottleneck Analysis**: Perf profiling revealed `XSync()` in `waitForEvent()` consuming 18.89% CPU, forcing synchronous round-trip socket stalls (`_XReply` at 29.46% and `xcb_wait_for_reply64` at 9.90%) on every single iteration of the main event loop (`WMNextEvent`).
     - **Asynchronous Output Flush**: Replaced blocking `XSync(dpy, False)` with asynchronous `XFlush(dpy)` in `waitForEvent()`. `XFlush` ensures all outgoing X11 requests are pushed to the X server buffer without forcing a blocking round-trip confirmation packet before polling for incoming events.
     - **Modern `poll(2)` with Zero-Heap Stack Buffer**: Enabled `poll(2)` execution on Linux systems in `W_HandleInputEvents()` (previously blocked by an obsolete `#if ... && !defined(HAVE_SELECT)` check that forced `select(2)` and 384-byte bitmask clearing). Added a fast stack buffer `struct pollfd stack_fds[16]` eliminating heap allocation (`wmalloc`/`wfree`) for normal event loop operations.
 
 85. **Runtime Telemetry Framework & Modern X11 Round-Trip Elimination**:
     - **Runtime Telemetry Logging (`/tmp/wmaker_runtime_logs`)**:
-      - Implemented [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) and [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) providing real-time latency measurement for every dispatched X11 event via `clock_gettime(CLOCK_MONOTONIC)`.
+      - Implemented [`src/telemetry.c`](src/telemetry.c) and [`src/telemetry.h`](src/telemetry.h) providing real-time latency measurement for every dispatched X11 event via `clock_gettime(CLOCK_MONOTONIC)`.
       - Automatic background reporting writes `/tmp/wmaker_runtime_logs/runtime_stats.json` and human-readable `/tmp/wmaker_runtime_logs/runtime_stats.log` every 60 seconds (and upon `SIGUSR2` / session termination).
       - Added latency spike threshold alerting (> 16.6 ms) logged to `/tmp/wmaker_runtime_logs/latency_spikes.log`.
-    - **Single-Head XQueryPointer Elimination ([`src/xinerama.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xinerama.c))**:
+    - **Single-Head XQueryPointer Elimination ([`src/xinerama.c`](src/xinerama.c))**:
       - Bypassed synchronous `XQueryPointer` socket calls in `wGetHeadForPointerLocation()` when `scr->xine_info.count <= 1` (common single-monitor desktop setups), saving up to 3.37% of total session CPU runtime.
-    - **Colormap Query & XSync Bypass ([`src/colormap.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/colormap.c))**:
+    - **Colormap Query & XSync Bypass ([`src/colormap.c`](src/colormap.c))**:
       - Avoided redundant `XGetWindowAttributes()` queries during window focus/crossing events in TrueColor visuals, where client windows share the root colormap. Removed redundant `XSync(dpy, False)` round-trips.
-    - **$O(1)$ Direct Key Grab Deduplication ([`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c))**:
+    - **$O(1)$ Direct Key Grab Deduplication ([`src/window.c`](src/window.c))**:
       - Replaced $O(N)$ linear scans in `addSingleKeyGrab` with a direct 8KB bitmap (`grab_seen[256][32]`) providing 2-instruction $O(1)$ deduplication for all 65,536 `(KeyCode, Modifier)` combinations.
-    - **Batched Atom Interning ([`src/xdnd.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xdnd.c))**:
+    - **Batched Atom Interning ([`src/xdnd.c`](src/xdnd.c))**:
       - Converted 12 sequential synchronous `XInternAtom` calls into a single batched `XInternAtoms` request.
 
-86. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
+86. **[`src/wmspec.c`](src/wmspec.c) - Zero-Allocation Stack Buffers and In-Place Reversal for EWMH Client Lists**:
     - **Stack Allocation**: In `updateClientList()` and `updateClientListStacking()`, replaced heap allocations (`wmalloc`/`wfree`) on every window map, unmap, or stacking order change with a 64-window stack buffer (`Window stack_list[64]`), avoiding dynamic heap memory churn for normal desktop sessions ($\le 64$ managed windows).
     - **In-Place Reversal**: Eliminated the secondary reverse heap buffer `client_list_reverse` entirely in `updateClientListStacking()`, swapping array elements in-place ($O(N/2)$ operations, 0 additional memory).
 
-87. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/xinerama.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/xinerama.c) - Ultra-Fast L1 Direct-Mapped `wWindowFor` Cache & Round-Trip Pruning**:
+87. **[`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/xinerama.c`](src/xinerama.c) - Ultra-Fast L1 Direct-Mapped `wWindowFor` Cache & Round-Trip Pruning**:
     - **L1 Cache for Window Resolution**: Implemented a 128-entry direct-mapped L1 CPU cache for `wWindowFor(Window window)`. Repeat lookups during event bursts completely bypass `XFindContext()` (which acquires display mutex locks and traverses internal Xlib linked lists), resolving `WWindow*` in 2 ALU instructions (~1-2 ns).
     - **Safe Invalidation**: Added `wWindowCacheInvalidate(wwin)` automatically called during `wWindowDestroy()`.
     - **XSync Pruning**: Removed redundant blocking `XSync(dpy, False)` in `wManageWindow()` immediately prior to `XGetWindowAttributes()`.
     - **Single-Head Fast-Path**: Short-circuited `wGetHeadForPoint()` to return `primary_head` in $O(1)$ time when `count <= 1`.
 
-88. **[`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/moveres.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/moveres.c) - Motion Event Compression & ButtonPress Round-Trip Elimination**:
+88. **[`src/event.c`](src/event.c), [`src/moveres.c`](src/moveres.c) - Motion Event Compression & ButtonPress Round-Trip Elimination**:
     - **Motion Compression**: Added non-blocking event queue compression in `handleMotionNotify()` via `XCheckTypedWindowEvent()`, collapsing high-frequency motion event bursts (e.g., 1000 Hz mice) to the latest coordinates and avoiding redundant boundary and corner recalculations. Added `PointerMotionMask` compression to rubber-band selection and window positioning loops in `src/moveres.c`.
     - **ButtonPress Latency Reduction**: Eliminated 4 redundant `XSync(dpy, 0)` calls surrounding `XAllowEvents()` in `handleButtonPress()`, making window click-to-focus and icon clicks instantaneous with zero socket round-trips.
     - **ProcessPendingEvents Optimization**: Replaced blocking `XSync(dpy, False)` with `XFlush(dpy)` in `ProcessPendingEvents()`.
 
-89. **[`src/actions.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/actions.c), [`src/client.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/client.c) - Focus/Protocol Asynchrony & Mini-Preview Screenshot Bypass**:
+89. **[`src/actions.c`](src/actions.c), [`src/client.c`](src/client.c) - Focus/Protocol Asynchrony & Mini-Preview Screenshot Bypass**:
     - **Protocol Asynchrony**: In `wClientSendProtocol()`, replaced blocking `XSync(dpy, False)` with `XFlush(dpy)`. Eliminated duplicate `XSync` in `wSetFocusTo()` and `flushExpose()`.
     - **Expensive Screenshot Bypass**: In `wIconifyWindow()`, guarded full-window screenshot captures (`XRaiseWindow`, `XTranslateCoordinates`, `XGetImage`, `RSmoothScaleImage`) behind `wPreferences.miniwin_preview_balloon`. When disabled (default), saves megabytes of socket data transfers and millions of CPU cycles on window minimize operations.
 
-90. **[`src/misc.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/misc.c), [`WINGs/wtextfield.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtextfield.c) - Eliminate Busy-Wait Spin Loops & Static Atom Caching**:
+90. **[`src/misc.c`](src/misc.c), [`WINGs/wtextfield.c`](WINGs/wtextfield.c) - Eliminate Busy-Wait Spin Loops & Static Atom Caching**:
     - **Busy-Wait Elimination**: In `getTextSelection()` (`src/misc.c`), replaced a tight empty `while (!XCheckTypedWindowEvent(...) && !timeout) ;` busy loop that burned 100% of a CPU core with `poll(2)` on `ConnectionNumber(dpy)` bounded by a high-resolution monotonic clock timeout.
     - **Static Atom Caching**: In `WINGs/wtextfield.c`, statically cached `TARGETS`, `TEXT`, and `COMPOUND_TEXT` atoms using a single initial `XInternAtoms` batch, eliminating 3 synchronous round-trips on every clipboard/selection request.
 
-91. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - Enhanced Runtime Performance Metrics**:
+91. **[`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h) - Enhanced Runtime Performance Metrics**:
     - Extended telemetry to track `motion_events_compressed`, `mini_preview_bypassed`, and `wwindow_cache_hits`/`wwindow_cache_misses` with automatic hit rate percentage reporting in both `/tmp/wmaker_runtime_logs/runtime_stats.json` and `runtime_stats.log`.
 
-92. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/screen.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.h), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
+92. **[`src/wmspec.c`](src/wmspec.c), [`src/screen.c`](src/screen.c), [`src/screen.h`](src/screen.h), [`src/defaults.c`](src/defaults.c) - Usable Area Bypass & Conditional Root Motion Masking**:
     - **Strut Usable Area Bypass**: Guarded all calls to `wScreenUpdateUsableArea()` in `src/wmspec.c` behind whether struts were actually modified by a dock or panel window. Bypasses multi-head border and placement calculations on ordinary window mapping, unmapping, and hint changes.
     - **Root Pointer Motion Filtering**: In `src/screen.c`, implemented `wScreenUpdateRootEventMask()` to omit `PointerMotionMask` on the root window when neither `scrollable_menus` nor `hot_corners` is active, completely preventing the X server from generating motion events for background mouse movements. Dynamically re-evaluates and updates root input mask on runtime preference changes.
 
-93. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
+93. **[`src/telemetry.c`](src/telemetry.c) - Enforce C Numeric Locale for Standard JSON Serialization**:
     - Wrapped JSON formatting in `wTelemetryDump()` with temporary `setlocale(LC_NUMERIC, "C")` switching to guarantee standard period (`.`) decimal points regardless of user/system locale (`it_IT.UTF-8`), ensuring RFC 8259 compliance and parsing by `jq` and other external tools.
 
-94. **[`test/wm_stress.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/wm_stress.c), [`test/run_stress.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_stress.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
+94. **[`test/wm_stress.c`](test/wm_stress.c), [`test/run_stress.sh`](test/run_stress.sh), [`Makefile.am`](Makefile.am) - High-Concurrency Multithreaded X11 Stress Test Tool**:
     - Developed `wm_stress`, a standalone multithreaded X11 client tool configured by default to saturate all available CPU cores (8 threads on 8 cores).
     - Emits aggressive concurrent window management operations on `:0` or custom displays:
       - Rapid window creation, mapping, unmapping, and destruction.
@@ -494,7 +494,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - Handled clean termination via `SIGINT`/`SIGTERM` with full X11 resource deallocation.
     - Added Makefile target `make stress` and convenience launcher script `test/run_stress.sh`.
 
-95. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`src/rootmenu.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/rootmenu.c), [`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c) - Root-Window Global Key Grabs & Signal Safety**:
+95. **[`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/screen.c`](src/screen.c), [`src/defaults.c`](src/defaults.c), [`src/rootmenu.c`](src/rootmenu.c), [`WINGs/wballoon.c`](WINGs/wballoon.c) - Root-Window Global Key Grabs & Signal Safety**:
     - **Global Root Window Key Grabs**: Eliminated the per-window installation of keyboard grabs in `wManageWindow()`. Replaced repetitive $O(N_{windows} \times N_{keys})$ wire requests with global passive grabs established once per screen on `scr->root_win` (`wScreenSetKeyGrabs()`). This completely eliminates ~70 asynchronous X11 protocol requests per window creation (over 2.3 million wire requests eliminated during high-concurrency stress tests), drastically reducing socket buffer serialization and context-switching overhead.
     - **Dynamic Grab Suspension for `no_bind_keys`**: Automatically suspends root key grabs (`wScreenUngrabKeys()`) when focusing client windows with `no_bind_keys` set (e.g. VMs, DOSBox, emulators, games) and restores them when focus transitions back to normal windows.
     - **Clean Menu/Binding Rebinds**: Updated `wSetKeyBinding()` to rebind globally on `scr->root_win` instead of iterating over every managed window.
@@ -514,93 +514,93 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Finding 17 (.gitignore Updates)**: Added wildcards for generated menu files (`appearance.menu*`, `menu*`, `plmenu*`), man pages (`doc/*.1`), and `wmlib/wmlib.pc`.
     - **Finding 19 (MapRequest Defensive Guard)**: Added defensive screen resolution check in `handleMapRequest()` (`src/event.c`) preventing NULL dereferences when processing events on unknown root windows.
 
-97. **[`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), [`src/wmspec.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.h), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/properties.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
+97. **[`src/wmspec.c`](src/wmspec.c), [`src/wmspec.h`](src/wmspec.h), [`src/window.c`](src/window.c), [`src/properties.c`](src/properties.c) - Finding 2 (Option A: De-advertise `_NET_WM_SYNC_REQUEST` & Eliminate Sending Overhead)**:
     - **De-advertisement**: Removed `_NET_WM_SYNC_REQUEST` and `_NET_WM_SYNC_REQUEST_COUNTER` from the `_NET_SUPPORTED` atom array on root windows, informing clients (GTK, Qt, Chrome) that Window Maker does not implement synchronous frame acknowledgment.
     - **Eliminate Resize Overhead**: Dropped `wNETWMSendSyncRequest()` and the 250 ms timeout timer callback `syncTimeoutCallback()`. Removed the call from `wWindowConfigure()` in `src/window.c`, saving `XSendEvent`, `XSyncChangeAlarm`, and continuous timer arm/cancel churn on every window resize.
     - **Protocol Check**: Removed `NET_WM_SYNC_REQUEST` parsing in `src/properties.c` and eliminated superfluous `XSyncCreateAlarm` allocations.
 
-98. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c), [`src/main.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c), [`WINGs/wapplication.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
+98. **[`wrlib/raster.c`](wrlib/raster.c), [`src/main.c`](src/main.c), [`WINGs/wapplication.c`](WINGs/wapplication.c) - Finding 9 (Process-Wide KSM Consolidation & Removal of Failing `MAP_HUGETLB`)**:
     - **Single Process-Wide KSM Invocation**: Eliminated the redundant `prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0)` call in `src/main.c`. Process-wide KSM is now cleanly established exactly once per process inside `WMInitializeApplication()` (`WINGs/wapplication.c`), ensuring all WINGs applications and Window Maker itself run with anonymous memory deduplication active by default.
     - **Eliminated `MAP_HUGETLB` Syscall Overhead**: Removed the speculative `mmap(..., MAP_HUGETLB)` call in `wrlib/raster.c` which consistently failed on standard kernels lacking reserved HugeTLB pages.
     - **Retained Transparent Huge Pages (THP) & KSM Advising**: For images $\ge 2\text{ MB}$, anonymous memory is directly mapped and advised with `MADV_HUGEPAGE` (allowing transparent 2MB huge page promotion without root-reserved pools) alongside `MADV_MERGEABLE` for continuous kernel page merging.
 
-99. **[`WINGs/wballoon.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wballoon.c), [`WINGs/widgets.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/widgets.c), [`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`test/run_exit_test.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/run_exit_test.sh), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
+99. **[`WINGs/wballoon.c`](WINGs/wballoon.c), [`WINGs/widgets.c`](WINGs/widgets.c), [`src/defaults.c`](src/defaults.c), [`test/run_exit_test.sh`](test/run_exit_test.sh), [`Makefile.am`](Makefile.am) - Round-2 Hardening: Shutdown Crash, Defaults Initialisation and Exit Regression Test**:
     - **Shutdown SIGSEGV (`151ccd71`)**: `WMDestroyScreen()` detaches `scr->balloon` before calling `W_DestroyBalloon()`; `destroyView()` then reaches `WMSetBalloonTextForView()`, which dereferenced the detached pointer. Every `SIGTERM`/`SIGUSR1` exit ended with an `Invalid read of size 8` at address `0x8` (status 139), so `Exit()`, `ExecExitScript()` and `wCleanupSignalPipe()` never ran. The balloon API now tolerates a missing `scr->balloon`; exit status is 0 again.
     - **Uninitialised defaults (`52e1029a`)**: `wDefaultsInitDomain()` allocated `WDDomain` with `wmalloc()` (not zeroed) and compared `stbuf.st_mtime` even when `stat()` had failed, which is the normal case on a fresh `$HOME`. The structure is zeroed and `st_mtime` is only used when `stat()` succeeded.
     - **Exit regression test (`7b9f8e8e`)**: `test/run_exit_test.sh` (target `make exit-test`, `EXIT_TEST_ARGS=--valgrind` for the Valgrind case) starts `src/.libs/wmaker --for-real` on an isolated Xvfb display with a throw-away `$HOME` and asserts exit status 0 on `SIGTERM`, a working restart on `SIGUSR1`, a telemetry dump on `SIGUSR2` and no invalid memory accesses under Valgrind. It never uses the caller's `DISPLAY`.
     - **Valgrind methodology**: `valgrind ./src/wmaker` traces only the libtool wrapper; the WM itself must be instrumented as `valgrind src/.libs/wmaker --for-real` (or with `--trace-children=yes`), otherwise the run says nothing about the WM.
 
-100. **[`src/defaults.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/defaults.c), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/application.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/application.c), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`.gitignore`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/.gitignore) - Round-2 Follow-Up: Key-Grab Batching, Dead Code Cleanup, Cache Invalidation by XID, and Diagnostics**:
+100. **[`src/defaults.c`](src/defaults.c), [`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/application.c`](src/application.c), [`src/event.c`](src/event.c), [`.gitignore`](.gitignore) - Round-2 Follow-Up: Key-Grab Batching, Dead Code Cleanup, Cache Invalidation by XID, and Diagnostics**:
     - **Key-Grab Batching (R1)**: Defer individual `wScreenSetKeyGrabs()` calls during `wReadDefaults()` and `wReadKeybindings()` loops. A single regrab is performed once the full keybinding dictionary has been read, eliminating over 5,000 redundant `XGrabKey` calls during startup and reconfigurations.
     - **Dead Code Cleanup (Finding 2 Follow-up)**: Removed `WProtocols.NET_WM_SYNC_REQUEST`, `WWindow.sync_request`, `w_global.context.sync_alarm`, and empty stubs `wNETWMUpdateSyncCounter()` and `wNETWMHandleSyncAlarmNotify()`.
     - **L1 Cache Invalidation by XID (Finding 11)**: Implemented `wWindowCacheInvalidateXID()` to purge entries from the direct-mapped cache by XID, safely handling the dual-descriptor pattern in `wApplicationDestroy()`.
     - **Observability Diagnostics (Finding 19)**: Added explicit `wmessage` logging in `handleMapRequest()` when handling already-managed windows or when `wManageWindow()` returns NULL.
     - **Tighter `.gitignore` (R3)**: Refined menu rules in `.gitignore` to match generated files (`menu.[a-z][a-z]*`) without masking tracked source/localization files.
 
-101. **[`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h), [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c), [`src/workspace.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/workspace.c) - DHAT & Telemetry Profiling Optimizations: IPC Latency, Event Loop Churn, and Render Buffer Recycling**:
+101. **[`src/event.c`](src/event.c), [`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h), [`WINGs/handlers.c`](WINGs/handlers.c), [`src/workspace.c`](src/workspace.c) - DHAT & Telemetry Profiling Optimizations: IPC Latency, Event Loop Churn, and Render Buffer Recycling**:
     - **Bypass Redundant `XGetGeometry()` in `handlePropertyNotify()` (`e869f852`)**: DHAT and latency spike logs identified 271,117 synchronous `XGetGeometry()` calls in `handlePropertyNotify()` where all returned geometry values were ignored. Bypassed the synchronous round-trip when client window attributes already exist, eliminating 271k roundtrips, ~11 MB of libxcb heap churn, and the vast majority of PropertyNotify latency spikes (which previously peaked at 378 ms). Added `property_xgetgeometry_bypassed` telemetry counter.
     - **Stack Buffer for Input Handlers in `W_HandleInputEvents()` (`128ff593`)**: Profiling identified 107,349 heap allocations and frees from continuous `WMDuplicateArray()` / `WMFreeArray()` cycles in WINGs input handling. Replaced heap allocation with a 32-slot stack buffer for common workloads, falling back to dynamic allocation only for atypically large handler sets.
     - **Recycle Workspace Name Fade Buffer (`2cea0526`)**: DHAT identified 26.4 MB allocated across 3,149 `RCloneImage()` calls during workspace fade transitions in `hideWorkspaceName()`. Recycled a single render buffer across frames, updating only pixel values and avoiding continuous image allocation and deallocation.
 
-102. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/menu.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.c), [`src/menu.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/menu.h), [`src/framewin.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/framewin.c), [`src/framewin.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/framewin.h) - Memory-Generous High-Throughput Caches: 4-Way Associative Window Lookup, Menu Tile Caching, and Lazy Frame Rendering**:
+102. **[`src/window.c`](src/window.c), [`src/menu.c`](src/menu.c), [`src/menu.h`](src/menu.h), [`src/framewin.c`](src/framewin.c), [`src/framewin.h`](src/framewin.h) - Memory-Generous High-Throughput Caches: 4-Way Associative Window Lookup, Menu Tile Caching, and Lazy Frame Rendering**:
     - **4-Way 1024-Entry Set-Associative Window Cache with Negative Caching (`a4dc6b9d`)**: Replaced the 128-entry direct-mapped L1 window cache with a 256-set x 4-way (1024 total entries, 16 KB fitting in L1d) cache using Knuth's multiplicative hash. Extended caching to negative results (`wwin == NULL` for root, subwindows, and frame decorations) with instant invalidation upon `XSaveContext()` in `wManageWindow` and `wManageInternalWindow`. Increases cache hit rate from 34.8% to >95%, virtually eliminating repetitive `XFindContext()` traversals during X11 event dispatch.
     - **Menu Background Texture Caching (`9bbd931a`)**: Addressed DHAT's top allocation source (>700 MB of texture rasterization). Added `texture_width` and `texture_height` tracking to `WMenu`, skipping `renderTexture()`, `XCreatePixmap()`, and `XClearWindow()` when menu dimensions remain unchanged across realize calls. Introduced a 16-slot LRU cache (`menu_rimage_cache`) for `MS_NORMAL` tile `RImage`s, allowing menus with identical dimensions to reuse rendered raster buffers without re-rendering.
     - **Lazy Window Frame Texture Remaking (`fdaaba85`)**: Replaced immediate synchronous rendering of all 3 window states (unfocused, focused, owner) on every resize or configuration with dirty-mask tracking (`texture_remake_mask`). Renders only the currently active state during paint and defers rendering of inactive states until they actually become active, saving up to 66% of frame texture rasterization overhead during window resize.
 
-103. **[`src/wcore.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wcore.c), [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c) - Negative Lookup Cache Correctness: Invalidate WM-Created XIDs on Create and Destroy**:
+103. **[`src/wcore.c`](src/wcore.c), [`src/window.c`](src/window.c) - Negative Lookup Cache Correctness: Invalidate WM-Created XIDs on Create and Destroy**:
     - **Problem**: `a4dc6b9d` added negative caching (XID -> NULL) to the window lookup cache. Every WM-created window (frame, menu, app icon, dialog) is registered in the `client_win` context by `wCoreCreate*()`, but `wCoreDestroy()` only deleted the context. A negative entry cached for a menu or frame XID therefore survived its destruction and could match the next window that the X server assigned the same XID to (XIDs are recycled aggressively), making a real frame look unmanaged: no `EnterNotify` focus handling and no frame repaint for that window.
     - **Fix**: `wWindowCacheInvalidateXID()` is now called from `wCoreCreateTopLevel()`, `wCoreCreate()` and `wCoreDestroy()`. `wWindowDestroy()` already invalidated both the `WWindow` and its client XID.
     - **Cost/benefit**: four comparisons per create/destroy, no memory at all; it removes a rare but user-visible failure mode introduced by the negative cache (a cache that buys ~1000 `XFindContext()` traversals per second must never return a wrong answer).
     - **Verification**: `make exit-test` passes; 20 root-menu open/close cycles followed by a fresh client still produce a viewable client window and frame; `wm_stress -t 2 -d 5` passes.
 
-104. **[`WINGs/wevent.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wevent.c), [`WINGs/WINGs/WINGs.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGs.h), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - Event Latency Accounting: Exclude Modal (Menu/Dialog) Time**:
+104. **[`WINGs/wevent.c`](WINGs/wevent.c), [`WINGs/WINGs/WINGs.h`](WINGs/WINGs/WINGs.h), [`src/event.c`](src/event.c), [`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h) - Event Latency Accounting: Exclude Modal (Menu/Dialog) Time**:
     - **Problem**: the spike log reported 2-5 s "latencies" for `KeyPress`, `ButtonPress` and `MotionNotify` whenever the event opened a menu. Measured on a private Xvfb: F12 with the menu left open for 2 s produced 2007.77 / 2006.49 / 2003.46 ms `KeyPress` entries, i.e. the numbers were the menu's open time, not handler cost. Cause: the modal loops (`wMenuScroll`, dialog loops, move/resize) run their own `WMNextEvent()`/`WMHandleEvent()` loop inside the handler.
     - **Design**: WINGs now exports an optional `WMEventWaitHook` called after every blocking wait with the nanoseconds spent waiting. wmaker registers it in `wTelemetryInit()` and counts a wait as modal only when `dispatch_depth > 0` (a handler is running). `DispatchEvent()` maintains the nesting depth, snapshots the modal counter and subtracts the delta from the event's elapsed time; nested dispatches add their own work to the modal counter so the enclosing event does not pay for them either. `runtime_stats.json` gains `modal_time_ms`, the text report a corresponding line, and spike entries append "(N ms in modal menus/dialogs excluded)".
     - **Cost/benefit**: two `clock_gettime()` calls per wait (vDSO, ~20 ns each) and two integer operations per event; no memory. In exchange the only latency metric the project has becomes trustworthy: the same 3x F12 experiment now reports `KeyPress` max 0.45 ms with `modal_time_ms = 6008`, while a stress run still logs genuine 170 ms `MapRequest` entries.
     - **Verification**: `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass; F12 x3 test as described; `wm_stress -t 4 -d 5` logs real spikes with the modal annotation.
 
-105. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c) - Spike Log Diagnostics: Event-Specific Context**:
+105. **[`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h), [`src/event.c`](src/event.c) - Spike Log Diagnostics: Event-Specific Context**:
     - **Problem**: a spike line only carried the event type and `xany.window`. For `PropertyNotify` it did not say *which* property (the 378 ms spikes on client `0x1e00007` could be a title update or `_NET_WM_ICON`); for `MapRequest` the generic `xany.window` overlays the `parent` field of the union, so it printed the root window instead of the client; for `KeyPress` the keycode was missing. The data could not be acted upon.
     - **Fix**: `wTelemetryRecordEventEnd()` now takes the `XEvent` and appends `atom=<name> state=new/deleted` (`PropertyNotify`), `keycode/state` (`Key*`), `button/state/subwindow` (`Button*`), `x/y/x_root/y_root/state` (`Motion`), `parent=` (`MapRequest`), `WxH+X+Y` (`ConfigureRequest`), `mode/detail/focus` (`Enter`/`Leave`), `type=<atom>` (`ClientMessage`) and geometry (`Expose`). A helper `event_window()` reports the client window for `MapRequest`/`ConfigureRequest`/`CreateNotify` instead of the union's parent overlay.
     - **Cost/benefit**: one `XGetAtomName()` round-trip only when a spike is actually written (at most a few per minute) plus a 256-byte stack buffer; zero steady-state cost. In exchange every spike entry becomes a diagnosis: `MapRequest ... on window 0x400601 ... parent=0x46f`, `ClientMessage ... type=WM_CHANGE_STATE`.
     - **Verification**: `wm_stress -t 4 -d 5` on a private Xvfb produced the contextualized entries above; `make exit-test` passes.
 
-106. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Spike Log I/O: One Persistent Stream Instead of One `fopen` per Spike**:
+106. **[`src/telemetry.c`](src/telemetry.c) - Spike Log I/O: One Persistent Stream Instead of One `fopen` per Spike**:
     - **Problem**: `wTelemetryRecordEventEnd()` opened, wrote and closed `latency_spikes.log` for every slow event: 5,084 open/close pairs and ~18.6 MB of 4 KB stdio buffers over the 12.5 h DHAT session.
     - **Fix**: the file is opened lazily once (`get_spike_file()`), each line is formatted into a 512-byte stack buffer and written with one `fwrite` + `fflush` (the explicit flush keeps the inherited buffer empty across the forks used to launch dock apps/helpers), and the stream is closed in `wTelemetryShutdown()`.
     - **Cost/benefit**: one 4 KB stdio buffer for the whole session instead of 5,084, 5,083 fewer open/close syscalls, 512 bytes of stack per slow event. Measured with `strace -e trace=openat`: 20 spikes written with **1** openat of the file.
     - **Verification**: `strace` count above; `make exit-test` passes; spike line contents unchanged.
 
-107. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Spike Log Rotation (4 MB, one generation)**:
+107. **[`src/telemetry.c`](src/telemetry.c) - Spike Log Rotation (4 MB, one generation)**:
     - **Problem**: `latency_spikes.log` was append-only and never rotated: 900 lines in three hours of a normal session, unbounded over weeks, in a directory the user does not clean.
     - **Fix**: the persistent stream tracks its own size (seeded with `fstat()` at open, incremented per written line) and rotates at 4 MB: the current file is renamed to `latency_spikes.log.1` (replacing the previous generation) and the next entry reopens an empty log.
     - **Cost/benefit**: one integer per written line, one `rename()` every ~40,000 entries; at most 8 MB of log on disk instead of unbounded growth. The recent history (two generations) is always available for diagnosis.
     - **Verification**: pre-filled log of 4,200,000 bytes + a stress run produced `latency_spikes.log.1` (4,200,097 bytes, frozen) and a fresh `latency_spikes.log` (22 lines).
 
-108. **[`src/placement.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/placement.c) - Icon Placement: One Byte per Slot Instead of One Byte per Pixel**:
+108. **[`src/placement.c`](src/placement.c) - Icon Placement: One Byte per Slot Instead of One Byte per Pixel**:
     - **Problem**: `PlaceIcon()` allocated `(screen_width+2) x (screen_height+2)` bytes for an occupancy map indexed in *icon slots* (`x / icon_size`). On 1920x1080 that is 2.08 MB allocated, mmapped and unmapped for every placement, while only ~700 bytes were used. It was also never cleared: the 2 MB mapping happened to be zero-filled by the kernel, an implicit and fragile assumption.
     - **Fix**: the map is now `(fullW+2) x (fullH+2)` bytes (34x21 = 714 bytes on 1920x1080 with 64 px icons), kept in a static grow-on-demand buffer across calls, and explicitly `memset()` before use. Only the used region is cleared.
     - **Cost/benefit**: ~700 bytes instead of 2 MB per placement, no mmap/munmap pair and no VMA churn per icon, zero allocation after the first call (the buffer is reused), and the uninitialised-read assumption is gone. DHAT had attributed 11.4 MB of churn to six placements.
     - **Verification**: six clients iconified on a 1024x768 Xvfb produced icons at x = 0, 64, 128, 192, 256, 320 on the icon-yard row (distinct, adjacent, on-screen); `make exit-test` passes.
 
-109. **[`src/screen.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/screen.c) - Screenshot Filename: Detect Truncation Instead of Silently Shortening**:
+109. **[`src/screen.c`](src/screen.c) - Screenshot Filename: Detect Truncation Instead of Silently Shortening**:
     - **Problem**: after the bounds fix (8d08496d) the two `snprintf()` calls that assemble `<template>.png` and `<template>_<n>.png` could still truncate a very long template, producing a silently shortened name (and possibly colliding with another file). clang reported both with `-Wformat-truncation`.
     - **Fix**: both calls now check the `snprintf()` return value against the buffer size and abort with a clear `werror()` ("Screenshot filename is too long, shorten ScreenshotFilenameTemplate") instead of writing a wrong path.
     - **Cost**: one integer comparison per screenshot; no memory.
     - **Verification**: 240-character template still produces the expected 244-character file; a too-long template now reports the error; `make` is warning-free again.
 
-110. **[`WINGs/wfont.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wfont.c), [`WINGs/WINGs/WINGs.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/WINGs/WINGs.h), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Font Cache Observability (and Why the Layout Cache Stays)**:
+110. **[`WINGs/wfont.c`](WINGs/wfont.c), [`WINGs/WINGs/WINGs.h`](WINGs/WINGs/WINGs.h), [`src/telemetry.c`](src/telemetry.c) - Font Cache Observability (and Why the Layout Cache Stays)**:
     - **Problem**: DHAT reported 261,299 `pango_layout_copy()` allocations (9.6 MB) in the 12.5 h session, but without hit counters there was no way to tell whether the 2,048-entry layout cache and the 65,536-entry width cache pay for themselves or merely add churn.
     - **Fix**: WINGs exposes `WMGetFontCacheStats()` (ASCII fast-path hits, width-cache hits/misses, layout-cache hits/misses) and the telemetry dump publishes them under `"font_caches"` in `runtime_stats.json`. No behaviour change.
     - **Measurement**: 10 root-menu opens plus 3 clients on a private Xvfb give width-cache **91.3%** (664/727) and layout-cache **86.7%** (111/128) hit rates. The misses are therefore 9-13% of lookups, so replacing the layout cache with a single scratch layout (the alternative considered) would make Pango re-shape ~7x more text than today: the caches stay, and the DHAT churn is the price of the hits that avoid shaping entirely.
     - **Cost**: five `unsigned long` counters, three increments in the hot path (a register add), five `%lu` fields in the dump.
 
-111. **[`SpecAI.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/SpecAI.md) - The Second Thread Is Pango's Font-Map Worker (identification, no change)**:
+111. **[`SpecAI.md`](SpecAI.md) - The Second Thread Is Pango's Font-Map Worker (identification, no change)**:
     - **Question**: the WM runs two threads; DHAT attributed 44 MB of churn to `FcFontSetSort`/`FcPatternDuplicate` on the worker, which looked like an unexpected thread.
     - **Answer**: `gdb -p <test instance> -ex "thread apply all bt"` shows the worker parked in `g_async_queue_pop()` inside `libpangoft2-1.0.so.0`. It is Pango's own `PangoFcFontMap` worker, used to batch font-pattern lookups off the main thread; libglib is the only linked library that imports `pthread_create`.
     - **Decision**: no change. Pango starts it on first font use; the churn is font matching that would otherwise run on the main loop. Disabling it would require patching Pango, and it does not block event dispatch.
 
-112. **[`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c) - Always-On Resource Metrics: CPU Time, Faults, Context Switches, Heap Split and X Backlog**:
+112. **[`src/telemetry.c`](src/telemetry.c) - Always-On Resource Metrics: CPU Time, Faults, Context Switches, Heap Split and X Backlog**:
     - **Problem**: the telemetry measured latency and cache hit rates but not the quantities that justify a "less work" optimisation: how much CPU the WM burns, how many page faults and context switches it takes, how much of the heap is malloc arena versus mmap, and how far behind the event loop is.
     - **Fix**: every dump now records `getrusage(RUSAGE_SELF)` (user/system ms, minor/major faults, voluntary/involuntary context switches), `mallinfo2()` (arena, in-use, malloc mmap) and `XPending()` (events already queued), as a `resources` object in `runtime_stats.json` plus two lines in the text report.
     - **Cost**: two cheap syscalls and one `XPending()` (which also flushes, harmless at dump time) once per minute; all values are read at dump time, no extra state and no hot-path work.
@@ -608,7 +608,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Caveat**: `malloc_mmap_kb` is malloc's own mmap, not the image mappings of `RCreateImage` (raw `mmap`, visible only through `smaps_rollup`/massif).
     - **Verification**: `make exit-test` passes; the fields are consistent with `/proc/<pid>/smaps_rollup` (Rss 26 MB at that point).
 
-113. **[`tools/profile.sh`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/tools/profile.sh ), [`Makefile.am`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/Makefile.am) - Three-Tier Profiling Helper (perf, strace, heaptrack, callgrind, massif, dhat)**:
+113. **[`tools/profile.sh`](tools/profile.sh ), [`Makefile.am`](Makefile.am) - Three-Tier Profiling Helper (perf, strace, heaptrack, callgrind, massif, dhat)**:
     - **Problem**: the profiling knowledge lived in session history, and the wrong incantation produced empty or misleading data: Valgrind through the libtool wrapper (untraced WM), `strace -c -p` (prints no summary on detach), `callgrind --zero` in this build (counters wrap), heaptrack auto-opening a Qt GUI with no display.
     - **Fix**: `tools/profile.sh` with six subcommands. `perf` (stat + `record -g`, optional scenario as load, auto-selects a working `/usr/lib/linux-tools/*/perf`), `strace` (raw trace plus a per-syscall summary), `heaptrack` (raw recording + `heaptrack_interpret` pipeline, no GUI), `callgrind` (instrumentation enabled only for the scenario), `massif` (`--pages-as-heap=yes`) and `dhat` (with a Python summary of top live and churn sites). Deep dives always start a private Xvfb and a throw-away `$HOME`; live commands locate the WM through `_NET_SUPPORTING_WM_CHECK`/`_NET_WM_PID` instead of process names.
     - **Cost**: a shell script plus a tiny XTest helper compiled on first use into the output directory; zero runtime cost for the WM.
@@ -616,19 +616,19 @@ All fixes have been applied in individual, incremental Git commits, each signed 
 
 114. **Follow-up finding — the `MapRequest` diagnostics are a hot-path cost**: the `wmessage()` calls added for the old MapRequest anomaly (`handleMapRequest()`) account for **12.5 MB of allocation churn** in a 3 s `wm_stress` run: every "window already managed" event formats and prints a message. They should become a `wTelemetry` counter (plus an optional rate-limited `wwarning`) before the next profiling round; the diagnostic is useful, the per-event message is not.
 
-115. **[`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c), [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.c), [`src/telemetry.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/telemetry.h) - `MapRequest` Diagnostics as Counters Instead of Per-Event Messages**:
+115. **[`src/event.c`](src/event.c), [`src/telemetry.c`](src/telemetry.c), [`src/telemetry.h`](src/telemetry.h) - `MapRequest` Diagnostics as Counters Instead of Per-Event Messages**:
     - **Problem**: `wmessage()` was called for every "window already managed" and every failed `wManageWindow()`. Each call does `wmalloc(sysconf(_SC_LINE_MAX))`, formats and writes a line: DHAT ranked `__wmessage` first at 12.5 MB of churn in a 3 s stress run, and the WM log grew to ~550 KB with thousands of identical lines.
     - **Fix**: "already managed" (benign and frequent) only increments `map_request_already_managed`. A `wManageWindow()` failure increments `map_request_failed` and calls `wwarning()` at most three times plus once per second, keeping the same message text. `map_request_no_screen` counts the third case. The counters are published in a `diagnostics` object in `runtime_stats.json` and on one line of the text report.
     - **Cost/benefit**: one 64-bit increment per MapRequest in the normal path, a `time()` call only on failures; the diagnostic information stays available without the allocation and I/O. 
     - **Verification**: `tools/profile.sh dhat map` no longer lists `__wmessage` anywhere (top churn is now 5.5 MB `XkbRF_GetNamesProp`, then 4.8 MB Pango's worker); a run with **6,323** failed MapRequests produced **4** warning lines and a 3 KB log; `make exit-test` passes.
 
-116. **[`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), [`src/window.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.h), [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c) - Cache the XKB Layout List Instead of Re-Reading It per Window**:
+116. **[`src/window.c`](src/window.c), [`src/window.h`](src/window.h), [`src/event.c`](src/event.c) - Cache the XKB Layout List Instead of Re-Reading It per Window**:
     - **Problem**: `wWindowGetLanguageLabel()` called `XkbRF_GetNamesProp()` — atom lookup, `XGetWindowProperty`, parsing and two `strdup`s — for every window and every frame repaint. After §115 it was the top DHAT churn at **5.5 MB** in a 3 s stress run.
     - **Fix**: the layout list is read once (`getXkbLayoutList()`), kept with `wstrdup` for the process lifetime, and the probe result — including "property absent" — is cached so servers without `_XKB_RULES_NAMES` do not pay a round-trip per window either. The 2-letter label is parsed in place with `strchr`, without the per-call `strdup`/`strtok`. The cache is dropped when the root `_XKB_RULES_NAMES` property changes (`wWindowCheckXkbRulesChanged()` from `handlePropertyNotify`) and on a core `MappingNotify` with `MappingKeyboard`, so `setxkbmap` is picked up.
     - **Cost/benefit**: a few bytes for the layout string and one round-trip per WM start (or keyboard reconfiguration) instead of one per window: memory spent deliberately to remove per-window X traffic.
     - **Verification**: `dhat map` no longer lists `XkbRF_GetNamesProp` in the top churn (the whole path is now ~0.7 KB with a single `XGetWindowProperty`); functional test on a private Xvfb: label `Us`, rewriting `_XKB_RULES_NAMES` to `it` makes the next call return `It`, removing the property makes it empty (invalidation and re-probe both work); `make exit-test` passes.
 
-117. **[`src/framewin.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/framewin.c), [`src/framewin.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/framewin.h) - Cache the Rendered Title Strip per State (Expose and Focus Repaints)**:
+117. **[`src/framewin.c`](src/framewin.c), [`src/framewin.h`](src/framewin.h) - Cache the Rendered Title Strip per State (Expose and Focus Repaints)**:
     - **Problem**: every `wFrameWindowPaint()` re-rendered the title through `ShrinkString()` + `WMWidthOfString()` + a fresh `XCreatePixmap`, a background copy/fill, `WMDrawString()` and `XFreePixmap`, even for an Expose or a focus switch where nothing had changed. In the plain session `Expose` handlers reached 131 ms and `EnterNotify` 94 ms on decorated windows.
     - **Fix**: each frame keeps the rendered strip for the three states (`title_strip[3]`) plus the title and titlebar width it was built for and its placement. When the title, the width and the state texture are unchanged the repaint is a single `XCopyArea`; otherwise the strip is re-rendered and stored. The cache is dropped when the title or width changes (key mismatch) and whenever frame textures are remade (`need_texture_remake` and the lazy per-state `remakeTexture`), and is freed in `wFrameWindowDestroy()`.
     - **Cost/benefit**: up to three pixmaps of (title width + 2) x (font height) per decorated window (about 150 KB at 600x24 px, X server memory) and one `wstrdup` of the title; in exchange every Expose and focus repaint loses text shaping, width measurement, pixmap creation/destruction and two copy operations.
@@ -640,13 +640,13 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost/benefit**: no runtime cost; `-fno-plt` removes the PLT indirection for external calls and `-std=gnu23` enables `<stdckdint.h>` (see §119) and the C23 attribute syntax. LTO stays for release builds, where cross-module inlining is worth the loss of stack attribution.
     - **Verification**: full rebuild with gcc 14.2 and with clang 23 (`-std=gnu23 -fno-plt`) has 0 errors and 0 warnings; `./configure --enable-lto` reports `-flto=auto`, `AR=gcc-ar`, `RANLIB=gcc-ranlib`; `make exit-test --valgrind` passes; the screenshot and menu texture paths still work.
 
-119. **[`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) - Checked Arithmetic in `RCreateImage()`**:
+119. **[`wrlib/raster.c`](wrlib/raster.c) - Checked Arithmetic in `RCreateImage()`**:
     - **Problem**: the buffer size was computed as `(size_t)width * height * (alpha ? 4 : 3) + 4`. The `MAX_WIDTH`/`MAX_HEIGHT` caps (20000) keep it under 2 GB today, but the safety came from the constants, not from the arithmetic: a future cap change or a smaller `size_t` would overflow silently.
     - **Fix**: `ckd_mul()`/`ckd_add()` from `<stdckdint.h>` compute pixels, bytes and the +4 padding, returning `RERR_NOMEMORY` on overflow; the same checked add guards the huge-page rounding before `mmap()`. When `<stdckdint.h>` is unavailable (`__has_include`), two small `static inline` helpers provide identical semantics so older compilers keep building.
     - **Cost/benefit**: three overflow-flag checks per image creation (a few cycles), no memory; the invariant is explicit and survives a 32-bit host.
     - **Verification**: build with gcc 14 and clang 23 (0 warnings); `stdckdint.h` is the active path (the fallback is compiled out, checked in the preprocessed output); `make exit-test --valgrind` passes; screenshot and menu texture paths still work.
 
-120. **[`wrlib/convert.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/convert.c) - TrueColor-Only Conversion: the 8-bit Visual Paths Removed**:
+120. **[`wrlib/convert.c`](wrlib/convert.c) - TrueColor-Only Conversion: the 8-bit Visual Paths Removed**:
     - **Problem**: `convert.c` carried two complete rendering back-ends. The 8-bit one (`image2PseudoColor`, `image2StandardPseudoColor`, `image2GrayScale`, `convertPseudoColor_to_8`, the Floyd-Steinberg error diffusion into a palette, and the `RStdConversionTable`/`computeStdTable` colour-lookup machinery with its release hook) can no longer be reached: every X server this fork is used on is 24/32-bit TrueColor, and the file's own header lists the 8-bit paths as known-broken ("Using Grayscale visual with Dithering crashes wmaker", wrong ghost dock/appicon). It was dead weight in the ABI surface too, because `RGetClosestXColor` had to answer for paletted visuals.
     - **Fix**: the 8-bit back-end and the quantization tables are gone (`convert.c` 1,099 → 528 lines). `RConvertImage()` now rejects anything that is not TrueColor with `RERR_BADVISUALID` instead of silently taking a conversion path nobody tests, and `RGetClosestXColor()` does the same in its non-TrueColor branch. Kept: `image2TrueColor()` including its 15/16-bit dithering (a 15-bit TrueColor visual is still a TrueColor visual, and the dithering is the only correct path there), `image2Bitmap()` (1-bit masks for `RConvertImageMask`), and the MIT-SHM `XCopyArea` in `RConvertImage` (it controls pixmap and shm-segment lifetime; removing it needs explicit lifetime tracking, so it stays).
     - **Trade-off**: the library no longer renders on `PseudoColor`/`StaticColor`/`GrayScale`/`StaticGray` visuals. That is deliberate: those visuals are not testable here, the WM's own defaults already ask for TrueColor, and `RContext` creation keeps reporting the visual class so a caller gets a clean `RERR_BADVISUALID` rather than a crash. The memory saved is small (the conversion tables are 256 `unsigned short` per mask) — the win is code and test surface.
@@ -661,7 +661,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Verification**: `./test/wrlib_blend_test` prints "RCombineImagesWithOpaqueness: bit-exact for opaqueness 0..255"; full build 0 errors / 0 warnings; `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass with the scalar loop in the tree.
 
 122. **Static Analysis Audit (cppcheck 2.23 dev) & Defect Identification**:
-    - **Scope**: full scan across `src/`, `wrlib/`, `WINGs/`, and `test/` using `-DHAVE_CONFIG_H -I. -I./src -I./wrlib -I./WINGs`. Detailed report and patches documented in [cppcheck.md](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/cppcheck.md).
+    - **Scope**: full scan across `src/`, `wrlib/`, `WINGs/`, and `test/` using `-DHAVE_CONFIG_H -I. -I./src -I./wrlib -I./WINGs`. Detailed report and patches documented in [cppcheck.md](cppcheck.md).
     - **Clean module**: `wrlib/` passed with **0 errors and 0 warnings**, validating the recent arithmetic safety and visual purge commits.
     - **Identified defects**:
       - `src/defaults.c:1371`: calling `wScreenUpdateRootEventMask(scr)` unconditionally after handling `scr == NULL` a few lines prior causes an immediate SIGSEGV when defaults are read without an active screen context.
@@ -678,7 +678,7 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       - **Re-run (severity template, 2026-11-04)**: **929 findings: 911 `style`, 10 `portability`, 6 `error`, 2 `warning`**. No `nullPointer`, `arrayIndexThenCheck` or `memleak` remains. The 8 `uninitvar` (6 error + 2 warning) are all in `WINGs/selection.c` and `WINGs/wfontpanel.c` and are false positives (`WM_ITERATE_ARRAY` in `WINGs/WINGs/WUtil.h:498` assigns the variable in the `for` init). All 10 `portability` hits are `intToPointerCast`, the `(void *)(uintptr_t)` callback idiom. The `style` mass is `variableScope` 290, `constVariablePointer` 216, `constParameterPointer` 179, `constParameterCallback` 68, `knownConditionTrueFalse` 36, `shadowVariable` 35, `truncLongCastAssignment` 26 — so "wrlib is clean" holds for `warning`/`performance`/`portability`, not for `style`.
       - **Verification**: build 0 errors / 0 warnings; `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test` pass.
 
-123. **[`wrlib/scale.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/scale.c), [`test/wrlib_scale_bench.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/test/wrlib_scale_bench.c) - `RSmoothScaleImage()` Measured: the Row-Parallel Kernel Wins 1.2x and Is Not Worth It**:
+123. **[`wrlib/scale.c`](wrlib/scale.c), [`test/wrlib_scale_bench.c`](test/wrlib_scale_bench.c) - `RSmoothScaleImage()` Measured: the Row-Parallel Kernel Wins 1.2x and Is Not Worth It**:
     - **Question**: after §121 refuted hand-written SIMD for the RGB blend, the remaining roadmap candidate is `RSmoothScaleImage()` (`wrlib/scale.c:313`, Catmull-Rom by default): two passes, a per-output-pixel contribution list and double-precision accumulation. Does a hand-written kernel beat it?
     - **Cost of a real call** (best of five, RGB, gcc 14.2 `-march=native -O2`): 400x300 → 64x48 (window mini preview) **1.4 ms**; 1920x1080 → 192x108 (`screen.c:1409`, workspace map) **19.1 ms**; 1920x1080 → 300x170 (switch panel) **22.2 ms**; 128x128 → 61x61 (WPrefs) **0.45 ms**; 1920x1080 → 2560x1440 (wallpaper upscale) **96 ms**. The horizontal pass is ~84 % of the map-sized call (16.4 ms of 19.1 ms); the vertical pass is small because a 10x downscale reads only ~41 source rows per output row.
     - **Kernel probe**: the rows of an output column share the same contribution list (same pixel offsets, same weights), so lanes can be rows and the per-lane accumulation order stays identical to the scalar loop — the output is comparable byte by byte. 4-row and 8-row AVX2 variants, both **bit-exact** (0 bytes differ): 1920 wide, 41 contributions/px → scalar **16-22 ms**, 4 rows **13-17 ms**, 8 rows **13-16 ms**, i.e. **1.2-1.4x** depending on how loaded the machine is (absolute times move with turbo and co-tenant load, the ratio does not); 400 wide, 25 contributions/px → scalar 0.7-2 ms, kernels 0.5-1.7 ms, 1.23-1.29x.
@@ -707,8 +707,8 @@ All fixes have been applied in individual, incremental Git commits, each signed 
     - **Cost**: full build ~3 min, exit gate ~40 s, `wrlib_scale_bench` under ASan is ~8x slower (172 ms per 1920-wide horizontal pass vs 21 ms) which is expected and irrelevant for correctness runs.
 
 126. **Coverity Defect Audit and Corrective Action Plan (`CoverityReport/` & `CoverityGemini.md`)**:
-    - **Audit Scope**: Audited all 88 Coverity Defect JSON files (`cid_*.json` and `coverity_defects.json`) in [`CoverityReport/`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityReport) comprising 139 defect occurrences across 6 project subsystems: `src/` (37 CIDs), `WINGs/` (23 CIDs), `wrlib/` (3 CIDs), `util/` (15 CIDs), `WPrefs.app/` (9 CIDs), and `wmlib/` (1 CID).
-    - **Technical Analysis & Deliverable**: Produced [`CoverityGemini.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityGemini.md) detailing for every single CID the exact file location, issue description, severity classification, technical triage verdict (High Risk / Medium Risk / Minor / Intentional or False Positive), and recommended corrective action.
+    - **Audit Scope**: Audited all 88 Coverity Defect JSON files (`cid_*.json` and `coverity_defects.json`) in [`CoverityReport/`](CoverityReport) comprising 139 defect occurrences across 6 project subsystems: `src/` (37 CIDs), `WINGs/` (23 CIDs), `wrlib/` (3 CIDs), `util/` (15 CIDs), `WPrefs.app/` (9 CIDs), and `wmlib/` (1 CID).
+    - **Technical Analysis & Deliverable**: Produced [`CoverityGemini.md`](CoverityGemini.md) detailing for every single CID the exact file location, issue description, severity classification, technical triage verdict (High Risk / Medium Risk / Minor / Intentional or False Positive), and recommended corrective action.
     - **Key Critical Findings**:
       - `src/event.c:395-401` (CID 1686058, 1686112): `pevent->name` inotify filename read without null-termination guarantee in read buffer, causing potential out-of-bounds `strcmp`.
       - `WINGs/bagtree.c:459-464` (CID 1686055): Definite Use-After-Free accessing `self->root->index` after deleting root node.
@@ -730,13 +730,13 @@ All fixes have been applied in individual, incremental Git commits, each signed 
       5. Step 5: Verification & Baseline Update (Re-run `make exit-test`, sanitizer build, and static analysis baseline).
 
 127. **Coverity Triage, Second Pass (`CoverityDeepseek.md`)**:
-    - **What**: the same 88-defect export was re-triaged against the current tree, every reported line read in place, and the result written to [`CoverityDeepseek.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/CoverityDeepseek.md) (commit `7ea9ae58`). Verdicts: 16 crash-safety fixes, 7 integer-arithmetic, 16 leaks, 14 hardening, 15 hygiene, **20 suppressed with the reason written down**; every cid has its own row and a concrete change.
+    - **What**: the same 88-defect export was re-triaged against the current tree, every reported line read in place, and the result written to [`CoverityDeepseek.md`](CoverityDeepseek.md) (commit `7ea9ae58`). Verdicts: 16 crash-safety fixes, 7 integer-arithmetic, 16 leaks, 14 hardening, 15 hygiene, **20 suppressed with the reason written down**; every cid has its own row and a concrete change.
     - **Where it disagrees with §126**: `WINGs/bagtree.c` cid 1686055 is a false positive (`rbTreeDelete()` updates `tree->root`, so `self->root` is never the freed node) — but it exposed a real bug: `WMEraseFromBag()` does not renumber the successors' `index` the way `treeDeleteNode()` does. `WINGs/wcolorpanel.c` `getShift()` is not an infinite loop (the loop is bounded by `value >>= 1`); it is an `unsigned char` counter that only works by wrapping. The inotify pair (1686058/1686112) is well-formed kernel data, so it is hardening, not an out-of-bounds bug.
     - **Root causes found while reading** (not in the Coverity export): `wtokensplit()` leaves `*argv` stale for a command that tokenises to nothing (which is what 1686037 and 240602 actually are); `WMCreatePLArray()` retains instead of consuming, so every inline `WMCreatePLArray(WMCreatePLString(...))` leaks; four `RCreateImage()` results are dereferenced unchecked; and `__wmessage()` appends into a `wmalloc()` buffer that is never zeroed — cid 1686071 is filed as an integer overflow but is a heap-overflow risk with an uninitialised read in front of it.
     - **Status (2026-11-05)**: **implemented**, one commit per CID, hashes in the plan's appendix. 67 of the 89 closed by a change (16 crash-safety, 7 integer, 17 leaks, 14 hardening, 15 hygiene, and the two root-cause helpers `wtokensplit()` and `WMEraseFromBag()`; the 89th, CID 1686136, arrived on 2026-11-05 and is the leak the 1686037 guard introduced), 20 suppressed with a `/* coverity[...] */` comment and the reason, 2 verdicts corrected on implementation (1686101 is a false positive; 1686086's bound is reachable). Verification: build 0/0, `make exit-test` and its `--valgrind` variant pass, `wrlib_blend_test` / `wings_bag_test` / `wrlib_xpm_test` pass (the last two fail on the pre-fix code, which is the point), `tools/static-analysis.sh check` re-baselined 930 → 926.
 
 128. **GitHub CodeQL Analysis & Remediation Plan (`QLCodeAnalysis/QLCODEReport.md`)**:
-    - **What**: Comprehensive static analysis of the codebase using GitHub CodeQL (database in `QLCodeAnalysis/wmaker-db`, CSV/SARIF in `QLCodeAnalysis/wmaker-results.{csv,sarif}`). The run identified 563 findings: 53 errors, 179 warnings, and 331 recommendations, cataloged and triaged in [`QLCodeAnalysis/QLCODEReport.md`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/QLCodeAnalysis/QLCODEReport.md).
+    - **What**: Comprehensive static analysis of the codebase using GitHub CodeQL (database in `QLCodeAnalysis/wmaker-db`, CSV/SARIF in `QLCodeAnalysis/wmaker-results.{csv,sarif}`). The run identified 563 findings: 53 errors, 179 warnings, and 331 recommendations, cataloged and triaged in [`QLCodeAnalysis/QLCODEReport.md`](QLCodeAnalysis/QLCODEReport.md).
     - **Breakdown by Component**: `src/` (211: 13 err, 67 warn, 131 rec), `WINGs/` (148: 28 err, 29 warn, 91 rec), `util/` (85: 3 err, 25 warn, 57 rec), `WPrefs.app/` (79: 7 err, 38 warn, 34 rec), `wrlib/` (38: 2 err, 20 warn, 16 rec), `wmlib/` (2: 0 err, 0 warn, 2 rec).
     - **Key Critical Findings & Security Hazards**:
       - *CWE-078 (OS Command Injection)*: `util/wmsetbg.c:1045` passes user-supplied `domain` via `snprintf` to `system()` without shell isolation.
@@ -1202,29 +1202,29 @@ Measured baseline for future comparisons (Xvfb, clang-23, this machine):
 
 This section documents the feasibility analysis and architectural blueprint for upgrading Window Maker to a modern toolchain baseline (**GCC 14+ / Clang 23+**, **C23 / GNU23 standard**, Linux kernel 6.x+, and modern X11/XRender/XCB). Legacy compatibility with pre-C99 compilers and 1990s visual architectures is explicitly traded for peak CPU throughput, hardware vectorization, minimal syscall churn, and rock-solid memory safety.
 
-Detailed implementation steps are tracked in [BreakingToTheFuture.md](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/BreakingToTheFuture.md).
+Detailed implementation steps are tracked in [BreakingToTheFuture.md](BreakingToTheFuture.md).
 
 ### 1. Language & Compiler Features: C23 / GNU23 & Modern Builtins
 
 1. **Standard Attributes & Branch Prediction Optimization**:
-   - Apply `[[unlikely]]` and `[[likely]]` (or `__builtin_expect_with_probability()`) across the high-frequency event loop (`DispatchEvent` in [`src/event.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c)) and lookup caches (`wWindowFor` in [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c)).
+   - Apply `[[unlikely]]` and `[[likely]]` (or `__builtin_expect_with_probability()`) across the high-frequency event loop (`DispatchEvent` in [`src/event.c`](src/event.c)) and lookup caches (`wWindowFor` in [`src/window.c`](src/window.c)).
    - Tag hot execution paths with `[[gnu::hot]]` (`DispatchEvent`, `wWindowFor`, `W_HandleInputEvents`) to cluster them into a contiguous `.text.hot` ELF segment, eliminating instruction cache (L1i) and iTLB misses.
    - Tag error handling, exit scripts, and signal teardown with `[[gnu::cold]]`.
    - Apply `[[nodiscard]]` to memory-allocating and context-querying functions.
    - (DeepSeek comment: `[[unlikely]]` is not C23 (use `[[gnu::unlikely]]`/`__builtin_expect`); `[[gnu::hot]]`/`[[gnu::cold]]` work with gcc 14 and clang 23 but a WM that waits in poll and Pango gains little from `.text.hot` clustering.)
 
 2. **Checked Arithmetic with `<stdckdint.h>`**:
-   - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) and EWMH icon parsers in [`src/wmspec.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wmspec.c), replace manual integer bounds checks with C23 `ckd_mul()` and `ckd_add()`.
+   - In [`wrlib/raster.c`](wrlib/raster.c) and EWMH icon parsers in [`src/wmspec.c`](src/wmspec.c), replace manual integer bounds checks with C23 `ckd_mul()` and `ckd_add()`.
    - Traps integer overflow in dimension calculations (`width * height * bpp`) directly via hardware overflow flags (`jo`) with zero cycle overhead.
    - (DeepSeek comment: this is the first item worth doing. `RCreateImage` (`wrlib/raster.c:82`) already caps dimensions with `MAX_WIDTH`/`MAX_HEIGHT`, but on 32-bit `size_t` the product can still overflow; `ckd_mul`/`ckd_add` make it explicit at no cost.)
 
 3. **Hardware Bit-Twiddling with `<stdbit.h>`**:
-   - Utilize standard C23 bit manipulation builtins (`stdc_count_ones`, `stdc_trailing_zeros`, `stdc_first_leading_one`) in key-grab lookup tables, modifier bitmask checks in [`src/window.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c), and occupancy maps in [`src/placement.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/placement.c).
+   - Utilize standard C23 bit manipulation builtins (`stdc_count_ones`, `stdc_trailing_zeros`, `stdc_first_leading_one`) in key-grab lookup tables, modifier bitmask checks in [`src/window.c`](src/window.c), and occupancy maps in [`src/placement.c`](src/placement.c).
    - Generates single-cycle hardware instructions (`POPCNT`, `TZCNT`, `LZCNT`).
    - (DeepSeek comment: no real target — the placement occupancy map is a byte array indexed by slot, not a bitset, and the modifier masks are cold. Cosmetic unless a profile says otherwise.)
 
 4. **Compile-Time Asset Embedding via `#embed` (Clang 23 / C23)**:
-   - Embed default cursor themes, fallback icons ([`WindowMaker/Icons/`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WindowMaker/Icons)), and core menus directly into the binary.
+   - Embed default cursor themes, fallback icons ([`WindowMaker/Icons/`](WindowMaker/Icons)), and core menus directly into the binary.
    - Eliminates filesystem lookups at startup, removes missing-asset crashes in containerized/minimal installations, and speeds up cold start.
    - (DeepSeek comment: `#embed` is not in GCC 14, so this is clang-only here, and it needs a memory-image loader in wrlib/WINGs (icons and menus are read from files today). Startup is dominated by proplist parsing, not by a handful of file opens: drop it.)
 
@@ -1241,28 +1241,28 @@ Detailed implementation steps are tracked in [BreakingToTheFuture.md](file:///ho
    - (DeepSeek comment: `RImage` is `(alpha ? 4 : 3)` bytes/px (`wrlib/raster.c:82`); switching to 4 bytes costs +33% memory on non-alpha images and changes the public `libwraster` ABI (`wrlib/wraster.h` lines 179/247 expose `depth` and `data`). Keep the 3-byte layout for now.)
 
 2. **SIMD Alpha Blending and Scaling (AVX2 / SSE4.1)**:
-   - In [`wrlib/raster.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/raster.c) (`RCombineImagesWithOpaqueness`), replace scalar byte-by-byte loops with vector extensions (`typedef uint8_t v16u __attribute__((vector_size(16)));`) or SSE/AVX intrinsics (`_mm_maddubs_epi16`, `_mm_mulhi_epu16`).
+   - In [`wrlib/raster.c`](wrlib/raster.c) (`RCombineImagesWithOpaqueness`), replace scalar byte-by-byte loops with vector extensions (`typedef uint8_t v16u __attribute__((vector_size(16)));`) or SSE/AVX intrinsics (`_mm_maddubs_epi16`, `_mm_mulhi_epu16`).
    - Blends 8 or 16 pixels per CPU cycle instead of 1 pixel per 9 operations, achieving an estimated 8x to 12x throughput improvement during workspace and window alpha fade animations.
    - (DeepSeek comment: target `RSmoothScaleImage` (`wrlib/scale.c:313`) and `RCombineImages*` (`wrlib/raster.c:214/267`); `RScaleImage` is nearest-neighbour and `RMakeTiledImage` is already `memcpy` per row. Use runtime dispatch and bit-exact pixel tests — rounding differences are visible, and the titlebar-hash method from §117 works. — **Evaluated on `RCombineImagesWithOpaqueness`, and dropped (SpecAI §121)**: hand-written byte-wise SSE2 ran 67.6 ms and an SSSE3 `pshufb` deinterleave kernel 177.6 ms where the compiler-vectorized scalar loop runs 52.3 ms over the same 30 iterations of 1920x1080 RGB; both hand kernels were bit-exact, so the loss is pure shuffle/stride overhead. The compiler wins, `libsimde-dev` is not adopted (it would only add a wrapper over the slower shape), and `test/wrlib_blend_test.c` now pins the arithmetic. `RSmoothScaleImage` remains unmeasured: it is a two-pass interpolator with a different access pattern, so it would need its own benchmark before a decision.)
 
 3. **Purge 8-bit Legacy Visuals**:
-   - Remove dead 8-bit visual conversion code in [`wrlib/convert.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/wrlib/convert.c) (`PseudoColor`, `StaticColor`, `GrayScale`, Floyd-Steinberg dithering), eliminating >2,000 lines of obsolete code and focusing all optimization solely on 24/32-bit TrueColor.
+   - Remove dead 8-bit visual conversion code in [`wrlib/convert.c`](wrlib/convert.c) (`PseudoColor`, `StaticColor`, `GrayScale`, Floyd-Steinberg dithering), eliminating >2,000 lines of obsolete code and focusing all optimization solely on 24/32-bit TrueColor.
    - (DeepSeek comment: the 8-bit block is about 370 lines, not >2,000 (`image2PseudoColor` 514, `image2StandardPseudoColor` 598, `image2GrayScale` 748, file 1,098 lines). Keep `image2Bitmap` (871/981) for 1-bit masks, and decide explicitly what happens to 15/16-bit TrueColor. The SHM `XCopyArea` is not redundant: it manages pixmap and shm-segment lifetime. — **Implemented (SpecAI §120)**: `convert.c` is 1,099 → 528 lines, `RConvertImage()` and `RGetClosestXColor()` reject non-TrueColor with `RERR_BADVISUALID`, 15/16-bit TrueColor dithering and `image2Bitmap` are kept, and the `XCopyArea` stays as argued here. Verified with `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test`.)
 
 ### 3. Modern Linux Kernel Facilities
 
 1. **`epoll` Event Multiplexing**:
-   - Migrate `W_HandleInputEvents` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) from `poll()`/`select()` to `epoll_create1(EPOLL_CLOEXEC)` and `epoll_wait()`.
+   - Migrate `W_HandleInputEvents` in [`WINGs/handlers.c`](WINGs/handlers.c) from `poll()`/`select()` to `epoll_create1(EPOLL_CLOEXEC)` and `epoll_wait()`.
    - Provides $O(1)$ event dispatch, eliminating descriptor table copying between user and kernel space on every loop iteration.
    - (DeepSeek comment: `WINGs/handlers.c` polls 2-4 fds (`total_fds = nfds + extrafd`, line 398), so epoll removes nothing measurable. Linux-only while `configure.ac` supports BSD/macOS: would need `#ifdef __linux__` and the poll fallback.)
 
 2. **Monotonic Hardware Timers via `timerfd`**:
-   - Replace software timer list and `gettimeofday()` in [`WINGs/handlers.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/handlers.c) with Linux `timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)` and `timerfd_settime()`.
+   - Replace software timer list and `gettimeofday()` in [`WINGs/handlers.c`](WINGs/handlers.c) with Linux `timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC)` and `timerfd_settime()`.
    - Eliminates drift and clock-jump vulnerabilities from manual time changes or NTP, integrates directly into `epoll`, and achieves sub-millisecond precision.
    - (DeepSeek comment: `gettimeofday` is a vDSO call (~20 ns), not a syscall; a single timerfd armed to the next deadline is the only defensible piece, and no profile showed the timeout computation as a cost.)
 
 3. **Lightweight Signal Wakeup via `eventfd`**:
-   - Replace the POSIX self-pipe trick (`pipe()`) in [`src/startup.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/startup.c) with `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)`.
+   - Replace the POSIX self-pipe trick (`pipe()`) in [`src/startup.c`](src/startup.c) with `eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)`.
    - Consumes 1 file descriptor instead of 2, using a simple 8-byte scalar kernel counter with zero buffer overhead.
    - (DeepSeek comment: saves one fd and one pipe buffer; negligible on its own, and Linux-only.)
 
