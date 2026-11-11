@@ -1669,6 +1669,52 @@ The runtime telemetry system logs latency spikes exceeding 16.6 ms (one 60fps fr
 - Rebuilt full source tree with zero warnings (`make -j$(nproc)`).
 - Complete standard test suite passed cleanly (`make check`, 4/4 PASS).
 
+## 164. Review of §163 and Closure of the Two New Coverity CIDs (2026-11-11)
+
+### 1. Review of the spike attribution commits (`d93d7377`, `e218e87b`)
+
+Reviewed against the code, not just the diff; **approved as-is**, nothing to change.
+
+- **No X round-trip added**, which is the property that matters for a latency
+  probe: `describe_window()` uses `XFindContext()` (a client-side context
+  database, no server request) and reads WM-internal structures. Using
+  `XFetchName()`/`XGetClassHint()` here would have distorted the very
+  measurement the log is meant to explain.
+- The `WCLASS_*` casts are correct: `WCLASS_APPICON` → `aicon`
+  (`src/appicon.c:139`), `WCLASS_DOCK_ICON` → `btn`, which is a `WAppIcon *`
+  (`src/dock.c:926`, declared in `mainIconCreate()`).
+- NULL guards on every branch; `sanitize_log_string()` truncates at
+  `dst_len - 1` and terminates; all `snprintf` calls pass the buffer size.
+- Verified: forced rebuild 0 warnings, `make check` 4/4, `make exit-test` pass.
+- **Caveat**: the live session's `latency_spikes.log` has **0** `role=` lines
+  because that WM was started on 2026-11-10 and runs an older binary. The
+  change is build/test-verified but has not yet been observed producing a role
+  line at runtime; it will be at the next WM restart.
+
+### 2. The two new CIDs from scan `a5e9f898` were on the §162 code, not on §163
+
+| CID | Checker | Site | Cause | Fix |
+|---|---|---|---|---|
+| 1687892 | `CHECKED_RETURN` (Medium) | `src/subprocess.c:181-182` | the two `fcntl(F_SETFD, FD_CLOEXEC)` added in A4 ignored their return | check both; on failure close the four descriptors and return NULL, like the fork-failure path (`8e8e67c9`) |
+| 1687893 | `TOCTOU` (Low) | `src/shutdown.c:83→85` | the `lstat()` → `unlink()` EEXIST recovery added in A6 | remove the check-then-use: `unlink()` + `O_EXCL|O_NOFOLLOW` reopen directly (`d00d1055`) |
+
+For 1687893 the `lstat()` was **not** what made the code safe: `unlink()` does
+not follow symlinks, `/tmp`'s sticky bit prevents removing a file we do not
+own, the runtime directory is private, and the `O_EXCL|O_NOFOLLOW` reopen is
+what enforces the property. Removing the check eliminates the finding instead
+of annotating it; a race on the unlink can at worst remove an attacker's
+symlink. `sys/stat.h` became unused in `shutdown.c` and was dropped.
+
+The same scan also confirms the §162 fixes only **moved** existing CIDs
+(`1686058` event.c 424→425, `1686097` proplist.c 1789→1815, `1686042`
+monitor.c 161→168) and that `1686081` is now `Dismissed`.
+
+### 3. Verification
+- Forced rebuild of both touched translation units: **0 warnings**.
+- `make check`: **4/4 PASS**.
+- `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test`: pass (these
+  exercise the sentinel path that 1687893 changed).
+
 
 
 
