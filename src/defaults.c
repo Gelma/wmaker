@@ -48,6 +48,7 @@
 #include "window.h"
 #include "texture.h"
 #include "screen.h"
+#include "corner.h"
 #include "resources.h"
 #include "defaults.h"
 #include "keybind.h"
@@ -1365,6 +1366,13 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 	}
 
 	wScreenUpdateRootEventMask(scr);
+
+	/* Disabling hot corners must also drop a pending corner timer and the
+	 * latched corner state: otherwise the timer still fires once after the
+	 * feature was turned off, and in_hot_corner stays set so the corner never
+	 * re-arms when it is enabled again. */
+	if (!wPreferences.hot_corners)
+		wCornerReset(scr);
 }
 
 void wReadKeybindings(WScreen *scr, WMPropList *dict)

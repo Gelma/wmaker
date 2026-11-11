@@ -48,16 +48,29 @@ static uint64_t get_monotonic_ms(void)
 
 static inline int get_corner(WMRect rect, WMPoint p)
 {
-	const int edge = wPreferences.hot_corner_edge;
-	const int left_edge = rect.pos.x + edge;
-	const int right_edge = rect.pos.x + rect.size.width - edge;
-	const int top_edge = rect.pos.y + edge;
-	const int bottom_edge = rect.pos.y + rect.size.height - edge;
+	/* HotCornerEdge comes straight from the defaults with no range check: a
+	 * value comparable to the head size would make every pointer position a
+	 * corner (and a negative one would disable them).  Clamp to a sane band. */
+	int edge = wPreferences.hot_corner_edge;
+	const int max_edge = (rect.size.width < rect.size.height ?
+			      rect.size.width : rect.size.height) / 2;
+	int left_edge, right_edge, top_edge, bottom_edge;
+	int in_left, in_right, in_top, in_bottom;
 
-	int in_left = (p.x <= left_edge);
-	int in_right = (p.x >= right_edge);
-	int in_top = (p.y <= top_edge);
-	int in_bottom = (p.y >= bottom_edge);
+	if (edge < 1)
+		edge = 1;
+	if (max_edge > 0 && edge > max_edge)
+		edge = max_edge;
+
+	left_edge = rect.pos.x + edge;
+	right_edge = rect.pos.x + rect.size.width - edge;
+	top_edge = rect.pos.y + edge;
+	bottom_edge = rect.pos.y + rect.size.height - edge;
+
+	in_left = (p.x <= left_edge);
+	in_right = (p.x >= right_edge);
+	in_top = (p.y <= top_edge);
+	in_bottom = (p.y >= bottom_edge);
 
 	if (!(in_left || in_right) || !(in_top || in_bottom))
 		return CORNER_NONE;
@@ -115,6 +128,10 @@ void wCornerExecuteAction(WScreen *scr, const char *action, int x, int y)
 		   strcasecmp(action, "ShowDesktop") == 0) {
 		wHideAll(scr);
 	} else {
+		/* Not a known keyword: treated as a shell command.  Say so, because
+		 * a typo in HotCornerActions otherwise silently launches something. */
+		wwarning(_("hot corner action '%s' is not a known keyword, "
+			   "running it as a shell command"), action);
 		ExecuteShellCommand(scr, action);
 	}
 }
