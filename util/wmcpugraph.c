@@ -79,14 +79,17 @@ static int read_cpu_times(CPUTime *agg, CPUTime **cores_out, int *num_cores_out)
 
 	while (fgets(line, sizeof(line), fp)) {
 		if (strncmp(line, "cpu ", 4) == 0) {
-			unsigned long long u, n, s, i, io, ir, so, st;
+			/* sscanf() may convert fewer than 8 fields (older kernels,
+			 * truncated line): the sum below reads all of them, so they must
+			 * start at 0 rather than hold stack garbage. */
+			unsigned long long u = 0, n = 0, s = 0, i = 0, io = 0, ir = 0, so = 0, st = 0;
 			if (sscanf(line + 4, "%llu %llu %llu %llu %llu %llu %llu %llu",
 				   &u, &n, &s, &i, &io, &ir, &so, &st) >= 4) {
 				agg->total = u + n + s + i + io + ir + so + st;
 				agg->idle = i + io;
 			}
 		} else if (strncmp(line, "cpu", 3) == 0 && line[3] >= '0' && line[3] <= '9') {
-			unsigned long long u, n, s, i, io, ir, so, st;
+			unsigned long long u = 0, n = 0, s = 0, i = 0, io = 0, ir = 0, so = 0, st = 0;
 			if (core_count >= core_cap) {
 				core_cap *= 2;
 				CPUTime *tmp = realloc(cores, sizeof(CPUTime) * core_cap);
@@ -135,8 +138,13 @@ int main(int argc, char **argv)
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-display") == 0 && i + 1 < argc)
 			display_name = argv[++i];
-		else if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc)
+		else if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
 			delay_ms = atoi(argv[++i]);
+			/* 0 or negative makes select() return immediately and the app
+			 * spins at full CPU; atoi() also accepts "0xyz". */
+			if (delay_ms < 50)
+				delay_ms = 50;
+		}
 		else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
 			printf("Usage: wmcpugraph [-display <display>] [-delay <ms>]\n");
 			return 0;
