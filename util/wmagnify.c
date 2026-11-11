@@ -478,6 +478,11 @@ int main(int argc, char **argv)
 	black = BlackPixel(dpy, DefaultScreen(dpy));
 
 	scr = WMCreateScreen(dpy, 0);
+	if (!scr) {
+		fprintf(stderr, "%s: could not initialize the WINGs screen\n", argv[0]);
+		XCloseDisplay(dpy);
+		return 1;
+	}
 
 	cursorColor1 = WMCreateNamedColor(scr, "#ff0000", False);
 	cursorColor2 = WMCreateNamedColor(scr, "#00ff00", False);

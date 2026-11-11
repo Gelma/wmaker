@@ -556,6 +556,8 @@ WMScreen *WMCreateSimpleApplicationScreen(Display * display)
 	WMScreen *scr;
 
 	scr = WMCreateScreen(display, DefaultScreen(display));
+	if (!scr)
+		return NULL;
 
 	scr->aflags.hasAppIcon = 0;
 	scr->aflags.simpleApplication = 1;
@@ -565,7 +567,14 @@ WMScreen *WMCreateSimpleApplicationScreen(Display * display)
 
 WMScreen *WMCreateScreen(Display * display, int screen)
 {
-	return WMCreateScreenWithRContext(display, screen, RCreateContext(display, screen, NULL));
+	RContext *context = RCreateContext(display, screen, NULL);
+	WMScreen *scr = WMCreateScreenWithRContext(display, screen, context);
+
+	/* The screen does not own the context: on failure it is still ours. */
+	if (!scr && context)
+		RDestroyContext(context);
+
+	return scr;
 }
 
 WMScreen *WMCreateScreenWithRContext(Display * display, int screen, RContext * context)
@@ -778,6 +787,11 @@ WMScreen *WMCreateScreenWithRContext(Display * display, int screen, RContext * c
 		wwarning(_("could not load any fonts. Make sure your font installation"
 			   " and locale settings are correct."));
 
+		/* Everything allocated so far (GCs, pixmaps, xftdraw, colours, font
+		 * cache) belongs to this screen: WMDestroyScreen() is NULL/None
+		 * guarded throughout and the struct was memset to 0, so it can
+		 * unwind a partially built screen. */
+		WMDestroyScreen(scrPtr);
 		return NULL;
 	}
 
