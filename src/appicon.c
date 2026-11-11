@@ -334,7 +334,10 @@ void wAppIconDestroy(WAppIcon * aicon)
 {
 	WScreen *scr = aicon->icon->core->screen_ptr;
 
-	WMDeleteTimerWithClientData(aicon);
+	/* No timer is armed with the WAppIcon as clientData: the icon blink
+	 * timers use the WIcon (src/icon.c) and wIconDestroy() below cancels
+	 * them through icon->handlerID.  A WMDeleteTimerWithClientData(aicon)
+	 * here could never match anything. */
 	RemoveFromStackList(aicon->icon->core);
 	wIconDestroy(aicon->icon);
 	if (aicon->command)

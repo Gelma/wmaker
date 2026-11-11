@@ -1775,10 +1775,10 @@ void wUnmanageWindow(WWindow *wwin, Bool restore, Bool destroyed)
 	/* deselect window */
 	wSelectWindow(wwin, False);
 
-	/* remove all pending events on window */
-	/* I think this only matters for autoraise */
-	if (wPreferences.raise_delay)
-		WMDeleteTimerWithClientData(wwin->frame->core);
+	/* Cancel the pending autoraise for this window.  The autoraise timer is
+	 * armed with the WScreen as clientData (src/event.c), so a
+	 * WMDeleteTimerWithClientData(wwin->frame->core) could never match it;
+	 * the explicit handle below is what actually cancels it. */
 	if (scr->autoRaiseWindow == frame->window) {
 		scr->autoRaiseWindow = None;
 		if (scr->autoRaiseTimer) {
