@@ -177,9 +177,16 @@ WSubprocess *wSubprocessRun(const char *command,
 	/* The write ends must not survive an exec either: the child dup2()s them
 	 * onto 1/2 (which clears FD_CLOEXEC on the new descriptor) and closes the
 	 * originals, but any other process forked in between would keep the pipe
-	 * open and the read side would never see EOF. */
-	fcntl(stdout_pipe[1], F_SETFD, FD_CLOEXEC);
-	fcntl(stderr_pipe[1], F_SETFD, FD_CLOEXEC);
+	 * open and the read side would never see EOF.  If the flag cannot be set,
+	 * refuse to run rather than leak the descriptors (Coverity CID 1687892). */
+	if (fcntl(stdout_pipe[1], F_SETFD, FD_CLOEXEC) < 0
+	    || fcntl(stderr_pipe[1], F_SETFD, FD_CLOEXEC) < 0) {
+		close(stdout_pipe[0]);
+		close(stdout_pipe[1]);
+		close(stderr_pipe[0]);
+		close(stderr_pipe[1]);
+		return NULL;
+	}
 
 	pid = fork();
 	if (pid < 0) {
