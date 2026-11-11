@@ -231,7 +231,7 @@ static WMPropList *getColor(WMPropList * texture)
 	char *str;
 
 	type = WMGetFromPLArray(texture, 0);
-	if (!type)
+	if (!type || !WMIsPLString(type))
 		return NULL;
 
 	value = NULL;

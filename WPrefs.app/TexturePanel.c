@@ -778,7 +778,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		return;
 
 	p = WMGetFromPLArray(texture, 0);
-	if (!p)
+	if (!p || !WMIsPLString(p))
 		goto bad_texture;
 	type = WMGetFromPLString(p);
 
@@ -788,7 +788,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		WMSetPopUpButtonSelectedItem(panel->typeP, TYPE_SOLID);
 
 		p = WMGetFromPLArray(texture, 1);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -804,7 +804,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		WMSetPopUpButtonSelectedItem(panel->typeP, TYPE_SGRADIENT);
 
 		p = WMGetFromPLArray(texture, 1);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -815,7 +815,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		WMReleaseColor(color);
 
 		p = WMGetFromPLArray(texture, 2);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -830,22 +830,28 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 	} else if (strcasecmp(type, "thgradient") == 0
 		   || strcasecmp(type, "tvgradient") == 0 || strcasecmp(type, "tdgradient") == 0) {
 		int i;
+		WMPropList *img = WMGetFromPLArray(texture, 1);
+		WMPropList *ang = WMGetFromPLArray(texture, 2);
+		/* WMGetFromPLString() yields NULL for a non-string element, which
+		 * would reach wstrdup()/sscanf()/wfindfileinarray() unchecked. */
+		char *imgstr = (img && WMIsPLString(img)) ? WMGetFromPLString(img) : "";
+		char *angstr = (ang && WMIsPLString(ang)) ? WMGetFromPLString(ang) : "";
 
 		WMSetPopUpButtonSelectedItem(panel->typeP, TYPE_TGRADIENT);
 
 		gradient = type[1];
 
-		WMSetTextFieldText(panel->imageT, WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		WMSetTextFieldText(panel->imageT, imgstr);
 		if (panel->imageFile)
 			wfree(panel->imageFile);
-		panel->imageFile = wstrdup(WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		panel->imageFile = wstrdup(imgstr);
 
-		if (sscanf(WMGetFromPLString(WMGetFromPLArray(texture, 2)), "%i", &i) != 1)
+		if (sscanf(angstr, "%i", &i) != 1)
 			i = 180;
 		WMSetSliderValue(panel->topaS, i);
 
 		p = WMGetFromPLArray(texture, 3);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -856,7 +862,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		WMReleaseColor(color);
 
 		p = WMGetFromPLArray(texture, 4);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -866,12 +872,11 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 
 		WMReleaseColor(color);
 
-		WMSetTextFieldText(panel->imageT, WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		WMSetTextFieldText(panel->imageT, imgstr);
 
 		if (panel->imageFile)
 			wfree(panel->imageFile);
-		panel->imageFile = wfindfileinarray(panel->pathList,
-						    WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		panel->imageFile = wfindfileinarray(panel->pathList, imgstr);
 		if (panel->imageFile != NULL) {
 
 			panel->image = RLoadImage(WMScreenRContext(scr), panel->imageFile, 0);
@@ -896,7 +901,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 		WMSetPopUpButtonSelectedItem(panel->typeP, TYPE_GRADIENT);
 
 		p = WMGetFromPLArray(texture, 1);
-		if (!p)
+		if (!p || !WMIsPLString(p))
 			str = "black";
 		else
 			str = WMGetFromPLString(p);
@@ -911,7 +916,7 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 			XColor xcolor;
 
 			p = WMGetFromPLArray(texture, i);
-			if (!p)
+			if (!p || !WMIsPLString(p))
 				str = "black";
 			else
 				str = WMGetFromPLString(p);
@@ -941,6 +946,10 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 	} else if (strcasecmp(type, "cpixmap") == 0
 		   || strcasecmp(type, "spixmap") == 0
 		   || strcasecmp(type, "mpixmap") == 0 || strcasecmp(type, "tpixmap") == 0) {
+		WMPropList *pimg = WMGetFromPLArray(texture, 1);
+		WMPropList *pcol = WMGetFromPLArray(texture, 2);
+		char *pxstr = (pimg && WMIsPLString(pimg)) ? WMGetFromPLString(pimg) : "";
+		char *pxcol = (pcol && WMIsPLString(pcol)) ? WMGetFromPLString(pcol) : "black";
 
 		WMSetPopUpButtonSelectedItem(panel->typeP, TYPE_PIXMAP);
 
@@ -963,14 +972,13 @@ void SetTexturePanelTexture(TexturePanel *panel, const char *name, WMPropList *t
 			break;
 		}
 
-		WMSetTextFieldText(panel->imageT, WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		WMSetTextFieldText(panel->imageT, pxstr);
 
 		if (panel->imageFile)
 			wfree(panel->imageFile);
-		panel->imageFile = wfindfileinarray(panel->pathList,
-						    WMGetFromPLString(WMGetFromPLArray(texture, 1)));
+		panel->imageFile = wfindfileinarray(panel->pathList, pxstr);
 
-		color = WMCreateNamedColor(scr, WMGetFromPLString(WMGetFromPLArray(texture, 2)), False);
+		color = WMCreateNamedColor(scr, pxcol, False);
 		WMSetColorWellColor(panel->defcW, color);
 		WMReleaseColor(color);
 

@@ -230,6 +230,8 @@ static void makeThemePack(WMPropList * style, const char *themeName)
 				char *newPath;
 
 				file = WMGetFromPLArray(value, 1);
+				if (!file || !WMIsPLString(file))
+					continue;
 
 				p = strrchr(WMGetFromPLString(file), '/');
 				if (p) {
@@ -250,6 +252,8 @@ static void makeThemePack(WMPropList * style, const char *themeName)
 				char *newPath;
 
 				file = WMGetFromPLArray(value, 1);
+				if (!file || !WMIsPLString(file))
+					continue;
 
 				p = strrchr(WMGetFromPLString(file), '/');
 				if (p) {
@@ -265,6 +269,8 @@ static void makeThemePack(WMPropList * style, const char *themeName)
 				}
 
 				file = WMGetFromPLArray(value, 2);
+				if (!file || !WMIsPLString(file))
+					continue;
 
 				p = strrchr(WMGetFromPLString(file), '/');
 				if (p) {
