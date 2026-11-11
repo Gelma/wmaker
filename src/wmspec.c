@@ -944,7 +944,10 @@ static void updateClientList(WScreen *scr)
 
 	count = 0;
 	wwin = scr->focused_window;
-	while (wwin) {
+	/* Bound the walk by the buffer size: the focus chain is assumed to be no
+	 * longer than window_count, and with the stack fast path a violated
+	 * assumption would smash the stack rather than the heap. */
+	while (wwin && count < total) {
 		windows[count++] = wwin->client_win;
 		wwin = wwin->prev;
 	}
@@ -977,8 +980,13 @@ static void updateClientListStacking(WScreen *scr, WWindow *wwin_excl)
 			wwin = wWindowFor(tmp->window);
 			/* wwin_excl is a window to exclude from the list
 			   (e.g. it's now unmanaged) */
-			if (wwin && (wwin != wwin_excl))
+			if (wwin && (wwin != wwin_excl)) {
+				/* Same bound as updateClientList(): never write past the
+				 * buffer, stack fast path included. */
+				if (client_count >= total)
+					break;
 				client_list[client_count++] = wwin->client_win;
+			}
 			tmp = tmp->stacking->under;
 		}
 	}
