@@ -842,6 +842,9 @@ WWindow *wManageWindow(WScreen *scr, Window window)
 
 	/* if it's an override-redirect, ignore it */
 	if (wattribs.override_redirect) {
+		/* Normal and frequent (menus, tooltips, DnD icons): count it so the
+		 * MapRequest handler does not log a warning for it. */
+		wTelemetry.map_request_override_redirect++;
 		XUngrabServer(dpy);
 		return NULL;
 	}

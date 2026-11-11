@@ -47,6 +47,10 @@ typedef struct WTelemetryStats {
 	uint64_t map_request_already_managed;
 	uint64_t map_request_failed;
 	uint64_t map_request_no_screen;
+	/* Benign subset of map_request_failed: the window was override-redirect
+	 * (menus, tooltips, DnD icons), which wManageWindow() correctly ignores.
+	 * Counted so the caller can stay quiet about a normal condition. */
+	uint64_t map_request_override_redirect;
 
 	/* Modal (menu/dialog) accounting: wall time spent inside nested event
 	 * loops while a handler is running, plus the current dispatch nesting. */

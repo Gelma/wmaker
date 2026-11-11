@@ -731,11 +731,19 @@ static void handleMapRequest(XEvent * ev)
 		return;
 	}
 
-	wwin = wManageWindow(scr, window);
-	if (!wwin) {
-		wTelemetry.map_request_failed++;
-		warnMapRequestFailure(window);
-		return;
+	{
+		uint64_t benign_before = wTelemetry.map_request_override_redirect;
+
+		wwin = wManageWindow(scr, window);
+		if (!wwin) {
+			wTelemetry.map_request_failed++;
+			/* An override-redirect window (menu, tooltip, DnD icon) is a
+			 * normal reason for wManageWindow() to decline: it is counted,
+			 * not warned about.  Only a genuine failure gets a message. */
+			if (wTelemetry.map_request_override_redirect == benign_before)
+				warnMapRequestFailure(window);
+			return;
+		}
 	}
 
 	/*
