@@ -557,6 +557,12 @@ static void fillColumn(WMBrowserDelegate * self, WMBrowser * bPtr, int column, W
 		path = wstrdup("/");
 	}
 
+	/* WMGetBrowserPathToColumn() has a real failure path that returns NULL;
+	 * listDirectoryOnColumn() only asserts on it, which vanishes under NDEBUG
+	 * and turns into strlen(NULL). */
+	if (!path)
+		return;
+
 	panel = WMGetHangedData(bPtr);
 	listDirectoryOnColumn(panel, column, path);
 	wfree(path);
