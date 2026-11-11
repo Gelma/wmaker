@@ -897,7 +897,9 @@ void WMSetUDObjectForKey(WMUserDefaults *database, WMPropList *object,
 
 void WMRemoveUDObjectForKey(WMUserDefaults *database, const char *defaultName);
 
-/* Returns a reference. Do not free it! */
+/* Returns a reference into the defaults database. Do not free it!  The pointer
+ * is only valid until the next WMSynchronizeUserDefaults(), which releases the
+ * domain: copy it (wstrdup) if you need to keep it. */
 char* WMGetUDStringForKey(WMUserDefaults *database, const char *defaultName);
 
 int WMGetUDIntegerForKey(WMUserDefaults *database, const char *defaultName);

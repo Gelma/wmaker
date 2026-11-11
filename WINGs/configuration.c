@@ -12,6 +12,16 @@ _WINGsConfiguration WINGsConfiguration;
 
 #define FLOPPY_PATH "/floppy"
 
+/* WMGetUDStringForKey() returns a pointer into the defaults proplist, which
+ * WMSynchronizeUserDefaults() releases when the defaults are reloaded: the
+ * configuration must keep its own copy, and must not free the borrowed one. */
+static char *copyConfigString(WMUserDefaults *defaults, const char *key)
+{
+	char *s = WMGetUDStringForKey(defaults, key);
+
+	return s ? wstrdup(s) : NULL;
+}
+
 static unsigned getButtonWithName(const char *name, unsigned defaultButton)
 {
 	if (strncmp(name, "Button", 6) == 0 && strlen(name) == 7) {
@@ -48,9 +58,9 @@ void W_ReadConfigurations(void)
 		WMPropList *val;
 		unsigned button;
 
-		WINGsConfiguration.systemFont = WMGetUDStringForKey(defaults, "SystemFont");
+		WINGsConfiguration.systemFont = copyConfigString(defaults, "SystemFont");
 
-		WINGsConfiguration.boldSystemFont = WMGetUDStringForKey(defaults, "BoldSystemFont");
+		WINGsConfiguration.boldSystemFont = copyConfigString(defaults, "BoldSystemFont");
 
 		val = WMGetUDObjectForKey(defaults, "AntialiasedText");
 		if (val && WMIsPLString(val) && WMGetFromPLString(val)) {
@@ -61,12 +71,14 @@ void W_ReadConfigurations(void)
 
 		WINGsConfiguration.doubleClickDelay = WMGetUDIntegerForKey(defaults, "DoubleClickTime");
 
-		WINGsConfiguration.floppyPath = WMGetUDStringForKey(defaults, "FloppyPath");
+		WINGsConfiguration.floppyPath = copyConfigString(defaults, "FloppyPath");
 
+		/* buttonName is borrowed from the defaults proplist: it must not be
+		 * freed here (it used to be, which freed memory still owned by the
+		 * database). */
 		buttonName = WMGetUDStringForKey(defaults, "MouseWheelUp");
 		if (buttonName) {
 			button = getButtonWithName(buttonName, Button4);
-			wfree(buttonName);
 		} else {
 			button = Button4;
 		}
@@ -75,7 +87,6 @@ void W_ReadConfigurations(void)
 		buttonName = WMGetUDStringForKey(defaults, "MouseWheelDown");
 		if (buttonName) {
 			button = getButtonWithName(buttonName, Button5);
-			wfree(buttonName);
 		} else {
 			button = Button5;
 		}
