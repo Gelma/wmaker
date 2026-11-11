@@ -2,13 +2,18 @@
 
 AUTOMAKE_OPTIONS = no-dependencies
 
-EXTRA_DIST = notest.c run_exit_test.sh run_stress.sh
+EXTRA_DIST = notest.c run_exit_test.sh run_stress.sh exit_test.sh
 
 noinst_PROGRAMS = wtest wm_fsm_test wm_stress wrlib_blend_test wrlib_scale_bench wrlib_xpm_test wings_bag_test
 
-# Standalone tests with a pass/fail exit code and no X server requirement,
-# run by `make check`.
-TESTS = wrlib_blend_test wrlib_xpm_test wings_bag_test
+# Run by `make check`:
+#   wrlib_blend_test, wrlib_xpm_test, wings_bag_test - standalone, no X server;
+#   exit_test.sh - the WM exit/restart/reload regression on an isolated Xvfb,
+#                  which SKIPs (exit 77) when Xvfb/xprop/the binary are missing.
+# The other programs are manual tools, not automated tests: wtest and
+# wm_fsm_test are GTK/X demos, wm_stress and wrlib_scale_bench are benchmarks,
+# and notest.c is a distributed scratch demo that is not built at all.
+TESTS = wrlib_blend_test wrlib_xpm_test wings_bag_test exit_test.sh
 
 wtest_SOURCES = wtest.c
 
