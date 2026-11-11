@@ -231,6 +231,18 @@ static void killCallback(WMenu *menu, WMenuEntry *entry)
 	/* separate out command options */
 	wtokensplit(shortname, &argv, &argc);
 
+	/* An empty (or whitespace/quote-only) Command tokenises to nothing:
+	 * wtokensplit() leaves argv == NULL, so argv[0] would dereference NULL.
+	 * Same guard as execCommand() below and as the other wtokensplit()
+	 * callers (src/main.c, src/session.c). */
+	if (!argc) {
+		wtokenfree(argv, argc);
+		icon->editing = 0;
+		wrelease(icon);
+		WCHANGE_STATE(WSTATE_NORMAL);
+		return;
+	}
+
 	buffer = wstrconcat(argv[0],
 			    _(" will be forcibly closed.\n"
 			      "Any unsaved changes will be lost.\n" "Please confirm."));
