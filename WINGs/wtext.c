@@ -3905,7 +3905,10 @@ static const char *mystrrstr(const char *haystack, const char *needle, unsigned 
 	if (!haystack || !needle || !end)
 		return NULL;
 
-	for (ptr = haystack - 2; ptr > end; ptr--) {
+	/* Scan every possible start position before the cursor, down to and
+	 * including the block start: starting at haystack - 2 and stopping at
+	 * ptr > end skipped a match at haystack - 1 and one at end itself. */
+	for (ptr = haystack - 1; ptr >= end; ptr--) {
 		if (caseSensitive) {
 			if (*ptr == *needle && !strncmp(ptr, needle, len))
 				return ptr;
