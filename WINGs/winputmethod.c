@@ -52,7 +52,7 @@ void W_InitIM(W_Screen * scr)
 	xim = XOpenIM(scr->display, NULL, NULL, NULL);
 
 	if (xim) {
-		XIMStyles *im_styles;
+		XIMStyles *im_styles = NULL;
 		XIMCallback cb;
 		int i;
 
@@ -64,12 +64,16 @@ void W_InitIM(W_Screen * scr)
 		if (XSetIMValues(scr->imctx->xim, XNDestroyCallback, &cb, NULL))
 			wwarning(_("could not add destroy callback for XIM input method"));
 		XUnregisterIMInstantiateCallback(scr->display, NULL, NULL, NULL, instantiateIM_cb, (XPointer) scr);
-		/* Get available input style */
-		XGetIMValues(scr->imctx->xim, XNQueryInputStyle, &im_styles, NULL);
-
+		/* Get available input style.  XGetIMValues() returns the name of the
+		 * failed item and leaves im_styles untouched on error, so it must be
+		 * initialised and its return value checked before use. */
 		scr->imctx->ximstyle = 0;
+		if (XGetIMValues(scr->imctx->xim, XNQueryInputStyle, &im_styles, NULL) != NULL) {
+			wwarning(_("could not query the input styles of the XIM input method"));
+			im_styles = NULL;
+		}
 
-		for (i = 0; i < im_styles->count_styles && scr->imctx->ximstyle == 0; i++) {
+		for (i = 0; im_styles && i < im_styles->count_styles && scr->imctx->ximstyle == 0; i++) {
 			if ((im_styles->supported_styles[i] & XIMPreeditPosition) &&
 			    (im_styles->supported_styles[i] & XIMStatusNothing)) {
 				scr->imctx->ximstyle = XIMPreeditPosition | XIMStatusNothing;
@@ -78,7 +82,8 @@ void W_InitIM(W_Screen * scr)
 				scr->imctx->ximstyle = XIMPreeditNothing | XIMStatusNothing;
 			}
 		}
-		XFree(im_styles);
+		if (im_styles)
+			XFree(im_styles);
 	} else {
 		XRegisterIMInstantiateCallback(scr->display, NULL, NULL, NULL, instantiateIM_cb, (XPointer) scr);
 	}
