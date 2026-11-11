@@ -159,31 +159,30 @@ WMHandlerID WMAddPersistentTimerHandler(int milliseconds, WMCallback * callback,
 
 void WMDeleteTimerWithClientData(void *cdata)
 {
-	TimerHandler *handler, *tmp;
+	TimerHandler **link, *handler;
 
 	if (!cdata || !timerHandler)
 		return;
 
-	tmp = timerHandler;
-	if (tmp->clientData == cdata) {
-		tmp->nextDelay = 0;
-		if (!IS_ZERO(tmp->when)) {
-			timerHandler = tmp->next;
-			wfree(tmp);
-		}
-	} else {
-		while (tmp->next) {
-			if (tmp->next->clientData == cdata) {
-				handler = tmp->next;
-				handler->nextDelay = 0;
-				if (IS_ZERO(handler->when))
-					break;
-				tmp->next = handler->next;
+	/* Purge *every* handler armed with this clientData: callers pass a
+	 * dying object and expect all of its timers to go.  The previous version
+	 * removed at most one (the head branch never scanned the rest, the scan
+	 * branch broke after the first match), leaving timers that would fire
+	 * against freed clientData.  A handler that is currently firing
+	 * (IS_ZERO(when)) stays linked with nextDelay = 0 so it cannot re-arm,
+	 * exactly as WMDeleteTimerHandler() does. */
+	link = &timerHandler;
+	while (*link) {
+		handler = *link;
+		if (handler->clientData == cdata) {
+			handler->nextDelay = 0;
+			if (!IS_ZERO(handler->when)) {
+				*link = handler->next;
 				wfree(handler);
-				break;
+				continue;
 			}
-			tmp = tmp->next;
 		}
+		link = &handler->next;
 	}
 }
 

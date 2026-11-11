@@ -1880,10 +1880,19 @@ void wMenuScroll(WMenu *menu)
 			delayer->oy = old_frame_y;
 			omenu->jump_back = delayer;
 			scr->flags.jump_back_pending++;
-		} else
+		} else {
 			delayer = omenu->jump_back;
+			/* Re-arming on the same delayer without cancelling the
+			 * previous timer left two timers pointing at it, and
+			 * callback_leaving() frees it: the second one would run
+			 * on freed memory. */
+			WMDeleteTimerWithClientData(delayer);
+		}
 		WMAddTimerHandler(MENU_JUMP_BACK_DELAY, callback_leaving, delayer);
 	} else if (omenu->jump_back) {
+		/* The delayer is about to be freed: drop its pending timer too,
+		 * otherwise callback_leaving() runs on freed memory. */
+		WMDeleteTimerWithClientData(omenu->jump_back);
 		wfree(omenu->jump_back);
 		omenu->jump_back = NULL;
 		if (scr->flags.jump_back_pending > 0)
