@@ -201,7 +201,13 @@ char *WMPathForResourceOfType(const char *resource, const char *ext)
 
 	gsuserapps = GETENV("GNUSTEP_USER_APPS");
 	if (!gsuserapps) {
-		snprintf(buffer, sizeof(buffer), "%s/Applications", wusergnusteppath());
+		const char *gsroot = wusergnusteppath();
+
+		/* NULL when HOME cannot be resolved: snprintf("%s", NULL) is
+		 * undefined (glibc prints "(null)", other libcs abort). */
+		if (!gsroot)
+			goto out;
+		snprintf(buffer, sizeof(buffer), "%s/Applications", gsroot);
 		gsuserapps = buffer;
 	}
 	path = checkFile(gsuserapps, appdir, ext, resource);
