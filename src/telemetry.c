@@ -29,6 +29,12 @@
 #include <WINGs/WINGs.h>
 
 #include "WindowMaker.h"
+#include "window.h"
+#include "screen.h"
+#include "framewin.h"
+#include "menu.h"
+#include "dock.h"
+#include "appicon.h"
 
 #include "telemetry.h"
 
@@ -103,6 +109,159 @@ static const char *get_event_name(int type)
 	case MappingNotify: return "MappingNotify";
 	case GenericEvent: return "GenericEvent";
 	default: return "ExtensionOrOther";
+	}
+}
+
+static void sanitize_log_string(const char *src, char *dst, size_t dst_len)
+{
+	size_t i = 0;
+
+	if (!dst || dst_len == 0)
+		return;
+
+	if (!src) {
+		dst[0] = '\0';
+		return;
+	}
+
+	while (src[i] != '\0' && i + 1 < dst_len) {
+		unsigned char c = (unsigned char)src[i];
+		if (c < 32 || c == 127 || c == '"')
+			dst[i] = ' ';
+		else
+			dst[i] = src[i];
+		i++;
+	}
+	dst[i] = '\0';
+}
+
+static void describe_window(Window win, char *buf, size_t len)
+{
+	WObjDescriptor *desc = NULL;
+	char clean_title[64];
+	char clean_class[64];
+	int s;
+
+	if (!buf || len == 0)
+		return;
+
+	buf[0] = '\0';
+	if (win == None) {
+		snprintf(buf, len, "role=none");
+		return;
+	}
+
+	for (s = 0; s < w_global.screen_count; s++) {
+		WScreen *scr = wScreenWithNumber(s);
+		if (scr && scr->root_win == win) {
+			snprintf(buf, len, "role=root screen=%d", s);
+			return;
+		}
+	}
+
+	if (dpy && XFindContext(dpy, win, w_global.context.client_win, (XPointer *)&desc) != XCNOENT && desc) {
+		switch (desc->parent_type) {
+		case WCLASS_WINDOW: {
+			WWindow *wwin = (WWindow *)desc->parent;
+			if (wwin) {
+				const char *title = (wwin->frame && wwin->frame->title) ? wwin->frame->title : NULL;
+				sanitize_log_string(wwin->wm_class, clean_class, sizeof(clean_class));
+				sanitize_log_string(title, clean_title, sizeof(clean_title));
+				snprintf(buf, len, "role=client class=\"%s\" title=\"%s\"",
+				         clean_class[0] ? clean_class : "?",
+				         clean_title[0] ? clean_title : "?");
+			} else {
+				snprintf(buf, len, "role=client");
+			}
+			return;
+		}
+		case WCLASS_FRAME: {
+			WFrameWindow *fwin = (WFrameWindow *)desc->parent;
+			if (fwin && fwin->flags.is_client_window_frame && fwin->child) {
+				WWindow *wwin = fwin->child;
+				const char *title = fwin->title ? fwin->title : NULL;
+				sanitize_log_string(wwin->wm_class, clean_class, sizeof(clean_class));
+				sanitize_log_string(title, clean_title, sizeof(clean_title));
+				snprintf(buf, len, "role=frame class=\"%s\" title=\"%s\"",
+				         clean_class[0] ? clean_class : "?",
+				         clean_title[0] ? clean_title : "?");
+			} else if (fwin && fwin->title) {
+				sanitize_log_string(fwin->title, clean_title, sizeof(clean_title));
+				snprintf(buf, len, "role=frame title=\"%s\"", clean_title);
+			} else {
+				snprintf(buf, len, "role=frame");
+			}
+			return;
+		}
+		case WCLASS_MENU: {
+			WMenu *menu = (WMenu *)desc->parent;
+			if (menu && menu->frame && menu->frame->title) {
+				sanitize_log_string(menu->frame->title, clean_title, sizeof(clean_title));
+				snprintf(buf, len, "role=menu title=\"%s\"", clean_title);
+			} else {
+				snprintf(buf, len, "role=menu");
+			}
+			return;
+		}
+		case WCLASS_DOCK_ICON: {
+			WAppIcon *aicon = (WAppIcon *)desc->parent;
+			if (aicon && aicon->dock) {
+				const char *dtype = (aicon->dock->type == WM_CLIP) ? "clip"
+				                  : (aicon->dock->type == WM_DRAWER) ? "drawer" : "dock";
+				const char *cmd = aicon->command ? aicon->command : (aicon->wm_instance ? aicon->wm_instance : "?");
+				sanitize_log_string(cmd, clean_title, sizeof(clean_title));
+				snprintf(buf, len, "role=%s app=\"%s\"", dtype, clean_title);
+			} else {
+				snprintf(buf, len, "role=dock_icon");
+			}
+			return;
+		}
+		case WCLASS_APPICON: {
+			WAppIcon *aicon = (WAppIcon *)desc->parent;
+			const char *cmd = (aicon && aicon->command) ? aicon->command
+			                : (aicon && aicon->wm_instance ? aicon->wm_instance : "?");
+			sanitize_log_string(cmd, clean_title, sizeof(clean_title));
+			snprintf(buf, len, "role=appicon app=\"%s\"", clean_title);
+			return;
+		}
+		case WCLASS_MINIWINDOW:
+			snprintf(buf, len, "role=miniwindow");
+			return;
+		case WCLASS_DUMMYWINDOW:
+			snprintf(buf, len, "role=dummy_window");
+			return;
+		case WCLASS_PAGER:
+			snprintf(buf, len, "role=pager");
+			return;
+		case WCLASS_TEXT_INPUT:
+			snprintf(buf, len, "role=text_input");
+			return;
+		default:
+			snprintf(buf, len, "role=desc_%d", desc->parent_type);
+			return;
+		}
+	}
+
+	snprintf(buf, len, "role=unmanaged");
+}
+
+static void format_window_role(const XEvent *event, Window win, char *buf, size_t len)
+{
+	char main_desc[160];
+
+	if (!buf || len == 0)
+		return;
+
+	describe_window(win, main_desc, sizeof(main_desc));
+
+	if (event && (event->type == ButtonPress || event->type == ButtonRelease) &&
+	    event->xbutton.subwindow != None && event->xbutton.subwindow != win) {
+		char sub_desc[160];
+		describe_window(event->xbutton.subwindow, sub_desc, sizeof(sub_desc));
+		snprintf(buf, len, " %s (subwin 0x%lx %s)", main_desc,
+		         (unsigned long)event->xbutton.subwindow, sub_desc);
+	} else {
+		snprintf(buf, len, " %s", main_desc);
 	}
 }
 
@@ -441,16 +600,18 @@ void wTelemetryRecordEventEnd(const XEvent *event, const struct timespec *tstart
 			time_t now = time(NULL);
 			struct tm tm_now;
 			char timestr[64];
-			char line[512];
+			char role[512];
+			char line[1024];
 			int len;
 
 			localtime_r(&now, &tm_now);
 			strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", &tm_now);
+			format_window_role(event, win, role, sizeof(role));
 			format_event_context(event, ctx, sizeof(ctx));
 			len = snprintf(line, sizeof(line),
-			               "[%s] Spike: event %s (%d) on window 0x%lx took %.2f ms%s",
+			               "[%s] Spike: event %s (%d) on window 0x%lx%s took %.2f ms%s",
 			               timestr, get_event_name(event_type), event_type,
-			               (unsigned long)win, (double)elapsed_ns / 1000000.0, ctx);
+			               (unsigned long)win, role, (double)elapsed_ns / 1000000.0, ctx);
 			if (modal_ns > 0 && len > 0 && (size_t)len < sizeof(line))
 				len += snprintf(line + len, sizeof(line) - (size_t)len,
 				                " (%llu ms in modal menus/dialogs excluded)",

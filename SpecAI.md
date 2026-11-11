@@ -1646,6 +1646,30 @@ leaving the other engine the post-hoc review. 45 commits, one concern per commit
   `wmlib`, clang-tidy over the whole database, new opt-in `fanalyzer-all`), so the baseline counts
   were regenerated with `update` rather than compared against the old wrlib-only numbers.
 
+## 163. Latency Spike Window Role Attribution (`src/telemetry.c`)
+
+### 1. Motivation
+The runtime telemetry system logs latency spikes exceeding 16.6 ms (one 60fps frame) to `latency_spikes.log`. However, previously only the raw X11 Window ID was logged (e.g. `on window 0xc002db took 435.44 ms`). Without window classification, attributing spikes to a specific UI subsystem (root window, menu, frame, client application, dock, clip, drawer, appicon, etc.) required post-hoc X11 debugging.
+
+### 2. Implementation
+- Added `describe_window()` and `format_window_role()` in [`src/telemetry.c`](file:///home/gelma/dev/prg/intelligenti/wmaker/gelma_github_repo/src/telemetry.c):
+  - Checks if the XID matches any screen's `root_win` (`role=root screen=%d`).
+  - Queries `XFindContext` with `w_global.context.client_win` to determine `WCLASS_*`:
+    - `WCLASS_WINDOW`: logs `role=client class="..." title="..."` with sanitized strings.
+    - `WCLASS_FRAME`: logs `role=frame class="..." title="..."` for client window frames or `role=frame title="..."`.
+    - `WCLASS_MENU`: logs `role=menu title="..."` (e.g. `title="Windows"`).
+    - `WCLASS_DOCK_ICON`: logs `role=dock/clip/drawer app="..."`.
+    - `WCLASS_APPICON`: logs `role=appicon app="..."`.
+    - `WCLASS_MINIWINDOW`, `WCLASS_DUMMYWINDOW`, `WCLASS_PAGER`, `WCLASS_TEXT_INPUT`.
+  - For `ButtonPress`/`ButtonRelease` events containing a non-None `subwindow`, also decodes and attributes the subwindow (e.g. `(subwin 0x... role=...)`).
+  - Added `sanitize_log_string()` to sanitize titles, classes, and command lines against quotes and control characters (`< 32` or `127`), keeping spike log entries single-line.
+  - Sized buffers defensively (`line[1024]`, `role[512]`) and verified zero `-Wformat-truncation` warnings under the project's strict flags.
+
+### 3. Verification
+- Rebuilt full source tree with zero warnings (`make -j$(nproc)`).
+- Complete standard test suite passed cleanly (`make check`, 4/4 PASS).
+
+
 
 
 
