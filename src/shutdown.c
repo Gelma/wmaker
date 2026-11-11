@@ -26,7 +26,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
-#include <sys/stat.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -76,16 +75,17 @@ void Shutdown(WShutdownMode mode)
 			 * (O_TRUNC through it would truncate a file of our own). */
 			fd = open(exit_sentinel, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
 			if (fd < 0 && errno == EEXIST) {
-				struct stat st;
-
-				/* Stale sentinel from an earlier run with the same pid:
-				 * replace it only if it is a regular file we own. */
-				if (lstat(exit_sentinel, &st) == 0 && S_ISREG(st.st_mode)
-				    && st.st_uid == getuid()) {
-					unlink(exit_sentinel);
-					fd = open(exit_sentinel,
-						  O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
-				}
+				/* Stale sentinel from an earlier run with the same pid.
+				 * No check-then-use is needed here: unlink() does not follow
+				 * symlinks, and in /tmp the sticky bit prevents removing a
+				 * file we do not own (in XDG_RUNTIME_DIR the directory is
+				 * private).  The O_EXCL|O_NOFOLLOW reopen below is what
+				 * enforces the safety property, so a race on the unlink can
+				 * at worst remove an attacker's symlink
+				 * (Coverity CID 1687893). */
+				unlink(exit_sentinel);
+				fd = open(exit_sentinel,
+					  O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
 			}
 			if (fd >= 0)
 				close(fd);
