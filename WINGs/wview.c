@@ -399,6 +399,12 @@ static void destroyView(W_View * view)
 	if (view->backColor)
 		WMReleaseColor(view->backColor);
 
+	/* W_SetViewBackgroundPixmap() retains the pixmap: release it here too,
+	 * otherwise every view with a background pixmap leaks it (and its X
+	 * pixmap). */
+	if (view->backImage)
+		WMReleasePixmap(view->backImage);
+
 	wfree(view);
 }
 
@@ -483,6 +489,11 @@ void W_RedisplayView(W_View * view)
 
 void W_SetViewBackgroundColor(W_View * view, WMColor * color)
 {
+	/* Re-setting the same colour must not release it first: with a refcount
+	 * of 1 that frees the object WMRetainColor() is about to retain. */
+	if (view->backColor == color)
+		return;
+
 	if (view->backColor)
 		WMReleaseColor(view->backColor);
 	view->backColor = WMRetainColor(color);
@@ -498,6 +509,10 @@ void W_SetViewBackgroundColor(W_View * view, WMColor * color)
 
 void W_SetViewBackgroundPixmap(W_View *view, WMPixmap *pix)
 {
+       /* Same self-assignment hazard as the colour setter. */
+       if (view->backImage == pix)
+               return;
+
        if (view->backImage)
                WMReleasePixmap(view->backImage);
        view->backImage = WMRetainPixmap(pix);
