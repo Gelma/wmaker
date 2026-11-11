@@ -312,7 +312,8 @@ void WMRemoveTabViewItem(WMTabView * tPtr, WMTabViewItem * item)
 	for (i = 0; i < tPtr->itemCount; i++) {
 		if (tPtr->items[i] == item) {
 			if (i < tPtr->itemCount - 1)
-				memmove(&tPtr->items[i], &tPtr->items[i + 1], tPtr->itemCount - i - 1);
+				memmove(&tPtr->items[i], &tPtr->items[i + 1],
+					(tPtr->itemCount - i - 1) * sizeof(WMTabViewItem *));
 			else
 				tPtr->items[i] = NULL;
 
