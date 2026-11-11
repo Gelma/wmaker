@@ -48,7 +48,10 @@ static FILE *open_private(const char *path, int flags)
 	int fd;
 	FILE *f;
 
-	fd = open(path, flags, 0600);
+	/* O_NOFOLLOW: if the runtime directory was pre-created by another user,
+	 * a symlink inside it must not redirect the dump (which contains window
+	 * titles and command lines) onto a file of our own. */
+	fd = open(path, flags | O_NOFOLLOW, 0600);
 	if (fd < 0)
 		return NULL;
 
@@ -248,9 +251,22 @@ static void get_process_resources(struct WmResourceUsage *r)
 
 static const char *get_telemetry_dir(void)
 {
+	static char runtime_dir[PATH_MAX];
 	const char *env = getenv("WM_RUNTIME_LOG_DIR");
+	const char *runtime;
+
 	if (env && env[0] != '\0')
 		return env;
+
+	/* The dumps carry window titles and command lines: prefer the private
+	 * per-user runtime directory over the world-writable /tmp, where the
+	 * predictable name could be pre-created by another local user. */
+	runtime = getenv("XDG_RUNTIME_DIR");
+	if (runtime && runtime[0] != '\0') {
+		snprintf(runtime_dir, sizeof(runtime_dir), "%s/wmaker", runtime);
+		return runtime_dir;
+	}
+
 	return TELEMETRY_DIR;
 }
 
@@ -323,9 +339,21 @@ void wTelemetryInit(void)
 
 	/* Telemetry directory creation is best effort: if it fails the dump
 	 * below is the one that reports the missing file (Coverity CID
-	 * 1686099). */
-	if (mkdir(get_telemetry_dir(), 0755) != 0 && errno != EEXIST)
-		wwarning("could not create %s: %s", get_telemetry_dir(), strerror(errno));
+	 * 1686099).  0700 because the dumps carry window titles and command
+	 * lines; if the directory already exists and belongs to somebody else,
+	 * do not write into it at all. */
+	{
+		const char *dir = get_telemetry_dir();
+		struct stat st;
+
+		if (mkdir(dir, 0700) != 0 && errno != EEXIST) {
+			wwarning("could not create %s: %s", dir, strerror(errno));
+		} else if (lstat(dir, &st) == 0 && (!S_ISDIR(st.st_mode) || st.st_uid != getuid())) {
+			wwarning("telemetry directory %s is not a directory owned by us: "
+				 "disabling telemetry dumps", dir);
+			return;
+		}
+	}
 
 	/* Dump stats every 60 seconds (60,000 ms) */
 	telemetry_timer_id = WMAddPersistentTimerHandler(60000, timer_callback, NULL);
