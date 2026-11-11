@@ -157,7 +157,9 @@ static void setWindowTitle(WMWindow * win, const char *title)
 	int result;
 
 	result = XmbTextListToTextProperty(scr->display, (char **)&title, 1, XStdICCTextStyle, &property);
-	if (result == XNoMemory || result == XLocaleNotSupported) {
+	/* Any failure (XNoMemory, XLocaleNotSupported, XConverterNotFound) leaves
+	 * property untouched: only Success may be passed on to XSetWMName. */
+	if (result != Success) {
 		wwarning(_("window title conversion error... using STRING encoding"));
 		XStoreName(scr->display, win->view->window, title);
 	} else {
@@ -178,7 +180,7 @@ static void setMiniwindowTitle(WMWindow * win, const char *title)
 	int result;
 
 	result = XmbTextListToTextProperty(scr->display, (char **)&title, 1, XStdICCTextStyle, &property);
-	if (result == XNoMemory || result == XLocaleNotSupported) {
+	if (result != Success) {
 		wwarning(_("icon title conversion error... using STRING encoding"));
 		XSetIconName(scr->display, win->view->window, title);
 	} else {
@@ -273,13 +275,15 @@ void WMSetWindowCloseAction(WMWindow * win, WMAction * action, void *clientData)
 			int i, ncount;
 
 			if (XGetWMProtocols(scr->display, win->view->window, &atoms, &count) && count > 0) {
-				newAtoms = wmalloc((count - 1) * sizeof(Atom));
+				/* Compact with ncount as the index: using i wrote past the
+				 * buffer whenever the delete atom was not the last entry,
+				 * and left a hole in the array sent to the server.  Allocate
+				 * count entries because the atom may be absent altogether. */
+				newAtoms = wmalloc(count * sizeof(Atom));
 				ncount = 0;
 				for (i = 0; i < count; i++) {
-					if (atoms[i] != scr->deleteWindowAtom) {
-						newAtoms[i] = atoms[i];
-						ncount++;
-					}
+					if (atoms[i] != scr->deleteWindowAtom)
+						newAtoms[ncount++] = atoms[i];
 				}
 				XSetWMProtocols(scr->display, win->view->window, newAtoms, ncount);
 				if (atoms)
