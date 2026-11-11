@@ -121,36 +121,41 @@ void W_InitApplication(WMScreen * scr)
 	leader = XCreateSimpleWindow(scr->display, scr->rootWin, -1, -1, 1, 1, 0, 0, 0);
 
 	if (!scr->aflags.simpleApplication) {
+		/* XAllocClassHint()/XAllocWMHints() return NULL on allocation
+		 * failure, like the XAlloc* calls elsewhere in this file. */
 		classHint = XAllocClassHint();
-		classHint->res_name = "groupLeader";
-		classHint->res_class = WMApplication.applicationName;
-		XSetClassHint(scr->display, leader, classHint);
-		XFree(classHint);
+		if (classHint) {
+			classHint->res_name = "groupLeader";
+			classHint->res_class = WMApplication.applicationName;
+			XSetClassHint(scr->display, leader, classHint);
+			XFree(classHint);
+		}
 
 		XSetCommand(scr->display, leader, WMApplication.argv, WMApplication.argc);
 
 		hints = XAllocWMHints();
+		if (hints) {
+			hints->flags = WindowGroupHint;
+			hints->window_group = leader;
 
-		hints->flags = WindowGroupHint;
-		hints->window_group = leader;
-
-		/* This code will never actually be reached, because to have
-		 * scr->applicationIconPixmap set we need to have a screen first,
-		 * but this function is called in the screen creation process.
-		 * -Dan
-		 */
-		if (scr->applicationIconPixmap) {
-			hints->flags |= IconPixmapHint;
-			hints->icon_pixmap = scr->applicationIconPixmap->pixmap;
-			if (scr->applicationIconPixmap->mask) {
-				hints->flags |= IconMaskHint;
-				hints->icon_mask = scr->applicationIconPixmap->mask;
+			/* This code will never actually be reached, because to have
+			 * scr->applicationIconPixmap set we need to have a screen first,
+			 * but this function is called in the screen creation process.
+			 * -Dan
+			 */
+			if (scr->applicationIconPixmap) {
+				hints->flags |= IconPixmapHint;
+				hints->icon_pixmap = scr->applicationIconPixmap->pixmap;
+				if (scr->applicationIconPixmap->mask) {
+					hints->flags |= IconMaskHint;
+					hints->icon_mask = scr->applicationIconPixmap->mask;
+				}
 			}
+
+			XSetWMHints(scr->display, leader, hints);
+
+			XFree(hints);
 		}
-
-		XSetWMHints(scr->display, leader, hints);
-
-		XFree(hints);
 	}
 	scr->groupLeader = leader;
 }
