@@ -235,7 +235,11 @@ WMFont *WMCreateFont(WMScreen * scrPtr, const char *fontName)
 	FcPatternDestroy(pattern);
 #endif
 
-	assert(WMHashInsert(scrPtr->fontCache, font->name, font) == NULL);
+	/* Keep the insert out of assert(): with NDEBUG the whole call would be
+	 * compiled out and the font cache would stay permanently empty, so every
+	 * WMCreateFont() would re-parse and re-open the font. */
+	if (WMHashInsert(scrPtr->fontCache, font->name, font) != NULL)
+		wwarning(_("font '%s' was already in the cache"), font->name);
 
 	return font;
 }
