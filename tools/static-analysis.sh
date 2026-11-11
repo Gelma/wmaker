@@ -3,8 +3,14 @@
 # Static analysis for the Window Maker tree.
 #
 #   tools/static-analysis.sh cppcheck    severity summary (the project scan)
-#   tools/static-analysis.sh tidy        clang-tidy, analyzer + bugprone checks
-#   tools/static-analysis.sh fanalyzer   gcc -fanalyzer over wrlib/
+#   tools/static-analysis.sh tidy        clang-tidy over wrlib/ (fast, gated)
+#   tools/static-analysis.sh tidy-all    clang-tidy over every build directory
+#                                        (~1 h with the analyzer checks: opt-in)
+#   tools/static-analysis.sh fanalyzer   gcc -fanalyzer over wrlib/ (fast, gated)
+#   tools/static-analysis.sh fanalyzer-all
+#                                        gcc -fanalyzer over src/ WINGs/ util/
+#                                        WPrefs.app/ too (slow, opt-in: ~10 s
+#                                        per translation unit)
 #   tools/static-analysis.sh semgrep     the platform rule ids over the tree,
 #                                        with file:line (needs the registry)
 #   tools/static-analysis.sh check       run everything and compare with the
@@ -55,10 +61,15 @@ cppcheck_summary() {
 
 	command -v cppcheck >/dev/null 2>&1 || die "cppcheck not installed"
 	note "cppcheck"
+	# Every directory that ships C code: util/, WPrefs.app/ and wmlib/ used to
+	# be outside the scan, so the dockapps and the preference panels were never
+	# checked by the gate.
 	cppcheck -DHAVE_CONFIG_H -I"$TOP_DIR" -I"$TOP_DIR/src" -I"$TOP_DIR/wrlib" \
-		-I"$TOP_DIR/WINGs" --enable=warning,performance,portability,style \
+		-I"$TOP_DIR/WINGs" -I"$TOP_DIR/util" -I"$TOP_DIR/WPrefs.app" \
+		--enable=warning,performance,portability,style \
 		--inline-suppr --template='{severity}|{file}:{line}|{id}' -q \
 		"$TOP_DIR/src" "$TOP_DIR/wrlib" "$TOP_DIR/WINGs" "$TOP_DIR/test" \
+		"$TOP_DIR/util" "$TOP_DIR/WPrefs.app" "$TOP_DIR/wmlib" \
 		>"$log" 2>&1 || true
 
 	# severity counts, then the ids that are worth looking at
@@ -74,7 +85,7 @@ tidy_summary() {
 	tidy=$(find_tool clang-tidy) || die "clang-tidy not installed"
 	command -v python3 >/dev/null 2>&1 || die "python3 not installed"
 
-	note "clang-tidy ($tidy)"
+	note "clang-tidy ($tidy, scope: ${1:-wrlib})"
 	python3 "$TOP_DIR/tools/gen-compile-db.py" "$TOP_DIR" "$OUT_DIR/compile_commands.json" >/dev/null
 	db=$OUT_DIR/compile_commands.json
 	log=$OUT_DIR/clang-tidy.log
@@ -82,21 +93,45 @@ tidy_summary() {
 	# Analyse exactly the files the database knows about: a plain *.c glob
 	# would also hand over sources the build ignores (load_magick.c with
 	# ImageMagick disabled), and those only produce parse errors.
+	#
+	# Scope: the gated pass stays on wrlib (a few minutes).  Analysing all
+	# ~190 translation units with the clang-analyzer checks takes about an
+	# hour, which nobody would run as a gate: that is the opt-in 'tidy-all'.
+	local scope=${1:-wrlib}
 	local -a files
-	mapfile -t files < <(python3 - "$db" <<'EOF'
+	mapfile -t files < <(python3 - "$db" "$scope" <<'EOF'
 import json, sys
-for entry in json.load(open(sys.argv[1], encoding="utf-8")):
+db, scope = sys.argv[1], sys.argv[2]
+for entry in json.load(open(db, encoding="utf-8")):
+    if scope == "wrlib" and not entry["directory"].endswith("/wrlib"):
+        continue
     print(entry["file"])
 EOF
 )
 
-	( cd "$TOP_DIR/wrlib" && "$tidy" -p "$db" --quiet \
-		--checks="$TIDY_CHECKS" "${files[@]}" >"$log" 2>&1 ) || true
+	# The database now covers every build directory and each entry carries its
+	# own "directory", so run from the top instead of wrlib/.
+	#
+	# Feed the files in chunks: clang-tidy has been seen to die with a bus error
+	# on a single translation unit, and one invocation for the whole tree would
+	# lose every result after the crash.  A chunk that fails is reported and the
+	# run continues.
+	: >"$log"
+	local -i chunk=25 i n=${#files[@]} failed=0
+	for ((i = 0; i < n; i += chunk)); do
+		if ! ( cd "$TOP_DIR" && "$tidy" -p "$db" --quiet \
+			--checks="$TIDY_CHECKS" "${files[@]:i:chunk}" >>"$log" 2>&1 ); then
+			failed=$((failed + 1))
+		fi
+	done
+	((failed == 0)) || echo "tidy chunks-failed $failed" >&2
 
 	local total
 	total=$(grep -cE ": warning: " "$log" || true)
 	printf 'tidy total %d\n' "$total"
-	grep -E ": warning: " "$log" | grep -oE '\[[A-Za-z0-9.,-]+\]$' | tr -d '[]' |
+	# '|| true' on the whole pipeline: with no warning at all the first grep
+	# exits 1 and pipefail would abort the script.
+	{ grep -E ": warning: " "$log" || true; } | grep -oE '\[[A-Za-z0-9.,-]+\]$' | tr -d '[]' |
 		sort | uniq -c | awk '{printf "tidy %s %d\n", $2, $1}' | sort
 	local broken
 	broken=$(grep -cE ": error: " "$log" || true)
@@ -115,9 +150,47 @@ fanalyzer_summary() {
 			-c "$f" -o /dev/null >>"$log" 2>&1 || true
 	done
 
-	grep -oE '\[-Wanalyzer-[a-z-]+\]' "$log" | tr -d '[]' | sort | uniq -c |
+	{ grep -oE '\[-Wanalyzer-[a-z-]+\]' "$log" || true; } | tr -d '[]' | sort | uniq -c |
 		awk '{printf "fanalyzer %s %d\n", $2, $1}' | sort
-	grep -c 'warning:' "$log" | sed 's/^/fanalyzer total /'
+	printf 'fanalyzer total %s\n' "$(grep -c 'warning:' "$log" || true)"
+}
+
+# Opt-in extension of the -fanalyzer pass to the rest of the tree.  Not part
+# of 'check': it costs roughly 10 s per translation unit (~30 min), while the
+# gated wrlib pass takes a couple of minutes.  The flags come from the same
+# compile database clang-tidy uses, so they are the real build flags.
+fanalyzer_all_summary() {
+	local db=$OUT_DIR/compile_commands.json
+	local log=$OUT_DIR/fanalyzer-all.log
+
+	command -v python3 >/dev/null 2>&1 || die "python3 not installed"
+	note "gcc -fanalyzer (src, WINGs, util, WPrefs.app, wmlib)"
+	python3 "$TOP_DIR/tools/gen-compile-db.py" "$TOP_DIR" "$db" >/dev/null
+	: >"$log"
+
+	python3 - "$db" "$log" <<'PYEOF'
+import json, subprocess, sys
+
+db, log = sys.argv[1], sys.argv[2]
+entries = json.load(open(db, encoding="utf-8"))
+with open(log, "a", encoding="utf-8") as out:
+    for e in entries:
+        if "/wrlib/" in e["directory"]:
+            continue          # already covered by the gated pass
+        cmd = e["command"].replace("clang ", "gcc -O0 -fanalyzer ", 1)
+        try:
+            p = subprocess.run(cmd, shell=True, cwd=e["directory"],
+                               capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            out.write(f"TIMEOUT {e['directory']}/{e['file']}\n")
+            continue
+        out.write(p.stderr)
+PYEOF
+
+	{ grep -oE '\[-Wanalyzer-[a-z-]+\]' "$log" || true; } | tr -d '[]' | sort | uniq -c |
+		awk '{printf "fanalyzer-all %s %d\n", $2, $1}' | sort
+	printf 'fanalyzer-all total %s\n' "$(grep -c 'warning:' "$log" || true)"
+	echo "  (see $log for the file:line of each finding)"
 }
 
 semgrep_summary() {
@@ -144,7 +217,7 @@ semgrep_summary() {
 	# other rules found, so the exit status is reported, not honoured.
 	"$sg" "${args[@]}" --metrics=off --quiet --json --output "$json" \
 		"$TOP_DIR/src" "$TOP_DIR/WINGs" "$TOP_DIR/util" "$TOP_DIR/wrlib" \
-		"$TOP_DIR/WPrefs.app" "$TOP_DIR/test" >"$log" 2>&1 || {
+		"$TOP_DIR/WPrefs.app" "$TOP_DIR/test" "$TOP_DIR/wmlib" >"$log" 2>&1 || {
 			echo "  semgrep exited non-zero, see $log" >&2
 		}
 
@@ -202,9 +275,17 @@ tidy)
 	mkdir -p "$OUT_DIR"
 	tidy_summary
 	;;
+tidy-all)
+	mkdir -p "$OUT_DIR"
+	tidy_summary all
+	;;
 fanalyzer)
 	mkdir -p "$OUT_DIR"
 	fanalyzer_summary
+	;;
+fanalyzer-all)
+	mkdir -p "$OUT_DIR"
+	fanalyzer_all_summary
 	;;
 semgrep)
 	mkdir -p "$OUT_DIR"

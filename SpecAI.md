@@ -1538,6 +1538,114 @@ Following the new Coverity scan report updated in commit `db5effec` ("Update Cov
 - Complete standard test suite passed cleanly (`make check`).
 - Exit and signal integration test suite passed cleanly (`make exit-test`).
 
+## 162. Full-Tree Audit Remediation (2026-11-11)
+
+### 1. Context
+
+A read-only audit of the whole tree was run starting from the repository-root `*.md` documents
+(SpecAI, the dated review reports, CoverityDeepseek/Gemini, SNI*, ForTheFuture, README), then a
+forced rebuild, `make check`, `make exit-test` (+ Valgrind), the project's own
+`tools/static-analysis.sh check`, and a `gcc -fanalyzer` sweep **extended beyond `wrlib/`** to
+`src/` + `WINGs/` (114 translation units, method validated by reproducing the 4 baseline `wrlib`
+findings). Two read-only sub-audits covered `WINGs/` and `util/`+`WPrefs.app/`+`wmlib/`+`test/`+`tools/`;
+every reported item was re-verified against the code before being acted on.
+
+The working paper lives outside the repository at `/tmp/proposta_fix.md` (§1-9 findings, §10 the
+other engine's review, §11 the counter-evaluation). Andrea authorised implementing **all** items,
+leaving the other engine the post-hoc review. 44 commits, one concern per commit.
+
+### 2. Defects fixed (item ids refer to `/tmp/proposta_fix.md`)
+
+| Area | Items | Commits |
+|---|---|---|
+| Dock / WMState parsing | A1 empty `Command` → `argv[0]` NULL deref in `killCallback`; A2 `DropCommand`/`PasteCommand` not type-checked | `e6fc233f`, `64b02c2e` |
+| Style tools / WPrefs | C1 `wmsetbg` PixmapPath heap **underflow**; C2 `setstyle`/`getstyle`/`TexturePanel` `WMGetFromPLString` without `WMIsPLString`; W11 `wfindfileinarray` | `1efc1435`, `db558e02`, `a92e0757` |
+| wmlib | C4 NULL `main_menu` deref reachable from any X client | `29d38ea7` |
+| Timers | W7 `WMDeleteTimerWithClientData` removed at most one handler; W7b menu jump-back re-arm/free lifetime; W26 two purges whose clientData never matched | `df5a988f`, `02b1cba7` |
+| Drag & drop | D1 three `sourceScreen()` NULL derefs; W3 `XQueryTree` child list leaked on every motion event | `246e9b38` |
+| Text / rendering | W5 `fitText()` could return 0 → infinite wrap loop (balloon hang); A3 title-strip cache not invalidated on a colour-only change | `e7d5da10`, `056d8796` |
+| WINGs ownership | W6 borrowed defaults strings stored forever **and** `wfree`d; W9 unretained `scr->black` fallback; W10 unretained `boldFont` alias; W12 background self-assignment UAF; W13 `backImage` never released | `276b741f`, `2e208d30`, `1c18e7d9` |
+| WINGs robustness | W4 unchecked `XGetIMValues`; W8 screen-creation leak + unchecked callers; W14 menu parser `#if` stale state; W15 umask left at 077; W16 `assert` on a reachable NULL; W17 selection truncated at 8 KiB; W18 `wmkdirhier` stack overflow; W19 `XmbTextListToTextProperty` partial error handling; W20 NULL GNUstep root in `snprintf`; W21 backward search off-by-one; W22 font-cache insert inside `assert`; W23 unchecked `XAlloc*`; W24 empty-array subarray underflow; W25 `indentedDescription` NULL | `5292d3c6`, `b30f0fdf`, `ce6f431f`, `a271ac70`, `75a3b828`, `7b7d1f25`, `9bec4036`, `213d7543`, `60b71fee`, `691c6789`, `ba7ddcb1`, `c45e108d`, `2a159dac`, `8d4bb16d` |
+| WINGs latent (no in-tree caller) | W1 `WM_PROTOCOLS` compaction wrote past the buffer; W2 `memmove` without `sizeof` in `WMRemoveTabViewItem` | `213d7543`, `f281eb72` |
+| New subsystems | A4 subprocess write-end `FD_CLOEXEC` + unbounded capture + API contract; A5 hot-corner reset/clamp/unknown-action warning; A7 `INT_MIN` UB in the crash handler + dead libbacktrace block + stale comment; A8 client-list walks bounded | `f10d25d1`, `80ab3395`, `5b1249df`, `7cec9b02` |
+| Local security in `/tmp` | A6 exit sentinel `O_EXCL|O_NOFOLLOW` + `XDG_RUNTIME_DIR` + `lstat` in the monitor; telemetry dir 0700, ownership check, `O_NOFOLLOW` | `4cd79c77`, `8b1517d6` |
+| Dockapps | C3 `/proc/stat` fields summed uninitialised; C8 `-delay` clamp | `6a015d7f`, `5e18eb61` |
+| Build / packaging | C5 `install-exec-hook` deleted foreign dockapps; B4 `ETCDIR`/`DATADIR` not expanded; C7 WIP panels documented | `1041f568` |
+| SCM | B3 `.gitignore` hid 70 tracked files | `6e4e41e1` |
+| Docs | B5 247 dead SpecAI links, CoverityDeepseek header, HotCorner keys in `WindowMaker.in`, README SNI | `e5c66552` |
+| Tests | B2 `exit-test` wired into `make check` with a graceful SKIP; `make check` ran no test at all (`test/` not in `SUBDIRS`) | `591a2279`, `6d71b28d` |
+| From the live logs | L1 benign override-redirect MapRequests counted instead of warned | `5ecc848a` |
+
+### 3. Corrections to the audit (recorded so they are not re-reported)
+
+- **W7 call site**: `src/window.c:1781` (`frame->core`) and `src/appicon.c:337` (`aicon`) could never
+  match a timer — the autoraise timer uses `scr` and the blink timers use the `WIcon`. They were
+  ineffective purges (W26), not the UAF; the real exposure was the menu jump-back (W7b).
+- **`MiniwindowPreviewBalloons` was already documented** in `WindowMaker/Defaults/WindowMaker.in`;
+  the audit had searched for the internal C name `miniwin_preview_balloon`.
+- **Rejected**: "`wmbattery.c` uses `strcasecmp` without `<strings.h>`" — a probe compiled with the
+  project's exact flags and include set produces no warning (glibc declares it transitively under
+  `_GNU_SOURCE`). **Downgraded**: `wxcopy` exit status on empty input, and the `wl*`/`wlm*` alias
+  `res_name` (a deliberate choice from `3f59ae56`).
+- **`-fanalyzer` false positives** (kept as such, not "fixed"): the two `dup2` fd leaks in
+  `subprocess.c` (child `_exit` closes everything), `misc.c` `dup2` on fd 0, and `memory.c`
+  `refcount` (owned by the caller by contract, `wrelease` frees it).
+
+### 4. Process changes
+
+- `tools/static-analysis.sh`: cppcheck now also scans `util/`, `WPrefs.app/`, `wmlib/`; semgrep also
+  scans `wmlib/`; clang-tidy runs from the top over the whole database; new opt-in
+  `fanalyzer-all` target covers `src/ WINGs/ util/ WPrefs.app/ wmlib/` (slow, not part of `check`).
+  Pipelines that could abort under `set -o pipefail` when a pass finds nothing are now guarded.
+- `tools/gen-compile-db.py`: rewritten to cover every build directory, taking the **real** flags from
+  `make --eval` and the file list from `.deps/*.Plo|*.Po` (falling back to built objects). The command
+  is stored raw in `"command"` (shlex-splitting would strip the escaped quotes of `-D...=\"...\"`),
+  and `"file"` is absolute because clang-tidy resolves it against its own cwd.
+- `make check` now runs the WM exit/restart/reload regression (`test/exit_test.sh`, SKIPs without
+  Xvfb/xprop/binary); the manual demos are labelled as such in `test/Makefile.am`.
+  **Important correction found while wiring this**: `test/` is in `DIST_SUBDIRS` but **not in
+  `SUBDIRS`**, so the top-level `make check` never recursed into it and ran *no* test at all — it
+  only ran `configure-documentation` and reported success. The "3 PASS" seen during the audit came
+  from an explicit `make -C test check`. `check-local` now recurses into `test/`, and the three
+  automated tests moved to `check_PROGRAMS` so this does not require GTK3/pthreads for the demos.
+  Verified: `make check` → **TOTAL 4 / PASS 4** (`6d71b28d`).
+- clang-tidy died with a **bus error** when handed all 195 files in one invocation; the pass now
+  feeds them in chunks of 25 and reports failed chunks instead of losing the whole run. The
+  compile database uses an absolute `"file"` (clang-tidy resolves it against its own cwd) and a raw
+  `"command"` string. Several `grep` pipelines also aborted the script under `set -o pipefail` when
+  a pass found nothing; they are now guarded.
+- `.gitignore`: generated menus listed explicitly (the exact `GENERATED_MENUS` set), `doc/*.1`
+  narrowed to the two generated pages, `/INSTALL` anchored, stale `m4/ld-version-script.m4` rule
+  dropped → **0 tracked-but-ignored files** (was 70).
+
+### 5. Findings from the live-session logs (`/tmp/wmaker_runtime_logs/`, `~/.local/share/wmaker/logs/`)
+
+- **Helgrind** on the running session (`valgrind-wmaker-20261110_223729-{8839,9001}.log`): headers
+  only, **no errors reported** so far.
+- **Implemented (`5ecc848a`)**: ~25 `handleMapRequest: wManageWindow returned NULL …
+  (override_redirect or unmapped)` warnings were mostly **normal override-redirect windows**
+  (menus, tooltips, DnD icons). `wManageWindow()` already has the attributes there, so the benign
+  case is now counted (`map_request_override_redirect`, in both dumps) and the warning fires only
+  for a genuine failure — no extra X round-trip.
+- **Not defects**: `setstyle: could not load style file` on `Themes/dust/dusttile.tiff` (a TIFF was
+  passed to `setstyle`, which parsed it as a proplist); `error: empty dic file` / `Hash Manager
+  Error : 2` come from an external process (IME/libpinyin); the Fontconfig and missing-cursor-bitmap
+  warnings are environmental and already fall back correctly.
+- **Open observation (not implemented)**: of 226 latency spikes in ~12.5 h, the six worst
+  (324-435 ms *excluding* modal time) are all `ButtonPress button=1` on the **same window
+  `0xc002db`**, with very large excluded modal time (up to 15.7 s). The spike log records the XID
+  but not the window's role, so it cannot be attributed without instrumentation. Suggestion: add
+  the role (dock/clip/frame/root) to the spike line, then measure that path with cachegrind/perf.
+
+### 6. Verification
+
+- Forced rebuild of every touched translation unit with the project's strict flags: **0 warnings**.
+- `make check`: **TOTAL 4 / PASS 4** (three unit tests + the WM exit/restart/reload regression).
+- `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test`: **pass**.
+- `tools/static-analysis.sh`: coverage widened (cppcheck on `util/ WPrefs.app/ wmlib`, semgrep on
+  `wmlib`, clang-tidy over the whole database, new opt-in `fanalyzer-all`), so the baseline counts
+  were regenerated with `update` rather than compared against the old wrlib-only numbers.
+
 
 
 
