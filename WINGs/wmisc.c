@@ -140,6 +140,14 @@ static int fitText(const char *text, WMFont * font, int width, int wrap)
 		i++;
 	}
 
+	/* Always consume at least one character.  When the very first character
+	 * is wider than the available width (a narrow view, or a width <= 0 as
+	 * W_PaintTextAndImage() passes w - 8), i stays 0 and word1 is 0, so both
+	 * W_GetTextHeight() and W_PaintText() would loop forever on
+	 * 'while (length > 0)' without advancing ptr/length. */
+	if (i == 0)
+		i = oneUTF8CharForward(text, beforecrlf);
+
 	return i;
 }
 
