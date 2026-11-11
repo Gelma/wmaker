@@ -130,7 +130,12 @@ am__v_CHKOPTS_  = $(am__v_CHKOPTS_$(AM_DEFAULT_VERBOSITY))
 am__v_CHKOPTS_0 = @echo "  CHK      $@" ;
 am__v_CHKOPTS_1 =
 
+# test/ is deliberately not in SUBDIRS (its demos need GTK3/pthreads and must
+# not be built by a plain `make`), but its automated tests do belong to
+# `make check`: recurse explicitly.  test/Makefile.am builds only the
+# check_PROGRAMS for this, and exit_test.sh SKIPs without Xvfb.
 check-local: configure-documentation
+	$(MAKE) $(AM_MAKEFLAGS) -C test check
 
 configure-documentation:
 	$(AM_V_CHKOPTS)$(top_srcdir)/script/check-cmdline-options-doc.sh \
