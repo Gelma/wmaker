@@ -547,9 +547,10 @@ void StartUp(Bool defaultScreenOnly)
 
 	sig_action.sa_flags = SA_RESTART;
 	sigaction(SIGQUIT, &sig_action, NULL);
-	/* instead of catching these, we let the default handler abort the
-	 * program. The new monitor process will take appropriate action
-	 * when it detects the crash.
+	/* SIGSEGV/SIGBUS/SIGFPE/SIGILL/SIGABRT are not handled here: wBacktraceInit()
+	 * (src/backtrace.c, called from main()) installs a handler that dumps a
+	 * backtrace and then re-raises the signal with SIG_DFL, so the process still
+	 * dies from it and the monitor process detects the crash as before.
 	 sigaction(SIGSEGV, &sig_action, NULL);
 	 sigaction(SIGBUS, &sig_action, NULL);
 	 sigaction(SIGFPE, &sig_action, NULL);

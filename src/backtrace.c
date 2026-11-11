@@ -31,11 +31,6 @@
 #include <execinfo.h>
 #endif
 
-#ifdef HAVE_LIBBACKTRACE
-#include <backtrace.h>
-static struct backtrace_state *w_bt_state;
-#endif
-
 static const char *exec_file_path;
 
 static void safe_write_str(int fd, const char *str)
@@ -53,7 +48,9 @@ static void safe_write_int(int fd, int val)
 	char buf[32];
 	char *p = &buf[sizeof(buf) - 1];
 	int neg = (val < 0);
-	unsigned int uval = (unsigned int)(neg ? -val : val);
+	/* Negate in unsigned arithmetic: -INT_MIN is signed overflow (UB), and
+	 * this runs inside the crash handler where it must be bulletproof. */
+	unsigned int uval = neg ? 0u - (unsigned int)val : (unsigned int)val;
 	ssize_t written;
 
 	*p = '\0';
