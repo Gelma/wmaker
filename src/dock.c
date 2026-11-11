@@ -1791,12 +1791,12 @@ static WAppIcon *restore_icon_state(WScreen *scr, WMPropList *info, int type, in
 
 #ifdef USE_DOCK_XDND
 	cmd = WMGetFromPLDictionary(info, dDropCommand);
-	if (cmd)
+	if (cmd && WMIsPLString(cmd))
 		aicon->dnd_command = wstrdup(WMGetFromPLString(cmd));
 #endif
 
 	cmd = WMGetFromPLDictionary(info, dPasteCommand);
-	if (cmd)
+	if (cmd && WMIsPLString(cmd))
 		aicon->paste_command = wstrdup(WMGetFromPLString(cmd));
 
 	/* check auto launch */
