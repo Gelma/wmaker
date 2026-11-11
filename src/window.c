@@ -133,6 +133,12 @@ static void appearanceObserver(void *self, WMNotification * notif)
 		wwin->frame->flags.need_texture_remake = 1;
 
 	if (flags & (WTextureSettings | WColorSettings)) {
+		/* A colour-only change does not set need_texture_remake, but the
+		 * cached title strip has the old glyph colour baked in: drop it or
+		 * the titlebar keeps painting the previous colour. */
+		if (flags & WColorSettings)
+			wFrameWindowInvalidateTitleStrip(wwin->frame);
+
 		if (wwin->frame->titlebar)
 			XClearWindow(dpy, wwin->frame->titlebar->window);
 

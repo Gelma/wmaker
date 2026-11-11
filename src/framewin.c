@@ -1012,6 +1012,17 @@ static void freeTitleStrip(WFrameWindow * fwin)
 	fwin->title_strip_width = 0;
 }
 
+/* Drop the cached title strips without touching the textures.  The strip
+ * bakes in the glyph colour and the background fill, so a notification that
+ * only changes colours (WColorSettings) must invalidate it too: the cache hit
+ * test in wFrameWindowPaint() compares text and titlebar width only. */
+void wFrameWindowInvalidateTitleStrip(WFrameWindow * fwin)
+{
+	if (!fwin)
+		return;
+	freeTitleStrip(fwin);
+}
+
 void wFrameWindowPaint(WFrameWindow * fwin)
 {
 	WScreen *scr = fwin->screen_ptr;

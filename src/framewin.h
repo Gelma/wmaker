@@ -185,6 +185,8 @@ void wFrameWindowChangeState(WFrameWindow *fwin, int state);
 
 void wFrameWindowPaint(WFrameWindow *fwin);
 
+void wFrameWindowInvalidateTitleStrip(WFrameWindow *fwin);
+
 void wFrameWindowConfigure(WFrameWindow *fwin, int x, int y, int width, int height);
 
 void wFrameWindowResize(WFrameWindow *fwin, int width, int height);

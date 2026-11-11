@@ -113,6 +113,11 @@ static void appearanceObserver(void *self, WMNotification * notif)
 			menu->frame->flags.need_texture_remake = 1;
 		}
 		if (flags & (WColorSettings | WTextureSettings)) {
+			/* Same invariant as the window frame observer: a colour-only
+			 * change must drop the cached title strip, which has the old
+			 * glyph colour baked in. */
+			if (flags & WColorSettings)
+				wFrameWindowInvalidateTitleStrip(menu->frame);
 			wFrameWindowPaint(menu->frame);
 		}
 	}
