@@ -1552,7 +1552,7 @@ every reported item was re-verified against the code before being acted on.
 
 The working paper lives outside the repository at `/tmp/proposta_fix.md` (§1-9 findings, §10 the
 other engine's review, §11 the counter-evaluation). Andrea authorised implementing **all** items,
-leaving the other engine the post-hoc review. 44 commits, one concern per commit.
+leaving the other engine the post-hoc review. 45 commits, one concern per commit.
 
 ### 2. Defects fixed (item ids refer to `/tmp/proposta_fix.md`)
 
