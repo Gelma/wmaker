@@ -11,6 +11,10 @@ WMWindowAttributes: $(srcdir)/WMWindowAttributes.in
 		$(srcdir)/WMWindowAttributes.in > WMWindowAttributes ; \
 	chmod 644 WMWindowAttributes
 
+# The *.in files here are PropertyLists, not C: the parser rejects comments
+# ("Comments are not allowed inside WindowMaker owned domain files",
+# WINGs/proplist.c) and a single /* ... */ makes the WHOLE domain fail to
+# load.  Document new keys in SpecAI.md, never inside the .in.
 WindowMaker: $(srcdir)/WindowMaker.in
 	$(AM_V_GEN)sed -e "s:#pkgdatadir#:$(pkgdatadir):" \
 		-e "s:#pixmapdir#:$(pixmapdir):" $(srcdir)/WindowMaker.in \

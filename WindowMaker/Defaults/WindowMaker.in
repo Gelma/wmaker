@@ -98,13 +98,6 @@
 	AppIconBalloons = NO;
 	HelpBalloons = NO;
 	EdgeResistance = 30;
-	/* Hot corners: trigger an action when the pointer rests in a screen corner.
-	 * HotCornerDelay/Cooldown are milliseconds, HotCornerEdge is the corner
-	 * size in pixels (clamped to half of the smallest head dimension).
-	 * The two action lists are (top-left, top-right, bottom-left, bottom-right);
-	 * "None" disables a corner, a keyword such as RootMenu, WindowListMenu,
-	 * CloseMenu, WorkspaceNext, WorkspacePrev, ToggleShade or ShowDesktop
-	 * selects a built-in action, anything else is run as a shell command. */
 	HotCorners = NO;
 	HotCornerDelay = 250;
 	HotCornerCooldown = 500;
