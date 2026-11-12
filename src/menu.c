@@ -1907,10 +1907,40 @@ void wMenuScroll(WMenu *menu)
 
 static void menuExpose(WObjDescriptor * desc, XEvent * event)
 {
-	/* Parameter not used, but tell the compiler that it is ok */
-	(void) event;
+	WMenu *menu = (WMenu *) desc->parent;
+	int first, last, i;
 
-	wMenuPaint(desc->parent);
+	if (!menu->flags.mapped)
+		return;
+
+	/* Coalesce bursts: a series of Expose events ends with count == 0, so
+	 * painting on each one redrew the whole menu several times for a single
+	 * damage. */
+	if (event->xexpose.count != 0)
+		return;
+
+	if (menu->entry_height <= 0 || menu->entry_no <= 0) {
+		wMenuPaint(menu);
+		return;
+	}
+
+	/* Entries are stacked at y = index * entry_height in this window, so only
+	 * the entries intersecting the exposed rectangle need repainting.  A
+	 * partially exposed entry is painted in full: harmless (the server clips to
+	 * the window) and it avoids setting a clip mask on a shared GC, which is
+	 * what made the titlebar paint stale in ab3535f2. */
+	first = event->xexpose.y / menu->entry_height;
+	last = (event->xexpose.y + (int) event->xexpose.height - 1) / menu->entry_height;
+
+	if (first < 0)
+		first = 0;
+	if (last >= menu->entry_no)
+		last = menu->entry_no - 1;
+	if (last < first)
+		return;
+
+	for (i = first; i <= last; i++)
+		paintEntry(menu, i, i == menu->selected_entry);
 }
 
 typedef struct {
