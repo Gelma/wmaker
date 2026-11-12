@@ -27,7 +27,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 
 #include <X11/Xlib.h>
@@ -555,8 +557,17 @@ static void execInitScript(void)
 	wfree(paths);
 
 	if (file) {
-		if (system(file) != 0)
-			werror(_("%s:could not execute initialization script"), file);
+		int status = system(file);
+
+		/* -1 is the only case in which the script could not be run at all;
+		 * a non-zero status means it ran and failed, which must not be
+		 * reported as "could not execute". */
+		if (status == -1)
+			werror(_("%s:could not execute initialization script: %s"), file, strerror(errno));
+		else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+			wwarning(_("%s:initialization script exited with status %d"), file, WEXITSTATUS(status));
+		else if (WIFSIGNALED(status))
+			wwarning(_("%s:initialization script terminated on signal %d"), file, WTERMSIG(status));
 
 		wfree(file);
 	}
@@ -573,8 +584,14 @@ void ExecExitScript(void)
 	wfree(paths);
 
 	if (file) {
-		if (system(file) != 0)
-			werror(_("%s:could not execute exit script"), file);
+		int status = system(file);
+
+		if (status == -1)
+			werror(_("%s:could not execute exit script: %s"), file, strerror(errno));
+		else if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+			wwarning(_("%s:exit script exited with status %d"), file, WEXITSTATUS(status));
+		else if (WIFSIGNALED(status))
+			wwarning(_("%s:exit script terminated on signal %d"), file, WTERMSIG(status));
 
 		wfree(file);
 	}
