@@ -1790,6 +1790,57 @@ returned non-zero during startup, which is a different statement. Distinguishing
 `system() == -1` from `WEXITSTATUS(...)` and reporting the status would make the
 line truthful. Left open deliberately.
 
+## 166. Menu Expose Cost: Measurement, Then P1/P2/P3 Applied (2026-11-12)
+
+### 1. Measurement that led to the fixes
+
+Isolated Xvfb with a throw-away `$HOME` and the real 227-line `WMRootMenu`, trigger
+`F12` (`RootMenuKey`, `src/defaults.c:657`), callgrind with `--toggle-collect=<function>`
+(collects only inside the target; `callgrind_control` produced no usable dump) and
+`--collect-systime=yes`:
+
+| Measurement | Value | Meaning |
+|---|---|---|
+| `KeyPress`(F12) → `OpenRootMenu`, 8 opens | 22.9 ms total, **2.86 ms avg**, 12.7 ms max | opening the menu is not CPU-bound |
+| `configureMenu` inside `OpenRootMenu` (1 open) | 19.0 M of 20.1 M Ir (**94.5%**); `wMenuRealize` 87% → `WMWidthOfString` 85% → `pango_font_map_load_fontset` 52.7% | menu construction is a cold, one-off cost (already paid in `StartUp`) |
+| 1 open vs 8 opens | 20.1 M vs 21.6 M Ir | later opens do **not** rebuild: `OpenRootMenu`'s timestamp reuse works |
+| `menuExpose` profile (8 opens) | 1.89 M Ir against **83.0 ms of 84.9 ms sysTime (95.4%)** under `EventLoop` | the cost is **X-side**, not WM instructions |
+| `Expose` events in the run | 18 events, 831.7 ms total, 46.2 ms avg, 800 ms max | where the time actually goes |
+
+Conclusion: the live 324-435 ms menu spikes are X-side work multiplied by `menuExpose()`'s
+habit of repainting the whole menu on every Expose event.
+
+### 2. Fixes applied (P4 deliberately not applied)
+
+| Item | Change | Commit |
+|---|---|---|
+| **P1** | `menuExpose()`: return while `xexpose.count != 0` (only the last event of a burst paints) and paint only the rows intersecting the exposed rectangle. A partially exposed entry is still painted in full - deliberately **no clip mask on any shared GC**, since that is what made the titlebar paint stale (`ab3535f2`) | `8d2bf675` |
+| **P2** | `executeButtonAction()`/`WA_SELECT_WINDOWS`: gate the destroy+rebuild of the root menu on `w_global.domain.root_menu->timestamp > menu->timestamp` (the test `OpenRootMenu()` already uses) and stop clearing `root_menu_changed_shortcuts`/`added_*_menu` when nothing is rebuilt. Latent cost: ~20 M Ir per desktop click when `CloseRootMenuByLeftOrRightMouseClick=YES` (default NO, unset in the live session) | `e60998df` |
+| **P3** | `execInitScript()`/`ExecExitScript()`: distinguish `system() == -1` (real failure, with `strerror`) from `WIFEXITED`+`WEXITSTATUS` and from `WIFSIGNALED`, each with its own message | `629a27e2` |
+| ~~P4~~ | warm the Pango fontset at startup: **not applied** - the numbers show the cold cost is already absorbed by `StartUp`; Andrea confirmed skipping it | – |
+
+### 3. Verification
+
+- **Pixel test** (`/tmp/wm_p1_visual.sh`, isolated Xvfb, real `WMRootMenu`): open the root
+  menu and capture; occlude part of it with an `xterm`, kill the `xterm`, capture; Escape and
+  reopen, capture. Result: pristine vs after-occlusion **identical**, and pristine vs reopen
+  **identical** - the partial repaint restores exactly what the old full repaint did.
+- Rebuild of the whole tree: **0 warnings**. `make check`: **4/4 PASS**. `make exit-test`: pass.
+  `EXIT_TEST_ARGS=--valgrind make exit-test`: pass («no invalid memory accesses during shutdown»).
+- Not measured: a before/after `paintEntry` call count - the A/B that would have produced it was
+  aborted (see §4) and P1's correctness is already established by the pixel test.
+
+### 4. Incident to remember: harness scripts must never kill by pattern
+
+While setting up the A/B, a cleanup line in a `/tmp` profiling script,
+`pkill -TERM -f "valgrind.*wmaker"`, matched Andrea's **live** session
+(`valgrind --tool=memcheck … /opt/wmaker/bin/wmaker --for-real`) and terminated his desktop;
+`gdm` relaunched it. That is a property of this setup (the installed WM is routinely run under
+memcheck), not bad luck. The scripts now kill only the PID they started (`WM=$!`) and contain no
+`pkill`/`killall` at all; any future harness must use a private display, its own PID, and a dry
+`pgrep -af` check before terminating anything.
+
+
 
 
 
