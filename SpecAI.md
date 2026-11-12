@@ -1715,6 +1715,81 @@ monitor.c 161→168) and that `1686081` is now `Dismissed`.
 - `make exit-test` and `EXIT_TEST_ARGS=--valgrind make exit-test`: pass (these
   exercise the sentinel path that 1687893 changed).
 
+## 165. Log Review of 2026-11-12: A Regression of Mine, and What the New Roles Revealed
+
+Both log locations were reviewed (`~/.local/share/wmaker/logs/` and the telemetry
+directory) after Andrea's memcheck runs of this morning.
+
+### 1. Regression found in §162 and fixed (`9e6fc3da`)
+
+The HotCorner documentation added in `e5c66552` put a `/* ... */` comment inside
+`WindowMaker/Defaults/WindowMaker.in`. That file is a PropertyList: the parser
+rejects comments outright (`WINGs/proplist.c:905`, "Comments are not allowed
+inside WindowMaker owned domain files"), so the generated global defaults failed
+at line 101 with "missing = in PropList dictionary entry" and
+`readGlobalDomain()` dropped **the entire global domain**, not just the new keys.
+Symptom in the live log:
+
+```
+wmaker(getPLDictionary(proplist.c:828)): warning: syntax error in file
+  /opt/wmaker/etc/WindowMaker/WindowMaker, line 101: missing = in PropList dictionary entry
+wmaker(readGlobalDomain(defaults.c:945)): warning: could not load domain
+  WindowMaker from global defaults database
+```
+
+Verified with a harness calling the real parser (`WMReadPropListFromFile`): the
+installed file FAILs, the corrected one parses as a dictionary. The user domain
+(`~/GNUstep/Defaults/WindowMaker`) was never affected - only the generated global
+one. The keys stay; the comment is gone, and `WindowMaker/Defaults/Makefile.am`
+now warns about this trap. **The installed copy under `/opt/wmaker` is still the
+broken one until `make install` is re-run.**
+
+`README.md` said telemetry still goes to `/tmp/wmaker_runtime_logs/`; after §162
+the default is `$XDG_RUNTIME_DIR/wmaker/` (0700 dir, 0600 files, `WM_RUNTIME_LOG_DIR`
+override), so the sentence was corrected. The empty `/tmp/wmaker_runtime_logs/`
+left on disk is harmless.
+
+### 2. Memcheck of three completed sessions: clean
+
+`ERROR SUMMARY: 0 errors from 0 contexts` and `definitely/indirectly/possibly lost:
+0 bytes` in all three. The only residue is 36,739 bytes in 254 **still reachable**
+blocks, and none of those records contains a WM frame - they are glib/`ld.so`
+initialisation allocations. The repeated `X connection to :0.0 broken (explicit
+kill or server shutdown)` lines are children exiting when the session ends, and
+the monitor logged no crash: the several sessions today are restarts, not crashes.
+
+### 3. §163 doing its job: the spike sources are now identifiable
+
+84 spike lines carry a role, and the picture is clear:
+
+| event / role | n | total ms | max ms |
+|---|---|---|---|
+| `ButtonPress` / `role=menu` (root menu, e.g. title="Applications") | 10 | 2877 | 360 |
+| `ButtonPress` / `role=dock` | 7 | 1313 | 435 |
+| `KeyPress` / `role=root` | 35 | 743 | 40 |
+| `PropertyNotify` / `role=client` | 7 | 516 | 167 |
+
+That answers the open question of §162.5: the 324-435 ms `ButtonPress` spikes on a
+single window were the **root menu** and the **dock**, i.e. menu construction and
+dock activation, not some anonymous client. Not yet investigated further - the next
+step is a callgrind run on menu mapping rather than guessing.
+
+### 4. §162 L1 confirmed at runtime
+
+`diagnostics: map_request_failed 7, map_request_override_redirect 64` - the benign
+override-redirect declines are now counted instead of logged, and the warnings that
+remain are genuine failures worth a look.
+
+### 5. One diagnostic worth improving (not yet changed)
+
+`execInitScript()`/`ExecExitScript()` (`src/main.c:559`, `:~580`) treat any non-zero
+`system()` result as "could not execute initialization script". The autostart script
+here is executable and exits 0 when run by hand, yet the error appears in 1 session
+out of 3: what really happens is that the script (last command `xset dpms ...`)
+returned non-zero during startup, which is a different statement. Distinguishing
+`system() == -1` from `WEXITSTATUS(...)` and reporting the status would make the
+line truthful. Left open deliberately.
+
 
 
 

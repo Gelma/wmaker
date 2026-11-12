@@ -61,7 +61,9 @@ So, ask Gemini to implement support for KSM and Huge Pages.
 
 It's good, so tell him to rewrite/refactor codebase based on the output of `perf` and `valgrind` (callgrind mode) attached to wmaker, to use modern interface to kernel/X11 facility, with the idea to rewrite algorithms to get the jobs done with much more less CPU cycles and interrupts. The results, just looking at the raw numbers, are wow! (Well, DeepSeek evaluation has some concerns!)
 
-At the moment, it's keeping a little bit of telemetry in `/tmp/wmaker_runtime_logs/` to evaluate later, and adding some stress tests to speed up finding bugs related to recent changes.
+At the moment, it's keeping a little bit of telemetry in `$XDG_RUNTIME_DIR/wmaker/` (falling back to
+`/tmp/wmaker_runtime_logs/`, overridable with `WM_RUNTIME_LOG_DIR`) to evaluate later, and adding some
+stress tests to speed up finding bugs related to recent changes.
 
 Anyway, nights are going letting Gemini and DeepSeek arguing each other as a crazy wedding or, as they call it, doing *Reflection*.
 
