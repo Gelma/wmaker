@@ -156,9 +156,21 @@ void WMSetViewNextResponder(WMView * view, WMView * responder)
 	view->nextResponder = responder;
 }
 
+static int lookupEventMask(int type, unsigned long *mask)
+{
+	if (type < 0 || (size_t)type >= sizeof(eventMasks) / sizeof(eventMasks[0]))
+		return 0;
+
+	*mask = eventMasks[type];
+	return 1;
+}
+
 void WMRelayToNextResponder(WMView * view, XEvent * event)
 {
-	unsigned long mask = eventMasks[event->xany.type];
+	unsigned long mask;
+
+	if (!lookupEventMask(event->xany.type, &mask))
+		return;
 
 	if (view->nextResponder) {
 		WMView *next = view->nextResponder;
@@ -190,7 +202,12 @@ int WMHandleEvent(XEvent * event)
 		return False;
 	}
 
-	mask = eventMasks[event->xany.type];
+	if (!lookupEventMask(event->xany.type, &mask)) {
+		if (extraEventHandler)
+			(extraEventHandler)(event);
+
+		return False;
+	}
 
 	window = event->xany.window;
 
