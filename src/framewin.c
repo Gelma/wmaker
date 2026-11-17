@@ -1380,9 +1380,16 @@ int wFrameWindowChangeTitle(WFrameWindow *fwin, const char *new_title)
 	freeTitleStrip(fwin);
 
 	if (fwin->titlebar) {
-		XClearWindow(dpy, fwin->titlebar->window);
+		Bool visible = True;
 
-		wFrameWindowPaint(fwin);
+		if (fwin->flags.is_client_window_frame && fwin->child) {
+			WWindow *wwin = (WWindow *)fwin->child;
+			visible = (wwin->flags.mapped || wwin->flags.shaded);
+		}
+		if (visible) {
+			XClearWindow(dpy, fwin->titlebar->window);
+			wFrameWindowPaint(fwin);
+		}
 	}
 	checkTitleSize(fwin);
 

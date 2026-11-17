@@ -1125,7 +1125,13 @@ static void handlePropertyNotify(XEvent * event)
 	}
 	wapp = wApplicationOf(event->xproperty.window);
 	if (wapp && wapp->main_window_desc) {
-		wClientCheckProperty(wapp->main_window_desc, &event->xproperty);
+		if (!wwin ||
+		    event->xproperty.atom == XA_WM_HINTS ||
+		    event->xproperty.atom == XA_WM_COMMAND ||
+		    event->xproperty.atom == w_global.atom.wmaker.menu ||
+		    event->xproperty.atom == w_global.atom.gnustep.wm_attr) {
+			wClientCheckProperty(wapp->main_window_desc, &event->xproperty);
+		}
 	}
 }
 

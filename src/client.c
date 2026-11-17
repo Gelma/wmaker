@@ -322,16 +322,16 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 
 	switch (event->atom) {
 	case XA_WM_NAME:
-		if (!wwin->flags.net_has_title) {
-			/* window title was changed */
-			if (!wFetchName(dpy, wwin->client_win, &tmp)) {
-				wWindowUpdateName(wwin, NULL);
-			} else {
-				wWindowUpdateName(wwin, tmp);
-			}
-			if (tmp)
-				XFree(tmp);
+		if (!wwin->frame || wwin->flags.net_has_title)
+			break;
+		/* window title was changed */
+		if (!wFetchName(dpy, wwin->client_win, &tmp)) {
+			wWindowUpdateName(wwin, NULL);
+		} else {
+			wWindowUpdateName(wwin, tmp);
 		}
+		if (tmp)
+			XFree(tmp);
 		break;
 
 	case XA_WM_ICON_NAME:
@@ -503,6 +503,8 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 		break;
 
 	case XA_WM_NORMAL_HINTS:
+		if (!wwin->frame)
+			break;
 		/* normal (geometry) hints */
 		{
 			int foo;
@@ -516,6 +518,8 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 		break;
 
 	case XA_WM_TRANSIENT_FOR:
+		if (!wwin->frame)
+			break;
 		{
 			Window new_owner;
 			WWindow *owner;
@@ -566,15 +570,18 @@ void wClientCheckProperty(WWindow * wwin, XPropertyEvent * event)
 
 	default:
 		if (event->atom == w_global.atom.wm.protocols) {
+			if (!wwin->frame)
+				break;
 
 			PropGetProtocols(wwin->client_win, &wwin->protocols);
 
 			wwin->client_flags.kill_close = !wwin->protocols.DELETE_WINDOW;
 
-			if (wwin->frame)
-				wWindowUpdateButtonImages(wwin);
+			wWindowUpdateButtonImages(wwin);
 
 		} else if (event->atom == w_global.atom.wm.colormap_windows) {
+			if (!wwin->frame)
+				break;
 
 			GetColormapWindows(wwin);
 			wColormapInstallForWindow(wwin->screen_ptr, wwin);

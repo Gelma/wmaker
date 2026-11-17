@@ -574,11 +574,19 @@ static void updateIconImage(WWindow *wwin)
 	if (wwin->icon)
 		wIconUpdate(wwin->icon);
 
-	/* Refresh the application icon */
+	/* Sync the group leader copy and refresh the application icon */
 	WApplication *app = wApplicationOf(wwin->main_window);
-	if (app && app->app_icon) {
-		wIconUpdate(app->app_icon->icon);
-		wAppIconPaint(app->app_icon);
+	if (app) {
+		if (app->main_window_desc && app->main_window_desc != wwin &&
+		    app->main_window_desc->client_win == wwin->client_win) {
+			if (app->main_window_desc->net_icon_image)
+				RReleaseImage(app->main_window_desc->net_icon_image);
+			app->main_window_desc->net_icon_image = RRetainImage(wwin->net_icon_image);
+		}
+		if (app->app_icon) {
+			wIconUpdate(app->app_icon->icon);
+			wAppIconPaint(app->app_icon);
+		}
 	}
 }
 
@@ -1970,7 +1978,12 @@ void wNETWMCheckClientHintChange(WWindow *wwin, XPropertyEvent *event)
 	} else if (event->atom == net_wm_window_type) {
 		updateWindowType(wwin);
 	} else if (event->atom == net_wm_name) {
-		char *name = wNETWMGetWindowName(wwin->client_win);
+		char *name;
+
+		if (!wwin->frame)
+			return;
+		name = wNETWMGetWindowName(wwin->client_win);
+		wwin->flags.net_has_title = (name != NULL);
 		wWindowUpdateName(wwin, name);
 		if (name)
 			wfree(name);
