@@ -1416,9 +1416,10 @@ void wReadKeybindings(WScreen *scr, WMPropList *dict)
 						     memcmp(cur->chain_keycodes,  nw->chain_keycodes,
 						            n * sizeof(KeyCode)) != 0);
 					}
-					(*entry->update)(scr, entry, tdata, entry->extra_data);
-					if (binding_changed)
+					if (binding_changed) {
+						(*entry->update)(scr, entry, tdata, entry->extra_data);
 						keybindings_changed = True;
+					}
 				}
 			}
 		}

@@ -386,12 +386,14 @@ static void removeShortcutsForMenu(WMenu * menu)
 {
 	Shortcut *ptr, *tmp;
 	Shortcut *newList = NULL;
+	int removed = 0;
 
 	ptr = shortcutList;
 	while (ptr != NULL) {
 		tmp = ptr->next;
 		if (ptr->menu == menu) {
 			freeShortcut(ptr);
+			removed = 1;
 		} else {
 			ptr->next = newList;
 			newList = ptr;
@@ -399,7 +401,8 @@ static void removeShortcutsForMenu(WMenu * menu)
 		ptr = tmp;
 	}
 	shortcutList = newList;
-	menu->menu->screen_ptr->flags.root_menu_changed_shortcuts = 1;
+	if (removed)
+		menu->menu->screen_ptr->flags.root_menu_changed_shortcuts = 1;
 }
 
 static Bool addShortcut(const char *file, const char *shortcutDefinition, WMenu *menu, WMenuEntry *entry)
@@ -727,6 +730,7 @@ static void constructMenu(WMenu * menu, WMenuEntry * entry)
 		wMenuEntrySetCascade(menu, entry, submenu);
 		if (scr->flags.root_menu_changed_shortcuts) {
 			wKeyTreeRebuild(scr);
+			scr->flags.root_menu_changed_shortcuts = 0;
 		}
 	}
 
@@ -784,6 +788,7 @@ static void constructPLMenuFromPipe(WMenu * menu, WMenuEntry * entry)
 		wMenuEntrySetCascade(menu, entry, submenu);
 		if (scr->flags.root_menu_changed_shortcuts) {
 			wKeyTreeRebuild(scr);
+			scr->flags.root_menu_changed_shortcuts = 0;
 		}
 	}
 
@@ -1689,6 +1694,7 @@ void wRootMenuReparse(WScreen *scr)
 
 	if (scr->flags.root_menu_changed_shortcuts) {
 		wKeyTreeRebuild(scr);
+		scr->flags.root_menu_changed_shortcuts = 0;
 	}
 }
 
@@ -1805,5 +1811,6 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 
 	if (scr->flags.root_menu_changed_shortcuts) {
 		wKeyTreeRebuild(scr);
+		scr->flags.root_menu_changed_shortcuts = 0;
 	}
 }

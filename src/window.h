@@ -387,7 +387,6 @@ void wWindowInvalidateKeyGrabs(void);
 void wWindowFreeKeyGrabs(void);
 void wScreenSetKeyGrabs(WScreen *scr);
 void wScreenUngrabKeys(WScreen *scr);
-void wWindowSetKeyGrabs(WWindow *wwin);
 void wWindowSetKeyGrabsOnWindow(Window win);
 void wScreenSetKeyGrabsSuspended(WScreen *scr, Bool suspended);
 

@@ -3032,15 +3032,6 @@ void wScreenSetKeyGrabsSuspended(WScreen *scr, Bool suspended)
 	}
 }
 
-void wWindowSetKeyGrabs(WWindow *wwin)
-{
-	if (!wwin || !wwin->screen_ptr)
-		return;
-
-	if (wwin->flags.focused && !wwin->screen_ptr->flags.key_grabs_suspended)
-		wScreenSetKeyGrabs(wwin->screen_ptr);
-}
-
 void wWindowResetMouseGrabs(WWindow * wwin)
 {
 	/* Mouse grabs can't be done on the client window because of
