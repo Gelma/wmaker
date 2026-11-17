@@ -642,8 +642,7 @@ static void handleExtensions(XEvent * event)
 		handleShapeNotify(event);
 	}
 #endif
-	if (w_global.xext.xkb.supported && event->type >= w_global.xext.xkb.event_base
-		&& event->type <= w_global.xext.xkb.event_base + 255) {
+	if (w_global.xext.xkb.supported && event->type == w_global.xext.xkb.event_base) {
 		XkbEvent *xkbevent = (XkbEvent *) event;
 		int xkb_type = xkbevent->any.xkb_type;
 
@@ -1431,12 +1430,11 @@ static void handleXkbIndicatorStateNotify(XkbEvent *event)
 				wwin->frame->languagemode = staterec.group;
 				wWindowGetLanguageLabel(wwin->frame->languagemode, wwin->frame->language_label);
 				wFrameWindowUpdateLanguageButton(wwin->frame);
-			}
 #ifdef XKB_BUTTON_HINT
-			if (wwin->frame->titlebar) {
-				wFrameWindowPaint(wwin->frame);
-			}
+				if (wwin->frame->titlebar)
+					wFrameWindowPaint(wwin->frame);
 #endif
+			}
 		}
 	}
 }

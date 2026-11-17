@@ -682,10 +682,22 @@ WScreen *wScreenInit(int screen_number)
 	wScreenUpdateRootEventMask(scr);
 
 #ifdef KEEP_XKB_LOCK_STATUS
-	if (w_global.xext.xkb.supported)
+	/* Always listen for XkbNewKeyboardNotify so key grabs follow layout
+	 * changes; only subscribe to group state notifications when
+	 * KbdModeLock is enabled. */
+	if (w_global.xext.xkb.supported) {
+		unsigned int xkb_mask = XkbNewKeyboardNotifyMask;
+
+		if (wPreferences.modelock)
+			xkb_mask |= XkbIndicatorStateNotifyMask | XkbStateNotifyMask;
+
 		XkbSelectEvents(dpy, XkbUseCoreKbd,
-						XkbIndicatorStateNotifyMask | XkbStateNotifyMask | XkbNewKeyboardNotifyMask,
-						XkbIndicatorStateNotifyMask | XkbStateNotifyMask | XkbNewKeyboardNotifyMask);
+				XkbIndicatorStateNotifyMask | XkbStateNotifyMask | XkbNewKeyboardNotifyMask,
+				xkb_mask);
+		if (wPreferences.modelock)
+			XkbSelectEventDetails(dpy, XkbUseCoreKbd, XkbStateNotify,
+					      XkbAllStateComponentsMask, XkbGroupStateMask);
+	}
 #else
 	if (w_global.xext.xkb.supported)
 		XkbSelectEvents(dpy, XkbUseCoreKbd, XkbNewKeyboardNotifyMask, XkbNewKeyboardNotifyMask);
