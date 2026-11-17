@@ -1840,8 +1840,35 @@ memcheck), not bad luck. The scripts now kill only the PID they started (`WM=$!`
 `pkill`/`killall` at all; any future harness must use a private display, its own PID, and a dry
 `pgrep -af` check before terminating anything.
 
+## 167. 2026-11-18 Log Review (4.5-Day Valgrind Exit & Native Session) and P0–P2 Fixes
 
+### 1. Updated Log Findings (`/home/gelma/.local/share/wmaker/logs` & `/run/user/1000/wmaker`)
 
+1. **4.5-day Valgrind Memcheck session (`valgrind-wmaker-20261112_170659-10938.log`)**:
+   - Exited cleanly on 2026-11-18 with zero memory errors and zero leaks:
+     `definitely lost: 0 bytes in 0 blocks`, `indirectly lost: 0 bytes in 0 blocks`,
+     `possibly lost: 0 bytes in 0 blocks`, `still reachable: 36,739 bytes in 254 blocks`,
+     `ERROR SUMMARY: 0 errors from 0 contexts`.
+2. **Native session telemetry (`/run/user/1000/wmaker/runtime_stats.log` at `Uptime: 1860,59 s`, `7,283` events, and `/run/user/1000/wmaker/latency_spikes.log`)**:
+   - Confirmed three active latency/work sources even without Valgrind overhead:
+     - **XKB `ExtensionOrOther_85` event flood**: `2,084` events processed in `1860.59 s` (~1.1 events/s) despite `KbdModeLock` being off, caused by unconditional `XkbSelectEvents(XkbIndicatorStateNotifyMask | XkbStateNotifyMask | XkbNewKeyboardNotifyMask)` in `wScreenInit()`, combined with `event_base + 255` matching in `handleExtensions()`.
+     - **Excessive root key grab churn**: `Key Grabs Installed / Precompiled` reached `11,388` due to unchanged bindings triggering updates in `wReadKeybindings()` and empty-shortcut menus marking `root_menu_changed_shortcuts = 1` in `removeShortcutsForMenu()`.
+     - **Recorded native spikes (`8` entries in `latency_spikes.log`)**:
+       - `MapRequest` initial startups (`24.30 ms`, `22.42 ms`, `33.10 ms`)
+       - `ButtonPress` on `Windows` menu (`42.41 ms`, with menu blink `wusleep()` pauses not excluded by `WMEventWaitHook`)
+       - `KeyPress` workspace switches (`27.06 ms`, `20.10 ms`, `17.56 ms`), driven by 1-slot workspace name plaque cache thrashing (`0%` hit rate on alternating switches) and eager `wMenuRealize`/`paintEntry` on unmapped menus
+       - `PropertyNotify` `_NET_WM_NAME` on `Google-chrome` (`115.87 ms`), exacerbated by synchronous double-queries on frame-less `wapp->main_window_desc`, unguarded `XA_WM_NAME` fetches, eager `wMenuRealize` of the unmapped `switch_menu`, and immediate `wFrameWindowPaint()` on unmapped frames.
 
+### 2. Applied Fixes (Incremental Commits)
+
+| Priority | Change & Files | Commit |
+|---|---|---|
+| **P0** | Bounds-check `eventMasks[]` lookup via `lookupEventMask()` in `WMRelayToNextResponder()` and `WMHandleEvent()` (`WINGs/wevent.c`) before indexing with extension event types (`Shape`, `XKB`, `RandR`) or reading `event->xany.window` | `d513262d` |
+| **P1** | Subscribe to `XkbIndicatorStateNotifyMask \| XkbStateNotifyMask` (details filtered to `XkbGroupStateMask`) only when `wPreferences.modelock` is enabled (`src/screen.c`); match `event->type == w_global.xext.xkb.event_base` and gate titlebar repaint on actual group changes (`src/event.c`) | `137cd67f` |
+| **P1** | Skip `wClientCheckProperty()` / `wNETWMCheckClientHintChange()` X11 round-trips on frame-less `main_window_desc` descriptors, track `net_has_title`, share `net_icon_image` with group leader before `wIconUpdate()` (`src/client.c`, `src/wmspec.c`, `src/event.c`), and skip immediate `wFrameWindowChangeTitle()` repaints for unmapped, unshaded client frames (`src/framewin.c`) | `188e5f44` |
+| **P1** | Defer `wMenuRealize()` and skip `paintEntry()` on unmapped switch/workspace/clip menus (`src/menu.h`, `src/menu.c`, `src/switchmenu.c`, `src/workspace.c`), realizing lazily before geometry use in `OpenSwitchMenu()` and Clip menu (`src/dock.c`); drop unused `WMNChangedStacking`, `WMNWorkspaceChanged`, and `WMNChangedName` registrations (`src/switchmenu.c`, `src/wmspec.c`) | `28447986` |
+| **P1** | Expand `nameTextCache` (`src/workspace.c`) to a 16-entry per-workspace cache storing rendered `RImage` and `ShapeBounding` `Pixmap` masks (`XShapeCombineMask()` re-applied on hits) | `a355dc73` |
+| **P2** | Update keybindings in `wReadKeybindings()` only when changed (`src/defaults.c`), mark `root_menu_changed_shortcuts` only when shortcuts are actually removed and clear after `wKeyTreeRebuild()` (`src/rootmenu.c`), and drop dead `wWindowSetKeyGrabs()` (`src/window.c`, `src/window.h`) | `7ea4178b` |
+| **P2** | Account intentional menu blink `wusleep()` pauses via `WMEventWaitHook` in `menuBlinkSleep()` (`src/menu.c`), and refine `event_window()` (`src/telemetry.c`) for `SubstructureNotify` child windows and XKB events (`None`) | `b11bce9e` |
 
 
