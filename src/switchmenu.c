@@ -126,10 +126,8 @@ void InitializeSwitchMenu(void)
 		WMAddNotificationObserver(observer, NULL, WMNChangedWorkspace, NULL);
 		WMAddNotificationObserver(observer, NULL, WMNChangedState, NULL);
 		WMAddNotificationObserver(observer, NULL, WMNChangedFocus, NULL);
-		WMAddNotificationObserver(observer, NULL, WMNChangedStacking, NULL);
 		WMAddNotificationObserver(observer, NULL, WMNChangedName, NULL);
 
-		WMAddNotificationObserver(wsobserver, NULL, WMNWorkspaceChanged, NULL);
 		WMAddNotificationObserver(wsobserver, NULL, WMNWorkspaceNameChanged, NULL);
 	}
 }
@@ -145,6 +143,8 @@ void OpenSwitchMenu(WScreen * scr, int x, int y, int keyboard)
 	WWindow *wwin;
 
 	if (switchmenu) {
+		if (!switchmenu->flags.realized)
+			wMenuRealize(switchmenu);
 		if (switchmenu->flags.mapped) {
 			if (!switchmenu->flags.buttoned) {
 				wMenuUnmap(switchmenu);
@@ -302,7 +302,6 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 			entry->flags.indicator_on = 1;
 		}
 
-		wMenuRealize(switchmenu);
 		checkVisibility = 1;
 	} else {
 		char *t;
@@ -313,7 +312,6 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 				switch (action) {
 				case ACTION_REMOVE:
 					wMenuRemoveItem(switchmenu, i);
-					wMenuRealize(switchmenu);
 					checkVisibility = 1;
 					break;
 
@@ -331,7 +329,6 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 
 					fillRtext(entry->rtext, MAX_RTEXT_LENGTH, wwin, scr);
 
-					wMenuRealize(switchmenu);
 					checkVisibility = 1;
 					break;
 
@@ -368,7 +365,6 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 						entry->flags.indicator_type = it;
 						entry->flags.indicator_on = ion;
 					}
-					wMenuRealize(switchmenu);
 					checkVisibility = 1;
 					break;
 
@@ -395,6 +391,8 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 	if (checkVisibility) {
 		int tmp;
 
+		if (!wMenuRealizeIfMapped(switchmenu))
+			return;
 		tmp = switchmenu->frame->top_width + 5;
 		/* if menu got unreachable, bring it to a visible place */
 		if (switchmenu->frame_x < tmp - (int)switchmenu->frame->core->width) {
@@ -423,7 +421,7 @@ static void UpdateSwitchMenuWorkspace(WScreen *scr, int workspace)
 		}
 	}
 	if (!menu->flags.realized)
-		wMenuRealize(menu);
+		wMenuRealizeIfMapped(menu);
 }
 
 static void observer(void *self, WMNotification * notif)
@@ -468,7 +466,5 @@ static void wsobserver(void *self, WMNotification * notif)
 
 	if (strcmp(name, WMNWorkspaceNameChanged) == 0) {
 		UpdateSwitchMenuWorkspace(scr, (uintptr_t)data);
-	} else if (strcmp(name, WMNWorkspaceChanged) == 0) {
-
 	}
 }

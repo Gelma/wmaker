@@ -650,6 +650,24 @@ void wMenuRealize(WMenu * menu)
 	}
 }
 
+/* Realize menu immediately only when visible; otherwise clear realized so it
+ * refreshes lazily when next mapped. */
+Bool wMenuRealizeIfMapped(WMenu *menu)
+{
+	if (!menu)
+		return False;
+
+	if (menu->flags.mapped || (menu->brother && menu->brother->flags.mapped)) {
+		wMenuRealize(menu);
+		return True;
+	}
+
+	menu->flags.realized = 0;
+	if (menu->brother)
+		menu->brother->flags.realized = 0;
+	return False;
+}
+
 void wMenuDestroy(WMenu * menu, int recurse)
 {
 	int i;
@@ -797,7 +815,7 @@ static void paintEntry(WMenu * menu, int index, int selected)
 	int x, y, w, h, tw;
 	int type;
 
-	if (!menu->flags.realized)
+	if (!menu->flags.realized || !menu->flags.mapped)
 		return;
 	h = menu->entry_height;
 	w = menu->menu->width;

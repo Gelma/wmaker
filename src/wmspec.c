@@ -709,7 +709,6 @@ void wNETWMInitStuff(WScreen *scr)
 	WMAddNotificationObserver(observer, data, WMNChangedState, NULL);
 	WMAddNotificationObserver(observer, data, WMNChangedFocus, NULL);
 	WMAddNotificationObserver(observer, data, WMNChangedStacking, NULL);
-	WMAddNotificationObserver(observer, data, WMNChangedName, NULL);
 
 	WMAddNotificationObserver(wsobserver, data, WMNWorkspaceCreated, NULL);
 	WMAddNotificationObserver(wsobserver, data, WMNWorkspaceDestroyed, NULL);

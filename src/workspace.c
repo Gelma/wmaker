@@ -845,14 +845,14 @@ void wWorkspaceRename(WScreen *scr, int workspace, const char *name)
 		if (strcmp(scr->clip_ws_menu->entries[workspace + MC_WORKSPACE1]->text, buf) != 0) {
 			wfree(scr->clip_ws_menu->entries[workspace + MC_WORKSPACE1]->text);
 			scr->clip_ws_menu->entries[workspace + MC_WORKSPACE1]->text = wstrdup(buf);
-			wMenuRealize(scr->clip_ws_menu);
+			wMenuRealizeIfMapped(scr->clip_ws_menu);
 		}
 	}
 	if (scr->workspace_menu) {
 		if (strcmp(scr->workspace_menu->entries[workspace + MC_WORKSPACE1]->text, buf) != 0) {
 			wfree(scr->workspace_menu->entries[workspace + MC_WORKSPACE1]->text);
 			scr->workspace_menu->entries[workspace + MC_WORKSPACE1]->text = wstrdup(buf);
-			wMenuRealize(scr->workspace_menu);
+			wMenuRealizeIfMapped(scr->workspace_menu);
 		}
 	}
 
@@ -900,7 +900,6 @@ void wWorkspaceMenuUpdate(WScreen * scr, WMenu * menu)
 	long ws;
 	char title[MAX_WORKSPACENAME_WIDTH + 1];
 	WMenuEntry *entry;
-	int tmp;
 
 	if (!menu)
 		return;
@@ -942,7 +941,6 @@ void wWorkspaceMenuUpdate(WScreen * scr, WMenu * menu)
 		mentry->flags.indicator_on = 0;
 	}
 	menu->entries[scr->current_workspace + MC_WORKSPACE1]->flags.indicator_on = 1;
-	wMenuRealize(menu);
 
 	/* don't let user destroy current workspace */
 	if (scr->current_workspace == scr->workspace_count - 1)
@@ -956,12 +954,15 @@ void wWorkspaceMenuUpdate(WScreen * scr, WMenu * menu)
 	else
 		wMenuSetEnabled(menu, MC_LAST_USED, False);
 
-	tmp = menu->frame->top_width + 5;
-	/* if menu got unreachable, bring it to a visible place */
-	if (menu->frame_x < tmp - (int)menu->frame->core->width)
-		wMenuMove(menu, tmp - (int)menu->frame->core->width, menu->frame_y, False);
+	if (wMenuRealizeIfMapped(menu)) {
+		int tmp = menu->frame->top_width + 5;
 
-	wMenuPaint(menu);
+		/* if menu got unreachable, bring it to a visible place */
+		if (menu->frame_x < tmp - (int)menu->frame->core->width)
+			wMenuMove(menu, tmp - (int)menu->frame->core->width, menu->frame_y, False);
+
+		wMenuPaint(menu);
+	}
 }
 
 void wWorkspaceSaveState(WScreen * scr, WMPropList * old_state)
