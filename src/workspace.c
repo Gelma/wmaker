@@ -230,36 +230,57 @@ static void freeWorkspaceNameFrames(WorkspaceNameData *data)
 	data->frames_valid = 0;
 }
 
-/* The plaque depends only on the name and the font, so the last one drawn is
- * kept: switching back to the same workspace used to reshape the text and
- * draw it twenty-six times per switch (SpecAI 131). */
-static struct {
+/* The plaque depends only on the name and the font: keep a per-workspace cache
+ * of rendered images and shape masks so switching between workspaces hits the
+ * cache instead of repeating 26 WMDrawString calls and an XGetImage round-trip. */
+#define WORKSPACE_NAME_CACHE_SIZE 16
+
+typedef struct {
 	WScreen *screen;
 	WMFont *font;
 	char *name;
 	RImage *image;
-} nameTextCache;
+	Pixmap mask;
+	int width;
+	int height;
+} WorkspaceNameCacheEntry;
 
-static void freeNameTextCache(void)
+static WorkspaceNameCacheEntry nameTextCache[WORKSPACE_NAME_CACHE_SIZE];
+
+static void freeNameTextCacheEntry(WorkspaceNameCacheEntry *entry)
 {
-	if (nameTextCache.image)
-		RReleaseImage(nameTextCache.image);
-	if (nameTextCache.name)
-		wfree(nameTextCache.name);
-	memset(&nameTextCache, 0, sizeof(nameTextCache));
+	if (entry->image)
+		RReleaseImage(entry->image);
+	if (entry->mask != None)
+		XFreePixmap(dpy, entry->mask);
+	if (entry->name)
+		wfree(entry->name);
+	memset(entry, 0, sizeof(*entry));
+	entry->mask = None;
 }
 
-static void rememberNameText(WScreen *scr, const char *name, RImage *image)
+static void freeNameTextCache(WScreen *scr)
 {
-	if (nameTextCache.image)
-		RReleaseImage(nameTextCache.image);
-	if (nameTextCache.name)
-		wfree(nameTextCache.name);
+	int i;
 
-	nameTextCache.screen = scr;
-	nameTextCache.font = scr->workspace_name_font;
-	nameTextCache.name = wstrdup(name);
-	nameTextCache.image = RRetainImage(image);
+	for (i = 0; i < WORKSPACE_NAME_CACHE_SIZE; i++) {
+		if (!scr || nameTextCache[i].screen == scr)
+			freeNameTextCacheEntry(&nameTextCache[i]);
+	}
+}
+
+static void rememberNameText(WorkspaceNameCacheEntry *entry, WScreen *scr,
+			     const char *name, RImage *image, Pixmap mask, int w, int h)
+{
+	freeNameTextCacheEntry(entry);
+
+	entry->screen = scr;
+	entry->font = scr->workspace_name_font;
+	entry->name = wstrdup(name);
+	entry->image = RRetainImage(image);
+	entry->mask = mask;
+	entry->width = w;
+	entry->height = h;
 }
 
 void wWorkspaceResetName(WScreen *scr)
@@ -279,8 +300,7 @@ void wWorkspaceResetName(WScreen *scr)
 		scr->workspace_name_data = NULL;
 	}
 
-	if (nameTextCache.screen == scr)
-		freeNameTextCache();
+	freeNameTextCache(scr);
 }
 
 static void hideWorkspaceName(void *data)
@@ -319,6 +339,8 @@ static void hideWorkspaceName(void *data)
 static void showWorkspaceName(WScreen * scr, int workspace)
 {
 	WorkspaceNameData *data;
+	WorkspaceNameCacheEntry *cache_entry;
+	Bool cache_hit = False;
 	RXImage *ximg;
 	Pixmap text, mask;
 	int w, h;
@@ -355,8 +377,20 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	data->text = NULL;
 	data->frames_valid = 0;
 
-	w = WMWidthOfString(scr->workspace_name_font, name, len);
-	h = WMFontHeight(scr->workspace_name_font);
+	cache_entry = &nameTextCache[(workspace >= 0) ? (workspace % WORKSPACE_NAME_CACHE_SIZE) : 0];
+	if (cache_entry->screen == scr &&
+	    cache_entry->font == scr->workspace_name_font &&
+	    cache_entry->image != NULL &&
+	    cache_entry->mask != None &&
+	    cache_entry->name != NULL &&
+	    strcmp(cache_entry->name, name) == 0) {
+		cache_hit = True;
+		w = cache_entry->width;
+		h = cache_entry->height;
+	} else {
+		w = WMWidthOfString(scr->workspace_name_font, name, len);
+		h = WMFontHeight(scr->workspace_name_font);
+	}
 
 #ifdef USE_XINERAMA
 	head = wGetHeadForPointerLocation(scr);
@@ -418,12 +452,14 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	XResizeWindow(dpy, scr->workspace_name, w + 4, h + 4);
 	XMoveWindow(dpy, scr->workspace_name, px, py);
 
-	/* Same workspace and same font: the plaque is already drawn, and the
-	 * window still carries its shape from last time. */
-	if (nameTextCache.screen == scr
-	    && nameTextCache.font == scr->workspace_name_font
-	    && nameTextCache.name && strcmp(nameTextCache.name, name) == 0) {
-		data->text = RRetainImage(nameTextCache.image);
+	/* Cache hit: reuse rendered plaque image and re-apply its bounding mask. */
+	if (cache_hit) {
+#ifdef USE_XSHAPE
+		if (w_global.xext.shape.supported)
+			XShapeCombineMask(dpy, scr->workspace_name, ShapeBounding, 0, 0,
+					  cache_entry->mask, ShapeSet);
+#endif
+		data->text = RRetainImage(cache_entry->image);
 		goto have_text;
 	}
 
@@ -461,10 +497,11 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	data->text = RCreateImageFromDrawable(scr->rcontext, text, None);
 
 	XFreePixmap(dpy, text);
-	XFreePixmap(dpy, mask);
 
 	if (data->text)
-		rememberNameText(scr, name, data->text);
+		rememberNameText(cache_entry, scr, name, data->text, mask, w, h);
+	else
+		XFreePixmap(dpy, mask);
 
  have_text:
 	if (!data->text) {
