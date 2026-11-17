@@ -550,18 +550,36 @@ static void telemetryEventWaitHook(unsigned long long wait_ns)
 		wTelemetry.modal_ns += wait_ns;
 }
 
-/* The window a report should name.  For MapRequest/ConfigureRequest the
- * generic xany.window overlays the parent field of the union, which would
- * print the root window instead of the client. */
+/* The window a report should name. For SubstructureNotify / Redirect events,
+ * generic xany.window carries event/parent (typically root) rather than the
+ * target child window, and XKB events store a timestamp at that offset. */
 static Window event_window(const XEvent *event)
 {
+	if (!event)
+		return None;
+	if (w_global.xext.xkb.supported && event->type == w_global.xext.xkb.event_base)
+		return None;
 	switch (event->type) {
 	case MapRequest:
 		return event->xmaprequest.window;
 	case ConfigureRequest:
 		return event->xconfigurerequest.window;
+	case ResizeRequest:
+		return event->xresizerequest.window;
+	case CirculateRequest:
+		return event->xcirculaterequest.window;
 	case CreateNotify:
 		return event->xcreatewindow.window;
+	case DestroyNotify:
+		return event->xdestroywindow.window;
+	case UnmapNotify:
+		return event->xunmap.window;
+	case MapNotify:
+		return event->xmap.window;
+	case ReparentNotify:
+		return event->xreparent.window;
+	case ConfigureNotify:
+		return event->xconfigure.window;
 	default:
 		return event->xany.window;
 	}

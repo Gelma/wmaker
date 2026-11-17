@@ -1067,6 +1067,17 @@ static int check_key(WMenu * menu, XKeyEvent * event)
 	return -1;
 }
 
+#if (MENU_BLINK_COUNT > 0) || (MENU_BLINK_DELAY > 2)
+/* Report intentional blink delays via WMEventWaitHook so telemetry excludes
+ * menu animation sleep from ButtonPress/KeyPress handler latency spikes. */
+static void menuBlinkSleep(unsigned int usec)
+{
+	wusleep(usec);
+	if (WMEventWaitHook)
+		WMEventWaitHook((unsigned long long)usec * 1000ULL);
+}
+#endif
+
 static int keyboardMenu(WMenu * menu)
 {
 	XEvent event;
@@ -1240,10 +1251,10 @@ static int keyboardMenu(WMenu * menu)
 		for (i = 0; i < MENU_BLINK_COUNT; i++) {
 			paintEntry(menu, sel, False);
 			XSync(dpy, 0);
-			wusleep(MENU_BLINK_DELAY);
+			menuBlinkSleep(MENU_BLINK_DELAY);
 			paintEntry(menu, sel, True);
 			XSync(dpy, 0);
-			wusleep(MENU_BLINK_DELAY);
+			menuBlinkSleep(MENU_BLINK_DELAY);
 		}
 #endif
 		selectEntry(menu, -1);
@@ -1527,7 +1538,7 @@ static void closeCascade(WMenu * menu)
 		selectEntry(menu, -1);
 		XSync(dpy, 0);
 #if (MENU_BLINK_DELAY > 2)
-		wusleep(MENU_BLINK_DELAY / 2);
+		menuBlinkSleep(MENU_BLINK_DELAY / 2);
 #endif
 		wMenuUnmap(menu);
 		while (parent != NULL
@@ -2272,10 +2283,10 @@ static void menuMouseDown(WObjDescriptor * desc, XEvent * event)
 			for (i = 0; i < MENU_BLINK_COUNT; i++) {
 				paintEntry(menu, sel, False);
 				XSync(dpy, 0);
-				wusleep(MENU_BLINK_DELAY);
+				menuBlinkSleep(MENU_BLINK_DELAY);
 				paintEntry(menu, sel, True);
 				XSync(dpy, 0);
-				wusleep(MENU_BLINK_DELAY);
+				menuBlinkSleep(MENU_BLINK_DELAY);
 			}
 #endif
 			/* unmap the menu, its parents and call the callback */
