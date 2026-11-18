@@ -1870,5 +1870,12 @@ memcheck), not bad luck. The scripts now kill only the PID they started (`WM=$!`
 | **P1** | Expand `nameTextCache` (`src/workspace.c`) to a 16-entry per-workspace cache storing rendered `RImage` and `ShapeBounding` `Pixmap` masks (`XShapeCombineMask()` re-applied on hits) | `a355dc73` |
 | **P2** | Update keybindings in `wReadKeybindings()` only when changed (`src/defaults.c`), mark `root_menu_changed_shortcuts` only when shortcuts are actually removed and clear after `wKeyTreeRebuild()` (`src/rootmenu.c`), and drop dead `wWindowSetKeyGrabs()` (`src/window.c`, `src/window.h`) | `7ea4178b` |
 | **P2** | Account intentional menu blink `wusleep()` pauses via `WMEventWaitHook` in `menuBlinkSleep()` (`src/menu.c`), and refine `event_window()` (`src/telemetry.c`) for `SubstructureNotify` child windows and XKB events (`None`) | `b11bce9e` |
+| **P1** | Fix Coverity CID 1686058 in `handle_inotify_events()` by bounding `&buff[name_off]` against `sizeof(buff)` without `pevent->name` flexible-array indexing and eliminate inner `i` shadowing (`src/event.c`); stop watching `IN_ALL_EVENTS` read/open noise in `inotifyWatchConfig()` (`src/main.c`), drop the unconditional `wKeyTreeRebuild()` loop from `handle_inotify_events()`, and invoke `wKeyTreeRebuild()` in `wReadDefaults()` when post-startup deferred keybinding changes occur (`src/defaults.c`) | `febaf042` |
+
+### 3. Coverity CID 1686058 & Inotify Wakeup Root Cause
+
+- `CoverityReport/cid_1686058.json` flagged `pevent->name` inside `handle_inotify_events()` as a 1-byte `OVERRUN` (`1344 bytes at byte offset 1344`): Coverity typed `buff` as 85 `16`-byte `struct inotify_event` slots, inferred `i <= 1344` from `while (i + 16 <= eventQLength)`, and did not propagate the three-variable check `i + 16 + pevent->len <= eventQLength` across `if (pevent->len > 0)`. Computing `name_off = i + sizeof(struct inotify_event)` explicitly, checking `name_off < sizeof(buff)`, and copying from `&buff[name_off]` bounded by `avail = sizeof(buff) - name_off` makes both buffers provably safe under single-variable interval analysis.
+- Previously, `inotifyWatchConfig()` watched `IN_ALL_EVENTS` (including `IN_OPEN`/`IN_ACCESS`/`IN_CLOSE_NOWRITE` whenever anything read `~/GNUstep/Defaults`) and `handle_inotify_events()` unconditionally called `wKeyTreeRebuild(scr)` across all screens at the end of every read—explaining the `11,388` `Key Grabs Installed` counter seen in the native session.
+
 
 
