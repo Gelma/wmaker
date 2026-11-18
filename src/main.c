@@ -529,11 +529,11 @@ static void inotifyWatchConfig(void)
 			   " a restart to take effect. Check your kernel!"));
 	} else {
 		watchPath = wdefaultspathfordomain("");
-		/* Add the watch; really we are only looking for modify events
-		 * but we might want more in the future so check all events for now.
-		 * The individual events are checked for in event.c.
-		 */
-		w_global.inotify.wd_defaults = inotify_add_watch(w_global.inotify.fd_event_queue, watchPath, IN_ALL_EVENTS);
+		/* Watch only the events handle_inotify_events() acts upon so read-only
+		 * IN_OPEN / IN_ACCESS / IN_CLOSE_NOWRITE do not wake the WM. */
+		w_global.inotify.wd_defaults = inotify_add_watch(
+		    w_global.inotify.fd_event_queue, watchPath,
+		    IN_DELETE_SELF | IN_UNMOUNT | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE);
 		if (w_global.inotify.wd_defaults < 0) {
 			wwarning(_("could not add an inotify watch on path %s."
 				   " Changes to the defaults database will require"

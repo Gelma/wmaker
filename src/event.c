@@ -373,10 +373,11 @@ static void handle_inotify_events(void)
 	/* Should really check wd here too, but for now we only have one watch! */
 	while (i + sizeof(struct inotify_event) <= (size_t)eventQLength) {
 		struct inotify_event *pevent = (struct inotify_event *)&buff[i];
+		size_t name_off = i + sizeof(struct inotify_event);
 
 		/* The kernel always delivers complete events, but the bound makes
 		 * the name access provable (Coverity CID 1686058, 1686112). */
-		if (i + sizeof(struct inotify_event) + pevent->len > (size_t)eventQLength) {
+		if (pevent->len > (size_t)eventQLength - name_off) {
 			wwarning(_("inotify: truncated event in the queue, ignoring the rest"));
 			break;
 		}
@@ -413,20 +414,26 @@ static void handle_inotify_events(void)
 			wPreferences.flags.noupdates = 1;
 		}
 		/* Only react when a known config file inside the Defaults directory is affected */
-		if (pevent->len > 0) {
+		if (pevent->len > 0 && name_off < sizeof(buff)) {
 			char fname[256];
-			size_t flen = pevent->len < sizeof(fname) ? pevent->len : sizeof(fname) - 1;
+			size_t avail = sizeof(buff) - name_off;
+			size_t flen = pevent->len;
 			const char *allowed[] = { "WMRootMenu", "WMWindowAttributes",
 						  "WindowMaker", "WMState", "WMGLOBAL", NULL };
-			int i, matched = 0;
+			int k, matched = 0;
 
-			/* coverity[OVERRUN] CID 1686058: pevent->name is validated against
-			 * pevent->len and bounded into fname[256] below. */
-			memcpy(fname, pevent->name, flen);
+			/* Index buff directly at a bounded byte offset rather than through
+			 * pevent->name so single-variable interval analysis can prove bounds
+			 * (Coverity CID 1686058). */
+			if (flen > avail)
+				flen = avail;
+			if (flen >= sizeof(fname))
+				flen = sizeof(fname) - 1;
+			memcpy(fname, &buff[name_off], flen);
 			fname[flen] = '\0';
 
-			for (i = 0; allowed[i]; i++) {
-				if (strcmp(fname, allowed[i]) == 0) {
+			for (k = 0; allowed[k]; k++) {
+				if (strcmp(fname, allowed[k]) == 0) {
 					matched = 1;
 					break;
 				}
@@ -444,12 +451,6 @@ static void handle_inotify_events(void)
 
 		/* move to next event in the buffer */
 		i += sizeof(struct inotify_event) + pevent->len;
-	}
-
-	for (i = 0; i < w_global.screen_count; i++) {
-		WScreen *scr = wScreenWithNumber(i);
-		if (scr)
-			wKeyTreeRebuild(scr);
 	}
 }
 #endif /* HAVE_INOTIFY */

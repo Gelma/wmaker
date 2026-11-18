@@ -1361,7 +1361,9 @@ void wReadDefaults(WScreen * scr, WMPropList * new_dict)
 		key_grabs_deferred_dirty = False;
 		/* scr is never NULL past this point: the option loop above
 		 * dereferences it while converting the entries. */
-		if (!scr->flags.key_grabs_suspended)
+		if (!scr->flags.startup)
+			wKeyTreeRebuild(scr);
+		else if (!scr->flags.key_grabs_suspended)
 			wScreenSetKeyGrabs(scr);
 	}
 
