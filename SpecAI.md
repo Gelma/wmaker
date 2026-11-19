@@ -1961,3 +1961,67 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
   multiplication sites, showError preformatted-message refactor; P4 optional
   style (localtime_r, autostart 0700, FontSimple cast, selective commented-code
   cleanup). Bulk style cleanup declined by decision.
+## 170. CodeQL P3/P4 Remediation Batch (2026-11-19)
+
+Andrea approved the remainder of the §169 plan: **P3** (size_t casts for the 20
+multiplication sites, showError refactor) and **P4** (localtime_r, autostart
+owner-only creation, FontSimple explicit cast, selective commented-out-code
+cleanup). The bulk documentation pass stays excluded per the earlier decision.
+
+- **Commits**:
+  - `becb538c` — wrlib size_t arithmetic (raster/convert/convolve/gradient,
+    10 sites): products were safe under the MAX_WIDTH/HEIGHT=20000 cap +
+    RCreateImage ckd_mul, but the invariant now lives at the use sites;
+    RGetSubImage ofs becomes size_t.
+  - `b1e93444` — UI/geometry size_t arithmetic (wcolorpanel, Appearance ×2,
+    dock, properties, screen, xinerama ×2, wmagnify; 10 sites).
+  - `ddb60271` — wfilepanel showError() takes a preformatted message; the
+    caller-supplied-format sprintf is gone (cpp/non-constant-format).
+  - `ad19b835` — wmclock localtime_r with stack buffer + midnight fallback.
+  - `11024f92` — MouseSettings autostart/autostart.tmp created with
+    open(O_WRONLY|O_CREAT|O_TRUNC, 0700)+fdopen: never world-writable under
+    any umask; tmp final mode still set by the existing fchmod.
+  - `257e4040` — FontSimple explicit (int) truncation of fabs distance.
+  - `8e544bcd` / `d18fba6c` / `e28452bb` / `2ef89d72` — selective
+    commented-out-code cleanup (WINGs / WPrefs.app / src / wrlib): 85 of the
+    117 flagged findings closed across 40 files.
+  - `92b5b277` — document the five functions the cleanup pushed below the 2%
+    comment ratio (WMGetFontPanel, processData, wMouseResizeWindow,
+    addMenuEntry, RCreateXImage): purpose block above + phase comments inside.
+    **Lesson**: cpp/poorly-documented-function only counts comments within the
+    function extent — leading doc blocks do NOT count (verified with a minimal
+    CodeQL DB in /tmp/qltest before writing the fix).
+  - `008f91be` — static-analysis re-baseline: cppcheck 1121 → 1119 (style −2),
+    clang-tidy 443 → 428 (bugprone-implicit-widening-of-multiplication-result
+    75 → 61, the twin findings of the size_t casts; narrowing-conversions
+    74 → 73, the FontSimple cast). No regressions.
+  - `62a6a430` — RCombineImages bulk memcpy size_t cast: a 21st multiplication
+    site surfaced only after the other casts widened the analyzer's dimension
+    ranges (it was not flagged in the 522 baseline).
+- **Cleanup rule** (selective, not bulk): removed dead debug traces
+  (printf/puts/FcPatternPrint/wmessage) and superseded alternatives with no
+  rationale. **Kept on purpose**: comments with explanations/TODO/rationale
+  (client.c and wmspec "-Dan" notes, menu.c inside_handler explanation,
+  appicon.c "can't remember why", proplist retain-count notes, wtext RESERVED
+  bitfield and "never do this" warning, widgets.c question), public-header API
+  placeholders, the WMFreeArray memory-ownership question comments, the
+  DND_DEBUG/XDND_VERSION toggles, the undo-button feature disable, and the
+  TexturePanel test scaffolding. main.c's empty else-if got an explanatory
+  comment instead of the dead printf (avoids trading one finding for another).
+- **Verification**: gcc full rebuild 0 errors/0 warnings; clang-23
+  `-fsyntax-only` with exact build flags clean on all 50 touched .c files;
+  `make check` 4/4; `make exit-test` pass; `EXIT_TEST_ARGS=--valgrind make
+  exit-test` pass; isolated Xvfb `:97` smoke 10/10 (same harness as §169).
+- **Re-scan history**: 522 baseline → 512 post-P1 → 408 intermediate post-P3/P4
+  cleanup (110 closed: 85 commented-out-code, 20 multiplication, 2
+  world-writable, lossy cast, non-constant format, localtime; 6 new: 5
+  poorly-documented side effects closed by `92b5b277` + 1 path-injection site
+  shift fopen→open in MouseSettings, net zero) → **final 402 = 13 error /
+  138 warning / 251 recommendation** after the doc commit and the
+  RCombineImages cast (111 closed vs 512, the only "new" finding is the
+  fopen→open site shift). The 13 residual errors remain exactly the
+  registered FP set; no real error open.
+- `QLCodeAnalysis/QLCODEReport.md` updated (remediation record, re-scan
+  results, registry). With this batch every actionable CodeQL finding from
+  the §169 triage is closed; what remains is the registered FP/by-design set
+  plus the style families kept by decision.
