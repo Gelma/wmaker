@@ -102,8 +102,9 @@ static void initDragCursor(WMDraggingInfo * info)
 	WMScreen *scr = sourceScreen(info);
 	XColor cursorFgColor, cursorBgColor;
 
-	/* sourceScreen() returns NULL once the source view is gone; the other
-	 * users of it (recolorCursor, sendDnDClientMessage paths) already guard. */
+	/* sourceScreen() returns NULL once the source view is gone; every user
+	 * of it must guard against that (recolorCursor and the send*Message
+	 * paths do). */
 	if (!scr)
 		return;
 
@@ -355,9 +356,19 @@ static Bool
 sendDnDClientMessage(WMDraggingInfo * info, Atom message,
 		     unsigned long data1, unsigned long data2, unsigned long data3, unsigned long data4)
 {
-	Display *dpy = sourceScreen(info)->display;
-	Window srcWin = WMViewXID(XDND_SOURCE_VIEW(info));
-	Window destWin = XDND_DEST_WIN(info);
+	WMScreen *scr = sourceScreen(info);
+	Display *dpy;
+	Window srcWin;
+	Window destWin;
+
+	/* The source view can be destroyed mid-drag (endedDrag may do it):
+	 * sourceScreen() then returns NULL and there is no display to send on. */
+	if (!scr)
+		return False;
+
+	dpy = scr->display;
+	srcWin = WMViewXID(XDND_SOURCE_VIEW(info));
+	destWin = XDND_DEST_WIN(info);
 
 	if (!W_SendDnDClientMessage(dpy, destWin, message, srcWin, data1, data2, data3, data4)) {
 		/* drop failed */
@@ -374,6 +385,9 @@ static Bool sendEnterMessage(WMDraggingInfo * info)
 {
 	WMScreen *scr = sourceScreen(info);
 	unsigned long version;
+
+	if (!scr)
+		return False;
 
 	/* Negotiate down to the destination version, never above ours.  With
 	 * XDND_VERSION == 3 the old nested if had a branch that could never
@@ -1031,8 +1045,12 @@ static void storeStatusMessageInfos(WMDraggingInfo * info, XClientMessageEvent *
 	WMRect *noPosZone = &(XDND_NO_POS_ZONE(info));
 
 #ifdef XDND_DEBUG
+	{
+		WMScreen *dbgScr = sourceScreen(info);
 
-	traceStatusMsg(sourceScreen(info)->display, statusEvent);
+		if (dbgScr)
+			traceStatusMsg(dbgScr->display, statusEvent);
+	}
 #endif
 
 	if (statusEvent->data.l[1] & 0x2UL) {
