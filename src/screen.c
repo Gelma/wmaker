@@ -782,8 +782,8 @@ WScreen *wScreenInit(int screen_number)
 	scr->gray = WMGrayColor(scr->wmscreen);
 	scr->darkGray = WMDarkGrayColor(scr->wmscreen);
 
-	scr->black_pixel = WMColorPixel(scr->black);	/*scr->rcontext->black; */
-	scr->white_pixel = WMColorPixel(scr->white);	/*scr->rcontext->white; */
+	scr->black_pixel = WMColorPixel(scr->black);
+	scr->white_pixel = WMColorPixel(scr->white);
 	scr->light_pixel = WMColorPixel(scr->gray);
 	scr->dark_pixel = WMColorPixel(scr->darkGray);
 

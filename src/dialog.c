@@ -783,14 +783,12 @@ static void drawIconProc(WMList * lPtr, int index, Drawable d, char *text, int s
 	wfree(file);
 
 	if (!pixmap) {
-		/*WMRemoveListItem(lPtr, index); */
 		return;
 	}
 
 	XFillRectangle(dpy, d, WMColorGC(back), x, y, width, height);
 
 	XSetClipMask(dpy, gc, None);
-	/*XDrawRectangle(dpy, d, WMColorGC(white), x+5, y+5, width-10, 54); */
 	XDrawLine(dpy, d, WMColorGC(scr->white), x, y + height - 1, x + width, y + height - 1);
 
 	size = WMGetPixmapSize(pixmap);

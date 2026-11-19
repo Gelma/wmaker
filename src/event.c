@@ -996,12 +996,10 @@ static void handleButtonPress(XEvent * event)
 		if (event->xbutton.state & ( MOD_MASK | ControlMask )) {
 			XAllowEvents(dpy, AsyncPointer, CurrentTime);
 		} else {
-			/*      if (wPreferences.focus_mode == WKF_CLICK) { */
 			if (wPreferences.ignore_focus_click) {
 				XAllowEvents(dpy, AsyncPointer, CurrentTime);
 			}
 			XAllowEvents(dpy, ReplayPointer, CurrentTime);
-			/*      } */
 		}
 		wTelemetry.xsync_eliminated += 2;
 	} else if (desc->parent_type == WCLASS_APPICON
@@ -1655,7 +1653,6 @@ static void dispatchWKBDCommand(int command, WScreen *scr, WWindow *wwin, XEvent
 	switch (command) {
 
 	case WKBD_ROOTMENU:
-		/*OpenRootMenu(scr, event->xkey.x_root, event->xkey.y_root, True); */
 		if (!CheckFullScreenWindowFocused(scr)) {
 			WMRect rect = wGetRectForHead(scr, wGetHeadForPointerLocation(scr));
 			OpenRootMenu(scr, rect.pos.x + rect.size.width / 2, rect.pos.y + rect.size.height / 2,
@@ -2025,8 +2022,6 @@ static void dispatchWKBDCommand(int command, WScreen *scr, WWindow *wwin, XEvent
 			 * here was dead code (Coverity CID 1686092). */
 			if (wwin->flags.selected && scr->selected_windows) {
 				scr->shortcutWindows[widx] = WMDuplicateArray(scr->selected_windows);
-				/*WMRemoveFromArray(scr->shortcutWindows[index], wwin);
-				   WMInsertInArray(scr->shortcutWindows[index], 0, wwin); */
 			} else {
 				scr->shortcutWindows[widx] = WMCreateArray(4);
 				WMAddToArray(scr->shortcutWindows[widx], wwin);

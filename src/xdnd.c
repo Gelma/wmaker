@@ -290,11 +290,6 @@ Bool wXDNDProcessClientMessage(XClientMessageEvent *event)
 			selected_typelist = XDND_ENTER_TYPE(event, 0);
 		} else {
 			wXDNDGetTypeList(dpy, XDND_ENTER_SOURCE_WIN(event));
-			/*
-			char *name = XGetAtomName(dpy, selected_typelist);
-			fprintf(stderr, "Get %s\n",name);
-			XFree(name);
-			*/
 		}
 		return True;
 	} else if (event->message_type == _XA_XdndLeave) {

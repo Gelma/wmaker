@@ -346,8 +346,6 @@ static void makeShortcutCommand(WMenu * menu, WMenuEntry * entry)
 
 	if (wwin->flags.selected && scr->selected_windows) {
 		scr->shortcutWindows[index] = WMDuplicateArray(scr->selected_windows);
-		/*WMRemoveFromArray(scr->shortcutWindows[index], wwin);
-		   WMInsertInArray(scr->shortcutWindows[index], 0, wwin); */
 	} else {
 		scr->shortcutWindows[index] = WMCreateArray(4);
 		WMAddToArray(scr->shortcutWindows[index], wwin);

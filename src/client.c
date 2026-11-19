@@ -154,7 +154,6 @@ void wClientConfigure(WWindow * wwin, XConfigureRequestEvent * xcre)
 	int nx, ny, nwidth, nheight;
 	int ofs_x, ofs_y;
 
-	/*  printf("configure event: %d %d %d %d\n", xcre->x, xcre->y, xcre->width, xcre->height); */
 
 	if (wwin == NULL) {
 		/*

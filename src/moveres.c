@@ -1012,10 +1012,6 @@ updateWindowPosition(WWindow * wwin, MoveData * data, Bool doResistance,
 					}
 			}
 
-			/*
-			   printf("%d %d\n",winL,winR);
-			   printf("l_ %d r_ %d _l %d _r %d\n",l_edge,r_edge,edge_l,edge_r);
-			 */
 
 			if ((winL - l_edge) < (r_edge - winL)) {
 				if (resist > 0) {
@@ -1408,10 +1404,6 @@ int wKeyboardMoveResizeWindow(WWindow * wwin)
 	ww = w;
 	wh = h;
 	while (1) {
-		/*
-		   looper.ox=off_x;
-		   looper.oy=off_y;
-		 */
 		do {
 			WMMaskEvent(dpy, KeyPressMask | ButtonReleaseMask
 				    | ButtonPressMask | ExposureMask, &event);

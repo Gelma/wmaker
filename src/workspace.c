@@ -466,8 +466,6 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 	text = XCreatePixmap(dpy, scr->w_win, w + 4, h + 4, scr->w_depth);
 	mask = XCreatePixmap(dpy, scr->w_win, w + 4, h + 4, 1);
 
-	/*XSetForeground(dpy, scr->mono_gc, 0);
-	   XFillRectangle(dpy, mask, scr->mono_gc, 0, 0, w+4, h+4); */
 
 	XFillRectangle(dpy, text, WMColorGC(scr->black), 0, 0, w + 4, h + 4);
 
@@ -480,7 +478,6 @@ static void showWorkspaceName(WScreen * scr, int workspace)
 
 	XCopyPlane(dpy, text, mask, scr->mono_gc, 0, 0, w + 4, h + 4, 0, 0, 1 << (scr->w_depth - 1));
 
-	/*XSetForeground(dpy, scr->mono_gc, 1); */
 	XSetBackground(dpy, scr->mono_gc, 1);
 
 	XFillRectangle(dpy, text, WMColorGC(scr->black), 0, 0, w + 4, h + 4);
@@ -817,7 +814,6 @@ void wWorkspaceForceChange(WScreen * scr, int workspace)
 
 	WMPostNotificationName(WMNWorkspaceChanged, scr, (void *)(uintptr_t) workspace);
 
-	/*   XSync(dpy, False); */
 }
 
 static void switchWSCommand(WMenu * menu, WMenuEntry * entry)

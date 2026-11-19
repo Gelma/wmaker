@@ -359,10 +359,6 @@ void wShadeWindow(WWindow *wwin)
 	wwin->client.y = wwin->frame_y - wwin->client.height + wwin->frame->top_width;
 	wWindowSynthConfigureNotify(wwin);
 
-	/*
-	   wClientSetState(wwin, IconicState, None);
-	 */
-
 	WMPostNotificationName(WMNChangedState, wwin, "shade");
 
 #ifdef USE_ANIMATIONS
@@ -1900,9 +1896,6 @@ void wHideOtherApplications(WWindow *awin)
 		}
 		wwin = wwin->prev;
 	}
-	/*
-	   wSetFocusTo(awin->screen_ptr, awin);
-	 */
 }
 
 void wHideApplication(WApplication *wapp)
@@ -2132,7 +2125,6 @@ void wShowAllWindows(WScreen *scr)
 		wwin = wwin->prev;
 	}
 	wSetFocusTo(scr, old_foc);
-	/*wRaiseFrame(old_foc->frame->core); */
 }
 
 void wRefreshDesktop(WScreen *scr)

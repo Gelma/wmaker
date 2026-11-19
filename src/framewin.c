@@ -1211,7 +1211,6 @@ void wFrameWindowPaint(WFrameWindow * fwin)
 				XFillRectangle(dpy, buf, scr->copy_gc, 0, 0, w + 2, h);
 			}
 
-			/*XDrawRectangle(dpy, buf, WMColorGC(scr->white),1,0,w,h-1); */
 			WMDrawString(scr->wmscreen, buf, fwin->title_color[state],
 				     *fwin->font, 1, 0, title, titlelen);
 

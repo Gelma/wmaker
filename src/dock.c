@@ -2256,7 +2256,6 @@ Bool wDockAttachIcon(WDock *dock, WAppIcon *icon, int x, int y, Bool update_icon
 		if (command) {
 			icon->command = command;
 		} else {
-			/* icon->forced_dock = 1; */
 			if (dock->type != WM_CLIP || !icon->attracted) {
 				icon->editing = 1;
 				if (wInputDialog(dock->screen_ptr, _("Dock Icon"),
@@ -2400,7 +2399,6 @@ Bool wDockMoveIconBetweenDocks(WDock *src, WDock *dest, WAppIcon *icon, int x, i
 			icon->command = command;
 		} else {
 			icon->editing = 1;
-			/* icon->forced_dock = 1; */
 			if (wInputDialog(src->screen_ptr, _("Dock Icon"),
 					 _("Type the command used to launch the application"), &command)) {
 				if (command && (command[0] == 0 || (command[0] == '-' && command[1] == 0))) {
@@ -3774,7 +3772,6 @@ static void openDockMenu(WDock *dock, WAppIcon *aicon, XEvent *event)
 		wMenuRealize(dock->menu);
 
 	if (dock->type == WM_CLIP || dock->type == WM_DRAWER) {
-		/*x_pos = event->xbutton.x_root+2; */
 		x_pos = event->xbutton.x_root - dock->menu->frame->core->width / 2 - 1;
 		if (x_pos < 0) {
 			x_pos = 0;
@@ -4904,7 +4901,6 @@ static int indexOfHole(WDock *drawer, WAppIcon *moving_aicon, int redocking)
 		if (drawer->icon_array[i] && drawer->icon_array[i] != moving_aicon)
 			index_of_hole -= drawer->icon_array[i]->xindex;
 	}
-	/* wmessage(" Index of the moving appicon is %d (%sredocking)", index_of_hole, (redocking ? "" : "not ")); */
 	if (abs(index_of_hole) > abs(drawer->icon_count) - (redocking ? 1 : 0))
 		wwarning(" index_of_hole is too large ! (%d greater than %d)",
 			index_of_hole, abs(drawer->icon_count) - (redocking ? 1 : 0));

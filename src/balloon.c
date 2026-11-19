@@ -189,7 +189,6 @@ static void drawBalloon(WScreen *scr, Pixmap bitmap, Pixmap pix, int x, int y, i
 		ipt[2].y = pt[2].y + 1;
 	}
 
-	/*w1 = WMAX(h, 24); */
 	w1 = WMAX(h, 21);
 
 	if (side & RIGHT) {
@@ -199,9 +198,6 @@ static void drawBalloon(WScreen *scr, Pixmap bitmap, Pixmap pix, int x, int y, i
 		ipt[0].x = x + 1 + w - w1 + 2 * (w1 - 1) / 16;
 		ipt[1].x = x + 1 + w - w1 + 11 * (w1 - 1) / 16;
 		ipt[2].x = x + 1 + w - w1 + 7 * (w1 - 1) / 16;
-		/*ipt[0].x = pt[0].x+1;
-		   ipt[1].x = pt[1].x;
-		   ipt[2].x = pt[2].x; */
 	} else {
 		pt[0].x = x + w1 - 2 * w1 / 16;
 		pt[1].x = x + w1 - 11 * w1 / 16;
@@ -209,9 +205,6 @@ static void drawBalloon(WScreen *scr, Pixmap bitmap, Pixmap pix, int x, int y, i
 		ipt[0].x = x - 1 + w1 - 2 * (w1 - 1) / 16;
 		ipt[1].x = x - 1 + w1 - 11 * (w1 - 1) / 16;
 		ipt[2].x = x - 1 + w1 - 7 * (w1 - 1) / 16;
-		/*ipt[0].x = pt[0].x-1;
-		   ipt[1].x = pt[1].x;
-		   ipt[2].x = pt[2].x; */
 	}
 
 	XFillPolygon(dpy, bitmap, bgc, pt, 3, Convex, CoordModeOrigin);
@@ -334,7 +327,6 @@ static void showText(WScreen *scr, int x, int y, int h, int w, const char *text)
 		XFreePixmap(dpy, scr->balloon->contents);
 
 	width = getMaxStringWidth(font, text) + 8;
-	/*width = WMWidthOfString(font, text, strlen(text))+8; */
 	height = countLines(text) * WMFontHeight(font) + 4;
 
 	if (x < 0)

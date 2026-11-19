@@ -468,7 +468,6 @@ void StartUp(Bool defaultScreenOnly)
 	w_global.context.app_win = XUniqueContext();
 	w_global.context.stack = XUniqueContext();
 
-	/*    _XA_VERSION = XInternAtom(dpy, "VERSION", False); */
 
 #ifdef HAVE_XINTERNATOMS
 	XInternAtoms(dpy, atomNames, wlengthof(atomNames), False, atom);

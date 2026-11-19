@@ -685,7 +685,6 @@ static void constructMenu(WMenu * menu, WMenuEntry * entry)
 						first = i;
 				} else {
 					werror(_("%s:could not stat menu"), path[i]);
-					/*goto finish; */
 				}
 
 				i++;
@@ -1004,9 +1003,6 @@ static WMenuEntry *addMenuEntry(WMenu *menu, const char *title, const char *shor
 			if (addShortcut(file_name, shortcut, menu, entry)) {
 
 				entry->rtext = GetShortcutString(shortcut);
-				/*
-				   entry->rtext = wstrdup(shortcut);
-				 */
 			}
 		}
 	}
@@ -1719,13 +1715,6 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 	WMenu *menu = NULL;
 	WMPropList *definition;
 	unsigned int prev_ws_menu, prev_win_menu;
-	/*
-	   static WMPropList *domain=NULL;
-
-	   if (!domain) {
-	   domain = WMCreatePLString("WMRootMenu");
-	   }
-	 */
 
 	if (scr->root_menu && scr->root_menu->flags.mapped) {
 		menu = scr->root_menu;
@@ -1751,9 +1740,6 @@ void OpenRootMenu(WScreen * scr, int x, int y, int keyboard)
 
 	definition = w_global.domain.root_menu->dictionary;
 
-	/*
-	   definition = PLGetDomain(domain);
-	 */
 	if (definition && (!scr->root_menu || !wRootMenuIsInUse(scr->root_menu))) {
 		if (WMIsPLArray(definition)) {
 			if (!scr->root_menu || w_global.domain.root_menu->timestamp > scr->root_menu->timestamp) {

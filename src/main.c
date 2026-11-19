@@ -301,9 +301,7 @@ static void shellCommandHandler(pid_t pid, unsigned int status, void *client_dat
 		wMessageDialog(data->scr, _("Error"), buffer, _("OK"), NULL, NULL);
 		wfree(buffer);
 	} else if (status != 127) {
-		/*
-		   printf("%s: %i\n", data->command, status);
-		 */
+		/* other exit statuses are ignored */
 	}
 
 	wfree(data->command);
