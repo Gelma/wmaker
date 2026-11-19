@@ -387,7 +387,6 @@ static void createPanel(Panel * p)
 	panel->optF = WMCreateFrame(panel->box);
 	WMResizeWidget(panel->optF, 215, 148);
 	WMMoveWidget(panel->optF, 292, 72);
-	/*    WMSetFrameTitle(panel->optF, _("Icon Display")); */
 	starty = 8 + 14;   /* the last term centers the checkboxes within the panel; subtract 13 for a new option */
 
 	panel->arrB = WMCreateSwitchButton(panel->optF);

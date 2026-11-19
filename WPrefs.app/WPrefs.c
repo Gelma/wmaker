@@ -99,16 +99,13 @@ static void save(WMWidget * w, void *data)
 	/* Parameter not used, but tell the compiler that it is ok */
 	(void) data;
 
-	/*    puts("gathering data"); */
 	for (i = 0; i < WPrefs.sectionCount; i++) {
 		PanelRec *rec = WMGetHangedData(WPrefs.sectionB[i]);
 		if ((rec->callbacks.flags & INITIALIZED_PANEL))
 			savePanelData((Panel *) rec);
 	}
-	/*    puts("compressing data"); */
 	/* compare the user dictionary with the global and remove redundant data */
 	keyList = WMGetPLDictionaryKeys(GlobalDB);
-	/*    puts(WMGetPropListDescription(WindowMakerDB, False)); */
 	for (i = 0; i < WMGetPropListItemCount(keyList); i++) {
 		key = WMGetFromPLArray(keyList, i);
 
@@ -125,9 +122,7 @@ static void save(WMWidget * w, void *data)
 		if (WMIsPropListEqualTo(p1, p2))
 			WMRemoveFromPLDictionary(WindowMakerDB, key);
 	}
-	/*    puts(WMGetPropListDescription(WindowMakerDB, False)); */
 	WMReleasePropList(keyList);
-	/*    puts("storing data"); */
 
 	WMWritePropListToFile(WindowMakerDB, WindowMakerDBPath);
 

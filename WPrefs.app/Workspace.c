@@ -167,7 +167,6 @@ static void createPanel(Panel * p)
 	/**/ panel->posL = WMCreateLabel(panel->navF);
 	WMResizeWidget(panel->posL, 275, 30);
 	WMMoveWidget(panel->posL, 75, 161);
-	// WMSetLabelTextAlignment(panel->posL, WARight);
 	WMSetLabelText(panel->posL, _("Position of workspace name display"));
 
 	panel->posiL = WMCreateLabel(panel->navF);

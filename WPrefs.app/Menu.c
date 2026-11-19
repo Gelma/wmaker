@@ -377,11 +377,6 @@ static void createPanel(_Panel * p)
 
 		XDrawLine(dpy, pix, WMColorGC(black), 0, 3, 6, 3);
 		XDrawLine(dpy, pix, WMColorGC(black), 3, 0, 3, 6);
-		/*
-		   XDrawLine(dpy, pix, WMColorGC(black), 1, 0, 3, 3);
-		   XDrawLine(dpy, pix, WMColorGC(black), 1, 6, 3, 3);
-		   XDrawLine(dpy, pix, WMColorGC(black), 0, 0, 0, 6);
-		 */
 
 		pix = WMGetPixmapMaskXID(pixm);
 

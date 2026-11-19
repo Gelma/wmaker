@@ -409,7 +409,6 @@ static void fillModifierPopUp(WMPopUpButton * pop)
 			if (ptr)
 				*ptr = 0;
 			snprintf(buffer, sizeof(buffer), "%s (%s)", modifierNames[j], tmp);
-			/*sprintf(buffer, "%s", tmp); */
 			WMAddPopUpButtonItem(pop, buffer);
 			for (i = k + 1; i < a; i++) {
 				if (array[i] == NULL)
