@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <math.h>
 
 
@@ -652,8 +653,15 @@ static void storeCommandInScript(const char *cmd, const char *line)
 
 	f = fopen(path, "rb");
 	if (!f) {
-		f = fopen(path, "wb");
+		/* Create owner-only: this script runs at session start, so the
+		 * 0666&~umask window of fopen("wb") would let another local user
+		 * inject commands under umask 0.  0700 is never world-writable. */
+		int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0700);
+
+		f = (fd >= 0) ? fdopen(fd, "wb") : NULL;
 		if (!f) {
+			if (fd >= 0)
+				close(fd);
 			werror(_("could not create %s"), path);
 			goto end;
 		}
@@ -663,12 +671,17 @@ static void storeCommandInScript(const char *cmd, const char *line)
 	} else {
 		int len = strlen(cmd);
 		int ok = 0;
+		int fd;
 		char *tmppath;
 		FILE *fo;
 
 		tmppath = wstrconcat(wuserdatapath(), "/" PACKAGE_TARNAME "/autostart.tmp");
-		fo = fopen(tmppath, "wb");
+		/* owner-only until the fchmod below sets the final umask-aware mode */
+		fd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0700);
+		fo = (fd >= 0) ? fdopen(fd, "wb") : NULL;
 		if (!fo) {
+			if (fd >= 0)
+				close(fd);
 			werror(_("could not create temporary file %s"), tmppath);
 			wfree(tmppath);
 			goto end;
