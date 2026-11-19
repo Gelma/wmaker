@@ -1,377 +1,304 @@
-# CodeQL Static Analysis Report & Remediation Plan (QLCODEReport.md)
+# CodeQL Analysis Report — Window Maker (gelma fork)
 
-**Date:** 2026-11-05  
-**Directory Analyzed:** `QLCodeAnalysis/` (`wmaker-results.csv`, `wmaker-results.sarif`, `report.html`, database `wmaker-db`)  
-**Author:** Gemini (for Andrea Gelmini)  
-**Branch:** `gelma`  
-**Project:** Window Maker (`wmaker_git`)  
-
----
-
-## 1. Executive Summary & Overview
-
-> **Status update (2026-11-09):** after remediation and a fresh re-scan the
-> current totals are **447 findings / 19 errors** (19 error, 150 warning, 278
-> recommendation). See §8 for the baseline-vs-current comparison and the
-> per-component breakdown. The figures below are the **2026-11-05 baseline**,
-> kept for reference.
-
-The 2026-11-05 baseline produced a total of **563 findings**, classified into three severity levels:
-- **Error (Critical / High-impact defects / Vulnerabilities)**: **53**
-- **Warning (Security, integer conversions, and robustness notices)**: **179**
-- **Recommendation (Code hygiene, style, and best practices)**: **331**
-
-### Findings Breakdown by Repository Component
-
-| Module / Directory | Architectural Role | Error | Warning | Recommendation | Total Findings |
-|:---|:---|:---:|:---:|:---:|:---:|
-| **`src/`** | Core Window Manager (event loop, dock, menus, window management) | 13 | 67 | 131 | **211** |
-| **`WINGs/`** | NEXTSTEP-like GUI toolkit (widgets, allocators, proplist) | 28 | 29 | 91 | **148** |
-| **`util/`** | Command-line utilities (`wmsetbg`, `wmagnify`, `getstyle`, `xdnd`) | 3 | 25 | 57 | **85** |
-| **`WPrefs.app/`** | Window Maker graphical configuration application | 7 | 38 | 34 | **79** |
-| **`wrlib/`** | Raster graphics library (image decoding, transformations, textures) | 2 | 20 | 16 | **38** |
-| **`wmlib/`** | Legacy X11 client library | 0 | 0 | 2 | **2** |
-| **TOTAL** | | **53** | **179** | **331** | **563** |
+**Baseline scan:** 2026-11-19, CodeQL CLI 2.27.4, suite
+`codeql/cpp-queries:codeql-suites/cpp-security-and-quality.qls` (183 queries),
+run via `tools/codeql_analysis.sh` (isolated `/tmp` copy, `git clean -xdf`,
+full feature configure, `CC=/usr/bin/gcc`, `CCACHE_DISABLE=1`).
+**Artifacts:** `wmaker-results.csv` / `wmaker-results.sarif` (same directory).
+**Triage author:** Qwen Code, 2026-11-19. Supersedes the 2026-11-05/09 report
+(563/53 and 447/19 eras), which was removed from the tree.
 
 ---
 
-### Common Weakness Enumeration (CWE) Mapping
+## 1. Baseline counts and coverage
 
-Analysis of the SARIF metadata identifies standardized international vulnerability and weakness classes:
-- **CWE-078 / CWE-088 (OS Command Injection)**: User-controlled input passed to `system()` without shell metacharacter sanitization or isolation (`wmsetbg.c`).
-- **CWE-120 / CWE-787 / CWE-805 (Buffer Overrun / Out-of-bounds Write)**: `sprintf()` and `strcpy()` operations writing into undersized, fixed-size stack buffers (`wcolorpanel.c`, `Expert.c`, `WPrefs.c`).
-- **CWE-476 (NULL Pointer Dereference)**: Missing return value validation for X11 library functions or internal allocators prior to dereferencing (`wappresource.c`, `wfontpanel.c`, `winspector.c`, `dock.c`).
-- **CWE-190 / CWE-192 / CWE-681 (Integer Overflow to Buffer Size)**: Image dimension arithmetic (`width * height * bpp`) evaluated using 32-bit integer arithmetic before conversion to `size_t` for `malloc()` or `memcpy()`.
-- **CWE-252 / CWE-253 (Unchecked Return Value / Uninitialized Variables)**: Return value of `sscanf()` ignored or inadequately handled, leading to reads of uninitialized stack variables (`dock.c:4986`).
-- **CWE-562 (Stack Address Escape)**: Address of a stack-allocated local structure stored in a global variable with indefinite lifetime (`xdnd.c:1596`).
-- **CWE-732 (Insecure File Permissions)**: Files created without restrictive permission masks (`0666` potentially world-writable).
-- **CWE-367 (Time-of-check Time-of-use / TOCTOU)**: Non-atomic `access()`/`stat()` checks preceding filesystem modifications (`monitor.c`, `wfilepanel.c`).
+**522 findings = 17 error / 168 warning / 337 recommendation**, 27 distinct
+rules with results. CSV and SARIF are fully consistent (same 522 results,
+same rule→severity map; in SARIF the severity lives in
+`rules[].defaultConfiguration.level`, `note` = CSV `recommendation`).
 
----
+By component: src 198 · WINGs 123 · util 92 · WPrefs.app 72 · wrlib 35 · wmlib 2.
 
-## 2. Remediation Priority Matrix (Engineering Roadmap)
+### Why 447 → 522 is coverage, not regression
 
-To maintain maximum safety and prevent regressions, the remediation plan is structured into four sequential phases:
+The 2026-11-09 scan (commit `f1f9ee8f`, SpecAI §153) reported 447 findings and
+claimed "all 221 C translation units". A normalized diff (line numbers stripped
+from messages) shows **29 files with zero findings in the old scan** that now
+produce findings: 18 WINGs widgets (`wtext.c`, `selection.c`, `array.c`,
+`tree.c`, `wlist.c`, `wscroller.c`, `wslider.c`, `wtabview.c`, …), 6 util
+dockapps (`wmbattery`, `wmclock`, `wmcpugraph`, `wmeyes`, `wmmemgraph`,
+`wmnetgraph`), plus `util/xdnd.c`, `wmlib/event.c`, `src/dockedapp.c`,
+`src/geomview.c`, `src/winspector.c`. Files like `WINGs/wtext.c` (3000+ lines
+of upstream code full of commented-out blocks) cannot legitimately produce
+zero findings under this suite: the old database simply never extracted them.
 
-```mermaid
-flowchart TD
-    A["Phase 1: Critical Vulnerabilities & Crashes (P1)"] --> B["Phase 2: Logic Robustness & Integer Overflows (P2)"]
-    B --> C["Phase 3: I/O Hardening, Bounded Buffers & Safe APIs (P3)"]
-    C --> D["Phase 4: Code Hygiene & Static Cleanup (P4)"]
+Root cause (strong inference; the old DB no longer exists): `codeql database
+create --command=make` on an already-built tree only traces translation units
+that make actually recompiles. The new script's isolated clean build
+(`git clean -xdf` + autogen + full configure + full make under the tracer,
+ccache disabled) captures everything. **522 is the first trustworthy
+full-coverage baseline.** The error trend is still downward:
+53 (2026-11-05) → 19 (2026-11-09) → 17 (2026-11-19), and of today's 17 only
+4 were real bugs (§2), now fixed (§5).
 
-    A -->|Resolves| A1["Command Injection (wmsetbg)<br>Buffer Overrun (wcolorpanel, Expert)<br>Crash NULL Deref (wappresource, winspector, wfontpanel)<br>Dangling Stack (xdnd)"]
-    B -->|Resolves| B1["sscanf UB with uninitialized vars (dock.c)<br>C23 / size_t arithmetic on images (wrlib, properties)<br>Bitfield signedness (wtext.c)<br>GrabPointer empty check (icon.c)"]
-    C -->|Resolves| C1["Replace sprintf/strcpy with snprintf/wstrconcat<br>File permissions 0600/0644 (telemetry, save_*)<br>localtime_r thread-safe migration<br>TOCTOU cleanup (monitor.c)"]
-    D -->|Resolves| D1["Remove futile conditionals<br>Eliminate redundant Guarded Free calls<br>Resolve shadowed variables<br>Fix header guards (#ifndef usermenu.h)"]
-```
-
----
-
-## 3. Detailed Analysis of Critical Findings (Severity: ERROR - 53 findings)
-
-### 3.1. OS Command Injection (CWE-78)
-- **File & Line:** [`util/wmsetbg.c:1045`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmsetbg.c#L1045)
-- **Description:** The function `updateDomain(const char *domain, const char *key, const char *texture)` receives the `domain` parameter (derived from user-supplied command-line options, e.g. `-d`) and formats a shell command string using `snprintf(cmd_smooth, sizeof(cmd_smooth), "wdwrite %s SmoothWorkspaceBack %s", domain, ...)`, which is directly executed via `system(cmd_smooth)`.
-- **Risk:** If `domain` contains shell metacharacters (`;`, `&`, `|`, backticks, or `$()`), `/bin/sh` executes arbitrary commands with user privileges.
-- **Verdict:** **REAL SECURITY DEFECT (Critical Vulnerability)**.
-- **Proposed Remediation:**
-  Replace `system()` with direct process execution without a shell via `fork()` and `execlp("wdwrite", "wdwrite", domain, "SmoothWorkspaceBack", smooth ? "YES" : "NO", NULL)`, matching the pattern already used two lines below:
-  ```c
-  pid_t pid = fork();
-  if (pid == 0) {
-      execlp("wdwrite", "wdwrite", domain, "SmoothWorkspaceBack", smooth ? "YES" : "NO", NULL);
-      _exit(127);
-  } else if (pid > 0) {
-      waitpid(pid, NULL, 0);
-  }
-  ```
+The diff also confirms the §154/§155 fixes dropped out: 2 float-`sprintf`
+errors, 4 nullness errors, the `wfilepanel.c` redundant null check,
+`load_jxl.c` 2 multiplication overflows + TOCTOU, `switchmenu.c`
+empty-if/futile conditional.
 
 ---
 
-### 3.2. Buffer Overrun in `sprintf` with Fixed Buffers (CWE-120 / CWE-787)
+## 2. Error triage (17) — all verified against the code
 
-#### A. WINGs Color Panel: 17 instances of `char tmp[4]`
-- **File & Lines:** [`WINGs/wcolorpanel.c:3436, 3438, 3440, 3383, 2616, 2618, 2620, 2576, 2579, 2582, 2585, 2533, 2535, 2537, 2539, 2332, 2307`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wcolorpanel.c#L3436)
-- **Description:** Across several color panel update routines (`cmykInit`, `rgbInit`, `hsbInit`, `sliderChangedCallback`), a local stack buffer is declared as `char tmp[4];`. The code subsequently calls:
-  ```c
-  sprintf(tmp, "%d", value[0]);
-  ```
-  The `%d` format specifier for a signed 32-bit integer (`int`) can require up to 12 bytes (`-2147483648\0`). Even assuming nominal 0–100 ranges, out-of-range inputs or floating-point rounding anomalies (`rint((255 - panel->color.rgb.red) / 2.55)`) will overrun the stack buffer.
-- **Verdict:** **REAL DEFECT (Stack Buffer Overflow Hazard)**.
-- **Proposed Remediation:**
-  Expand the local buffer to a safe size such as `char tmp[16];` or `char tmp[32];`, and enforce bounded formatting via `snprintf(tmp, sizeof(tmp), "%d", value[i]);`.
+### 2.1 Real bugs — fixed in this batch (§5)
 
-#### B. WPrefs Expert Panel: `char tmp[10]` for integer values
-- **File & Line:** [`WPrefs.app/Expert.c:411`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WPrefs.app/Expert.c#L411)
-- **Description:**
-  ```c
-  char tmp[10];
-  ...
-  state = GetIntegerForKey(expert_options[i].op_name);
-  sprintf(tmp, "%d", state);
-  ```
-  A signed 32-bit integer can produce up to 11 digits plus the null terminator (12 bytes total). A 10-byte buffer overruns for any value `<= -1000000000` or `>= 1000000000`.
-- **Verdict:** **REAL DEFECT (Stack Buffer Overflow)**.
-- **Proposed Remediation:**
-  Expand the buffer to `char tmp[32];` and format with `snprintf(tmp, sizeof(tmp), "%d", state);`.
+| # | Rule | Site | Defect | Fix |
+|---|------|------|--------|-----|
+| 1 | cpp/inconsistent-null-check | `WINGs/dragsource.c:375` (`sendEnterMessage`) | `sourceScreen()` returns NULL once the source view is destroyed mid-drag (`endedDrag` may destroy it); `sendEnterMessage` and the common sink `sendDnDClientMessage:358` dereferenced unguarded. The comment at :105 claiming those paths "already guard" was wrong. Six other call sites were guarded. | `ad949138` — guard both (return False), guard the XDND_DEBUG trace site, correct the comment |
+| 2 | cpp/inconsistent-null-check | `src/properties.c:54` (`PropGetWMClass`) | `XAllocClassHint()` unchecked → `XGetClassHint(dpy, win, NULL)` on OOM. Xlib allocates with malloc (unlike `wmalloc`, which aborts). | `57326aaf` — NULL check, fall back to the "default" class/instance already used for unreadable properties |
+| 3 | cpp/inconsistent-null-check | `src/window.c:688` (`fixLeaderProperties`) | `classHint->res_name` dereferenced without NULL check on OOM | `ddf4f69a` — skip class-hint propagation on OOM, keep group/command/notify fixes; guard final XFree |
+| 4 | cpp/inconsistent-null-check | `src/window.c:761` (`createFakeWindowGroupLeader`) | `classHint->res_name = instance` without NULL check; **bonus, unflagged:** `XAllocWMHints()` fallback in the same function equally unchecked | `ddf4f69a` — guard both; leader window still created, hints degraded on OOM |
 
----
+The statistical nullness rule surfaced these because the §154 fixes raised the
+checked fraction of `XAllocClassHint`/`sourceScreen` call sites above threshold.
 
-### 3.3. Inconsistent NULL Pointer Dereferences (CWE-476 - 16 findings)
+### 2.2 False positives / acceptable — no code action (registry in §7)
 
-The table below summarizes call sites where system or library functions can return `NULL` and are dereferenced without prior checks:
+**12 × cpp/unbounded-write** — every destination is `malloc/wmalloc(strlen(same
+pieces) + slack)`; CodeQL cannot sum the literals. Verified site by site
+(confirms the §128 triage; lines only shifted):
 
-| File and Line | Function Call | Context & Failure Mode | Verdict & Remediation |
-|:---|:---|:---|:---|
-| [`WINGs/wappresource.c:18`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wappresource.c#L18) | `XGetWMHints(scr->display, scr->groupLeader)` | `hints->flags \|= IconWindowHint;` dereferences `hints` unchecked. If the window lacks hints or allocation fails, SIGSEGV occurs. | **REAL DEFECT**: If `!hints`, allocate via `XAllocWMHints()` or guard with `if (hints)`. |
-| [`WINGs/wappresource.c:64`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wappresource.c#L64) | `XGetWMHints(scr->display, scr->groupLeader)` | Identical pattern for WINGs icon setup. | **REAL DEFECT**: Same fix using allocation or defensive check. |
-| [`WINGs/wfontpanel.c:696, 738, 767, 793`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wfontpanel.c#L767) | `WMGetListSelectedItem(panel->...)` | If a list is empty or selection is cleared, returns `NULL`. The callback immediately dereferences `item->clientData` or `item->text`. | **REAL DEFECT (UI Crash)**: Add `if (!item) return;` at callback entry. |
-| [`src/winspector.c:1440`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/winspector.c#L1440) | `wapp = wApplicationOf(wwin->main_window)` | `get_attr_flag(&wapp->main_window_desc->...)` dereferences `wapp` without checking if the window belongs to a registered application. | **REAL DEFECT**: Add guard `if (!wapp) return;`. |
-| [`src/dock.c:823`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/dock.c#L823) | `wapp = wApplicationOf(btn->icon->owner->main_window)` | If application is absent or dockapp is orphaned, `wapp` can be `NULL`. Line 825 evaluates `if (wapp->flags.hidden)`. | **REAL DEFECT**: Change check to `if (wapp && wapp->flags.hidden)`. |
-| [`WPrefs.app/TexturePanel.c:212`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WPrefs.app/TexturePanel.c#L212) | `image = RCloneImage(panel->image)` | On OOM, `image` is `NULL` and `image->width` dereferences null pointer. | **REAL DEFECT**: Guard with `if (!image) return;`. |
-| [`WPrefs.app/editmenu.c:653`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WPrefs.app/editmenu.c#L653) | `hints = XAllocSizeHints()` | Dereferenced directly: `hints->flags = USPosition;`. | **DEFENSIVE DEFECT**: Guard with `if (!hints) return;`. |
-| [`util/wmagnify.c:207`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/wmagnify.c#L207) | `image = XGetImage(...)` | On invalid coordinates or X11 failure, `image` is `NULL`; subsequent loop accesses `image->data`. | **REAL DEFECT**: Add guard `if (!image) return;`. |
-| [`src/window.c:2032`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/window.c#L2032) | `oowner = wWindowFor(owin->transient_for)` | Code only performs pointer equality: `if (wwin == oowner)`. | **FALSE POSITIVE**: No dereference of `oowner`. |
-| [`src/event.c:1388`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/event.c#L1388) | `scr = wScreenWithNumber(i)` | Loop index bounded by `w_global.screen_count`. | **FALSE POSITIVE**: `scr` is valid; `if (!scr) continue;` is purely defensive. |
+- `WINGs/userdefaults.c:77` — `wmalloc(pathlen + sizeof(subdir))`
+- `WINGs/userdefaults.c:108/110` — `slen = strlen(gspath)+strlen("/" DEFAULTS_SUBDIR "/")+strlen(domain)+1`
+- `src/rootmenu.c:1309/1389/1425/1430/1432` — `malloc(strlen(path)+strlen(name)+4/+6+…)`
+- `src/dialog.c:701` — `wmalloc(strlen(tmp)+strlen(iconFile)+4)`
+- `util/getstyle.c:409` — `wmalloc(strlen(ThemePath)+32)` for `"/style"` (7 bytes)
+- `wrlib/load.c:272/291` — `malloc(strlen(file)+1)`
+
+**1 × cpp/inconsistent-null-check** — `src/event.c:911` (`configureMenu`):
+returns NULL when the menu file is missing; `scr->root_menu = NULL` is
+tolerated by every consumer (e.g. `WA_OPEN_APPMENU` checks `if (scr->root_menu)`).
+Effect of NULL: empty root menu until the definition is valid again — intended
+behavior, no deref. Optional future nicety: a wwarning on failed rebuild.
 
 ---
 
-### 3.4. Stack Address Escape to Non-Local Memory (CWE-562)
-- **File & Line:** [`util/xdnd.c:1596`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/util/xdnd.c#L1596)
-- **Source Code:**
-  ```c
-  struct xdnd_get_drop_info i;
-  ...
-  memset(&i, 0, sizeof(i));
-  i.actionlist = actionlist;
-  i.typelist = typelist;
-  dnd.user_hook1 = &i; /* dnd is a static/global variable */
-  ```
-- **Description:** Structure `i` is allocated on the stack of the current function frame. Its address `&i` is stored in `dnd.user_hook1`, which belongs to the file-scope `static xdnd_context dnd;`. When the function returns, the stack frame is reclaimed. Any subsequent access to `dnd.user_hook1` results in a dangling pointer read (Use-After-Return) with undefined behavior.
-- **Verdict:** **REAL DEFECT (Dangling Pointer / Stack Escape)**.
-- **Proposed Remediation:**
-  Clear the pointer before function return via `dnd.user_hook1 = NULL;`, or allocate the structure on the heap.
+## 3. Warning triage (168)
+
+### cpp/path-injection — 62 — BY DESIGN
+Paths derived from `HOME`/`WMAKER_USER_ROOT`/`GNUSTEP_CONFIG_FILE`/argv are the
+WM's configuration mechanism; single-user trust model. Distribution: defaults.c 6,
+userdefaults.c 4, dialog.c 4, wmiv.c 4, icon/screen/telemetry/wmsetbg 3 each, rest ≤2.
+New-code sites reviewed in this batch (P2 audit):
+- `src/telemetry.c:451/680/761` — `open_private()` = `open(O_NOFOLLOW, 0600)` +
+  `fchmod(0600)`; dir = `WM_RUNTIME_LOG_DIR` (explicit user override) or
+  `XDG_RUNTIME_DIR/wmaker` (private per-user) or `TELEMETRY_DIR`. Hardened and
+  documented in-source. Accepted.
+- `src/shutdown.c:76` — exit sentinel path; hardened per SpecAI §164
+  (`O_EXCL|O_NOFOLLOW`, unlink never follows symlinks). Accepted.
+- `src/dialog.c:443/706/782/1732`, `src/dockedapp.c:107`, `src/winspector.c:492` —
+  icon/pixmap loads from the user's own config tree via `wfindfile`. Accepted.
+
+### cpp/missing-check-scanf — 11 — ALL FALSE POSITIVES (verified)
+- `WPrefs.app/WPrefs.c:703/705/710/714` (×7): guard
+  `sscanf(A)!=3 && sscanf(B)!=3 → exit(1)`; continuing implies at least one call
+  wrote all three out-params. The query does not model the conjunctive guard.
+- `Focus.c:139`, `HotCornerShortcuts.c:148`, `TexturePanel.c:851`:
+  `if (sscanf(...) != 1) i = default;` — initialization guaranteed.
+- `src/appmenu.c:149`: `code` written by the outer sscanf (line 93, guard `< 2 →
+  return NULL`); `etag` by the `!= 4`/`!= 5` guards (123/133). Query loses the
+  flow across the loop.
+
+### cpp/integer-multiplication-cast-to-long — 20 — SAFE TODAY, FRAGILE INVARIANT (P3, pending approval)
+wrlib sites (`raster.c:219/271/675`, `convert.c:351/352/361/362`, `convolve.c:48/58`,
+`gradient.c:139/341`): image dimensions capped at `MAX_WIDTH=MAX_HEIGHT=20000`
+(raster.c:85-86) and `RCreateImage` uses `ckd_mul/ckd_add`; worst product
+20000²×4 = 1.6×10⁹ < INT_MAX, so the `int` multiplications at the memcpy sites
+cannot overflow **today**. The invariant lives in the constants, not at the use
+sites: raising the cap above ~23170/side would make them real. Cheap `(size_t)`
+casts recommended (P3, not yet approved). src/util sites (dock, properties,
+screen, xinerama ×2, wmagnify, wcolorpanel, Appearance ×2): UI geometry, same
+cheap cast.
+
+### cpp/stack-address-escape — 6 — 4 FP / 1 mitigated / 1 by-design (audited)
+- `WINGs/proplist.c:1507/1572/1636` — **FP verified**: `PLData` is heap but
+  function-local (`wfree(pldata)` before every return); the parser only reads
+  `pldata->ptr/pos`, never retains it. The `desc/file/command` parameters cannot
+  outlive the call.
+- `util/xdnd.c:1593` — **already mitigated in-tree**: `dnd.user_hook1 = NULL`
+  at function end with an explanatory comment citing this very query. The alert
+  persists because the query flags the assignment itself. Residual, harmless.
+- `WINGs/menuparser.c:79` — **by design (P2 audit)**: the only external caller
+  is `readMenu()` (rootmenu.c:1074) with a heap path; the parser is
+  `WMenuParserDelete`d before `readMenu` returns; the include-parser path uses
+  `wstrdup(req_filename)` (menuparser.c:573) and propagates the parent's
+  `DEF_CONFIG_PATHS` literal. Stored pointers never outlive the frame.
+- `WINGs/handlers.c:142` — **by design (P2 audit)**: all 59 in-tree
+  `WMAddTimerHandler`/`WMAddPersistentTimerHandler` call sites pass heap widget
+  pointers or NULL, except `src/menu.c:2038/2207` (`&d_data`, stack). There the
+  timer lifetime is confined to `menuMouseDown`'s frame: it can only fire from
+  that function's own event loop, `delaySelection` nulls `magic` on fire,
+  one-shot handlers are freed/unlinked after firing
+  (`W_CheckTimerHandlers`, handlers.c:326-338), and **every** exit path deletes
+  a pending timer (normal exit menu.c:2270, `byebye:` menu.c:2337).
+
+### cpp/toctou-race-condition — 3 — ACCEPTED (already triaged for Coverity)
+- `WINGs/wfilepanel.c:716→730` — stat → confirm alert → remove; in-source
+  `coverity[toctou] CID 1686069` ("delete dialog on the user own tree").
+- `WINGs/wcolorpanel.c:3121→3129` — access → overwrite alert → remove;
+  `coverity[toctou] CID 1686074`.
+- `src/monitor.c:168→170` — lstat(sentinel)+uid → unlink, post-`febaf042`
+  (CID 1686042). §164 rationale: `unlink` never follows symlinks; the check is
+  advisory (decides only whether to break the restart loop).
+CodeQL does not read Coverity annotations, hence the residual alerts.
+
+### cpp/constant-comparison — 6 — FIXED (§5)
+`actions.c:1363/1368/1374` (steps≡16), `actions.c:2454` (s clamped ≥1),
+`KeyboardShortcuts.c:398` (timeout_ms clamped ≥1, chain_mode never reassigned),
+`switchmenu.c:354` (idx≡−1 at check). Dead guards/variables removed, behavior
+unchanged.
+
+### cpp/world-writable-file-creation — 7 — LOW RISK (P4 optional)
+`fopen(...,"w")` creates with 0666&~umask: world-writable only under umask 0.
+`MouseSettings.c:655/670` (autostart): `fchmod(fileno(fo), permissions)` at :701
+sets the final mode explicitly; residual window on the tmp file in the user's
+own directory. `Appearance.c:467`, `wmiv.c:508`, `save_jpeg.c:185`,
+`save_png.c:199`, `save_xpm.c:176`: user's own files. Optional hardening:
+`open(O_CREAT|O_WRONLY, 0700)` + `fdopen` for the autostart script.
+
+### cpp/uncontrolled-process-operation — 5 — BY DESIGN
+`main.c:239/560/587` (exec/system of user-configured commands — the WM's
+purpose; the real command-injection cases were closed in the §128 batch),
+`monitor.c:131` (execvp of its own argv), `WPrefs.c:631` (execlp of wmaker
+from PATH). Accepted.
+
+### Singles
+- `util/wmclock.c:142` `localtime` — single-threaded dockapp, by design;
+  `localtime_r` is a 2-line optional fix (P4).
+- `WPrefs.app/FontSimple.c:524` double→int lossy cast — cosmetic, verify
+  intent (P4).
+- `cpp/poorly-documented-function` 46 — style; no action (bulk documentation
+  pass declined, §4).
 
 ---
 
-### 3.5. Unbounded Writes and String Manipulation (CWE-120 / CWE-787)
-- **`WPrefs.app/WPrefs.c:707, 711`**:
-  `sprintf(mbuf, _("Window Maker domain (%s) is corrupted!"), buffer);`
-  where `mbuf` is `char mbuf[1069];` and `buffer` holds up to 1024 bytes (`fgets(buffer, 1023, file) + strcat(buffer, "/WindowMaker")`). With long localized translation strings and lengthy paths, an overflow can occur.
-  *Remediation*: Use `snprintf(mbuf, sizeof(mbuf), ...)`.
-- **`src/dialog.c:702` & `src/rootmenu.c:1306, 1386, 1422`**:
-  Chained `strcpy()` and `strcat()` calls to build pathnames (`strcpy(path, tmp); strcat(path, "/"); strcat(path, iconFile);`).
-  *Remediation*: Standardize on `wstrconcat()` or `snprintf()`.
-- **`wrlib/load.c:272, 291`**:
-  `RImageCache[i].file = malloc(strlen(file) + 1); strcpy(RImageCache[i].file, file);`
-  *Remediation*: Replace with `RImageCache[i].file = wstrdup(file);`.
+## 4. Recommendation triage (337) — no bulk action (approved decision)
+
+Almost all style/maintainability, largely surfaced by the newly covered files
+(upstream heritage): commented-out-code 117, loop-variable-changed 51
+(idiomatic parsing in dockapps), declaration-hides-* 61, long-switch 34,
+guarded-free 24 (harmless; destructors are NULL-safe per §155), trivial-switch 14,
+short-global-name 14, empty-block 8, fixme-comment 7, futile-conditional 5,
+complex-condition 1. **Decision: skip bulk cleanup** (high churn on upstream
+files, low value); selective removal only where clearly dead, on request.
+
+The one security-adjacent recommendation:
+- `cpp/non-constant-format` — `WINGs/wfilepanel.c:601` `showError()`:
+  `sprintf(errStr, s, file)` with `s` a translated literal from the 5 callers
+  (3 pass file=NULL, 2 pass `floppyPath` with a single `%s`). Buffer sized
+  `strlen(s)+strlen(file)+1` → safe today; a translation adding a `%s` would be
+  UB. Optional refactor to a preformatted message (P3, pending approval).
 
 ---
 
-## 4. Analysis of Relevant Warnings (Severity: WARNING - 179 findings)
+## 5. Remediation record — 2026-11-19 batch (P1 + dead comparisons)
 
-### 4.1. Unchecked `sscanf` Return Values and Use of Uninitialized Variables (CWE-252)
+| Commit | Scope |
+|--------|-------|
+| `36f08483` | baseline csv/sarif committed (522, pre-fix) |
+| `ad949138` | dragsource.c: NULL guards in sendDnDClientMessage/sendEnterMessage (+XDND_DEBUG site), comment corrected |
+| `57326aaf` | properties.c: XAllocClassHint NULL check in PropGetWMClass |
+| `ddf4f69a` | window.c: XAllocClassHint NULL checks in fixLeaderProperties + createFakeWindowGroupLeader, XAllocWMHints bonus |
+| `b8f549ba` | actions.c: 4 dead constant-comparison guards removed |
+| `59f6822e` | KeyboardShortcuts.c: always-true chain_mode removed |
+| `652dc381` | switchmenu.c: dead `idx < 0` conjunct removed |
 
-#### Critical Case in `src/dock.c:4986, 4989`
-- **Code:**
-  ```c
-  int x, y, y_index;
-  if (sscanf(WMGetFromPLString(value), "%i,%i", &x, &y) != 2)
-      COMPLAIN("Position");
+P2 audits (menuparser/handlers callers, new-code path-injection sites) produced
+**no additional code changes** — verdicts recorded in §3.
 
-  /* check position sanity */
-  if (x != scr->dock->x_pos) { ... }
-  y_index = (y - scr->dock->y_pos) / ICON_SIZE;
-  ```
-- **Technical Analysis:**
-  The `COMPLAIN(key)` macro only logs a warning message (`wwarning(...)`) **without halting execution or returning**. If the dock state file contains a malformed position string, `sscanf()` does not populate `x` and `y`. Subsequent lines perform comparisons on `x` and compute `y_index` from **uninitialized stack garbage**, leading to corrupted layout calculations and memory errors.
-- **Verdict:** **REAL DEFECT (Undefined Behavior / Crash Hazard)**.
-- **Remediation:** Initialize `int x = 0, y = 0, y_index = 0;` and, upon `sscanf` failure, skip processing (`continue`) or assign safe default coordinates.
-
-#### Additional Cases:
-- **`src/appmenu.c:149`**: `sscanf` with `%n` specifier (`&pos`). If input terminates before `%n`, `pos` remains unwritten and `slist[*index][pos]` causes out-of-bounds reading. *Remediation: Initialize `int pos = 0;`*.
-- **`WPrefs.app/WPrefs.c:665`**: Version string parsing with two sequential `sscanf` calls. If both fail or match partially, `v1, v2, v3` may be read uninitialized. *Remediation: Initialize `int v1 = 0, v2 = 0, v3 = 0;`*.
-
----
-
-### 4.2. Image Dimension Calculation Overflows in Memory Allocations (CWE-190 - 25 findings)
-
-In 25 locations, predominantly in `wrlib` image loaders and X11 property handlers, byte allocation sizes are computed using 32-bit integer multiplications:
-```c
-/* Representative examples flagged by CodeQL: */
-wrlib/load_jpeg.c:121:  buffer[0] = (JSAMPROW) malloc(cinfo->image_width * cinfo->num_components);
-wrlib/load_tiff.c:90:   ptr = data = (uint32_t *) _TIFFmalloc(width * height * sizeof(uint32_t));
-wrlib/load_webp.c:148:  features.width * features.height * 4
-wrlib/raster.c:219:     memcpy(new_image->data, image->data, image->width * image->height * (HAS_ALPHA(image) ? 4 : 3));
-src/properties.c:197:   memcpy(&tmp[4], image->data, image->width * image->height * 4);
-src/dock.c:3004:        slot_map = wmalloc(mwidth * mwidth);
-```
-- **Risk:** If an image, EWMH icon, or texture specifies large dimensions (e.g., $46341 \times 46341 \times 4$), the 32-bit product wraps around to a small positive value. An undersized buffer is allocated, and the subsequent pixel write destroys heap memory.
-- **Remediation:** Cast dimensions to `size_t` prior to multiplication:
-  ```c
-  (size_t)image->width * (size_t)image->height * 4
-  ```
-  or, in accordance with the C23 modernization plan in `SpecAI.md`, adopt `<stdckdint.h>` with `ckd_mul()`.
-
----
-
-### 4.3. Uncontrolled Process Operation & Script Execution (CWE-078 / CWE-114 - 7 findings)
-- **File & Lines:** [`src/main.c:557, 575`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/main.c#L557)
-- **Code:**
-  ```c
-  void ExecInitScript(void) {
-      ...
-      file = wfindfile(paths, DEF_INIT_SCRIPT);
-      if (file) {
-          if (system(file) != 0) ...
-  ```
-- **Description:** Startup (`autostart`) and exit (`exitscript`) scripts are executed via `system(file)`. If the configuration path or user home directory contains spaces or shell metacharacters, the shell command fails or executes unexpected binaries.
-- **Remediation:** Quote the path string or invoke directly using POSIX `fork()` and `execl()`.
+### Verification evidence
+- Full rebuild (gcc 14.2, project strict flags incl. `-Werror=trampolines`,
+  `-std=gnu23`): **0 errors, 0 warnings**; the 6 touched files recompiled
+  explicitly and checked.
+- clang-23 `-fsyntax-only` with the exact build flags on all 6 touched files:
+  **clean**.
+- `make check`: **4/4 PASS**.
+- `make exit-test`: **3/3 PASS** (SIGTERM exit 0, SIGUSR1 restart, SIGUSR2
+  reload+telemetry).
+- `EXIT_TEST_ARGS=--valgrind make exit-test`: **4/4 PASS**, no invalid memory
+  accesses during shutdown.
+- Isolated Xvfb smoke (`:97`, throw-away HOME, PID-only cleanup,
+  `/tmp/wm_smoke_p1.sh`): **10/10 PASS** — WM registration, xterm management,
+  window-list menu mapping (switchmenu creation), root menu mapping,
+  omnipresent ON/OFF with workspace round-trip (exercises
+  `UpdateSwitchMenu(ACTION_CHANGE_WORKSPACE)` in both directions — the edited
+  switchmenu branch), ShadeKey shade (client unmaps) and titlebar-double-click
+  unshade (client remaps) — exercises both `shade_animate` branches including
+  the edited UNSHADE loop — workspace switch, clean SIGTERM exit 0.
+- `tools/static-analysis.sh check`: cppcheck **1124 → 1121** (style −3, the
+  removed dead code), error 6 / warning 2 / portability 10 unchanged;
+  clang-tidy **443 unchanged**; no regressions. Baseline re-written and
+  committed (`b39c3df7`).
+- Not reproduced at runtime: the mid-drag source-view-destruction scenario
+  (dragsource guard — statically verified, matches the six guarded siblings)
+  and the OOM paths (XAllocClassHint/XAllocWMHints — require fault injection).
+  The WPrefs `capture_shortcut` change is semantically identical (variable
+  always True) and covered by build + clang check.
 
 ---
 
-### 4.4. Ambiguously Signed Bitfield (CWE-197)
-- **File & Line:** [`WINGs/wtext.c:75`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/WINGs/wtext.c#L75)
-- **Code:** `int script:8; /* script in points: negative for subscript */`
-- **Description:** In ANSI/ISO C, a bitfield declared with plain `int` has implementation-defined signedness (compilers may treat it as unsigned). Because the code explicitly relies on negative values for subscript rendering, plain `int` is hazardous and non-portable.
-- **Remediation:** Declare explicitly as `signed int script:8;`.
+## 6. Post-fix re-scan (2026-11-19)
+
+Re-run of `tools/codeql_analysis.sh` (same suite/toolchain, isolated clean
+build) after the six fix commits, committed alongside this report:
+
+**512 findings = 13 error / 162 warning / 337 recommendation** (522 → 512, −10).
+
+- **Closed: exactly the 10 targeted findings, zero new findings** (normalized
+  diff baseline → post-fix):
+  - 4 real errors: dragsource `sourceScreen` nullness (`ad949138`),
+    properties.c `XAllocClassHint` (`57326aaf`), window.c `XAllocClassHint` ×2
+    (`ddf4f69a`);
+  - 6 `cpp/constant-comparison` warnings: actions.c ×4 (`b8f549ba`),
+    KeyboardShortcuts.c (`59f6822e`), switchmenu.c (`652dc381`).
+- The statistical nullness rule produced **no churn**: raising the checked
+  fraction did not surface new sites.
+- **Residual 13 errors = exactly the registered false-positive set** (§7):
+  12 unbounded-write (strlen-sized allocations) + event.c:911 configureMenu
+  (NULL tolerated). No real error remains open.
+- Residual warnings of note: 20 multiplication casts (safe under the current
+  cap, P3 casts pending approval), 62 path-injection (by design), 11 scanf
+  (FP), 46 poorly-documented (style).
 
 ---
 
-### 4.5. Infinite Loop Hazard with Narrow Integer Types (CWE-835)
-- **File & Line:** [`src/wsmap.c:358`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/wsmap.c#L358)
-- **Code:**
-  ```c
-  unsigned short workspace_index;
-  int mini_workspace_cnt;
-  ...
-  for (workspace_index = 0; workspace_index < mini_workspace_cnt; workspace_index++)
-  ```
-- **Description:** Comparison between an unsigned 16-bit counter (`unsigned short`, maximum 65535) and a signed 32-bit limit (`int`). If the limit exceeded 65535, the loop counter would wrap around to zero, creating an infinite loop.
-- **Remediation:** Change declaration to `int workspace_index;`.
+## 7. Report-only suppression registry (approved policy)
 
----
+Andrea chose **report-only** suppression: no in-source `// codeql[...]`
+annotations are added; this registry is the authoritative record of accepted
+findings. Re-scans will keep reporting them; consult this table before
+re-triaging.
 
-### 4.6. Obsolete / Non-Thread-Safe Functions (CWE-676)
-- **Instances:** `src/dialog.c:1268`, `src/screen.c:1314`, `src/telemetry.c:394, 530`.
-- **Description:** Chained usage of the standard C library function `localtime()`, which returns a pointer to a shared static internal buffer.
-- **Remediation:** Systematically migrate to `localtime_r(const time_t *timep, struct tm *result)`.
+| Family | Sites | Verdict / rationale |
+|--------|-------|---------------------|
+| cpp/unbounded-write | userdefaults.c:77/108/110, rootmenu.c:1309/1389/1425/1430/1432, dialog.c:701, getstyle.c:409, load.c:272/291 | FP: destination sized from strlen of the same pieces (§2.2) |
+| cpp/inconsistent-null-check | event.c:911 (configureMenu) | FP: NULL tolerated by all consumers (§2.2) |
+| cpp/missing-check-scanf | WPrefs.c ×7, Focus.c:139, HotCornerShortcuts.c:148, TexturePanel.c:851, appmenu.c:149 | FP: guards verified (§3) |
+| cpp/stack-address-escape | proplist.c:1507/1572/1636 | FP: PLData function-local (§3) |
+| cpp/stack-address-escape | xdnd.c:1593 | mitigated in-tree (user_hook1=NULL), residual alert (§3) |
+| cpp/stack-address-escape | menuparser.c:79, handlers.c:142 | by design, caller audit (§3) |
+| cpp/toctou-race-condition | wfilepanel.c:730, wcolorpanel.c:3129, monitor.c:170 | accepted; Coverity CIDs 1686069/1686074/1686042, §164 rationale (§3) |
+| cpp/path-injection | 62 sites (§3 list) | by design: user-config trust model; telemetry/shutdown hardened (§3) |
+| cpp/uncontrolled-process-operation | main.c:239/560/587, monitor.c:131, WPrefs.c:631 | by design: WM executes user commands (§3) |
+| cpp/world-writable-file-creation | MouseSettings.c:655/670, Appearance.c:467, wmiv.c:508, save_jpeg.c:185, save_png.c:199, save_xpm.c:176 | umask-dependent, user's own files; autostart fchmod'd (§3) |
+| cpp/potentially-dangerous-function | wmclock.c:142 (localtime) | single-threaded dockapp (§3) |
+| style families | 337 recommendations (§4) | no bulk action by decision |
 
----
+## 8. Open items (awaiting explicit approval)
 
-### 4.7. Files Created Without Restricting Permissions (CWE-732 - 10 findings)
-- **Instances:** `src/telemetry.c:252, 446, 526`, `util/wmiv.c:508`, `wrlib/save_jpeg.c:185`, `wrlib/save_png.c:199`, `wrlib/save_xpm.c:176`.
-- **Description:** Files opened or created via `fopen(path, "w")` rely entirely on the process umask, risking world-writable or broadly readable sensitive files (e.g., telemetry logs recording window titles and command executions).
-- **Remediation:** For telemetry and sensitive internal state, restrict file permissions explicitly via `open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600)` followed by `fdopen()`.
-
----
-
-## 5. Analysis of Recommendations and Code Hygiene (331 findings)
-
-### 5.1. Futile Conditionals and Dangerous Empty Branches (17 findings)
-CodeQL flags several empty `if` blocks. Most of these (`src/motif.c:107, 121, 142`) document intentional no-ops where Window Maker ignores specific MWM hints.
-However, **one instance in `src/icon.c:932` represents a critical omission**:
-```c
-if (XGrabPointer(dpy, icon->core->window, False, ButtonMotionMask
-                 | ButtonReleaseMask | ButtonPressMask, GrabModeAsync,
-                 GrabModeAsync, None, None, CurrentTime) != GrabSuccess) {
-}
-while (1) {
-    WMMaskEvent(dpy, PointerMotionMask | ButtonReleaseMask | ButtonPressMask
-                | ButtonMotionMask | ExposureMask, &ev);
-```
-If `XGrabPointer` **fails**, the `if` body is empty and execution falls directly into the blocking `while (1)` loop without having acquired the grab, hanging user interactions or failing to receive release events.
-- **Action:** Add `return;` inside the failure branch of `XGrabPointer`.
-
-### 5.2. Missing Header Guard
-- **File:** [`src/usermenu.h`](file:///home/gelma/dev/prg/intelligenti/wmaker/wmaker_git/src/usermenu.h)
-- **Description:** The include guard `#ifndef _WUSERMENU_H_` is nested inside the feature macro `#ifdef USER_MENU`.
-- **Remediation:** Move `#ifndef _WUSERMENU_H_` to the very top of the header file, outside the conditional feature block.
-
-### 5.3. Unnecessary Guarded Free Calls (22 findings)
-In `src/dock.c:3419`, `src/session.c:272`, `src/window.c:3569`, etc., redundant checks appear:
-```c
-if (ptr)
-    free(ptr);
-```
-Under the ISO C standard, `free(NULL)` is guaranteed to be a safe no-op. The `if (ptr)` guard is redundant and should be removed.
-
-### 5.4. Commented-Out Code (118 findings)
-Historical commented-out blocks (`/* printf(...); */` and obsolete code segments dating back to the late 1990s) clutter source files. These will be progressively removed during module refactoring.
-
----
-
-## 6. Detailed Operational Remediation Plan
-
-### Step 1: Immediate Security & Crash Fixes (Priority P1)
-1. **`util/wmsetbg.c`**: Rewrite `updateDomain()` to eliminate `system()` in favor of direct execution without a shell.
-2. **`WINGs/wcolorpanel.c`**: Expand `char tmp[4]` to `char tmp[32]` with `snprintf()` across all 17 integer formatting call sites.
-3. **`WPrefs.app/Expert.c`**: Expand `char tmp[10]` to `char tmp[32]`.
-4. **`util/xdnd.c`**: Resolve the stack address escape by clearing `dnd.user_hook1 = NULL;` before function return.
-5. **NULL Pointer Guards**: Add `if (!hints)`, `if (!item)`, and `if (!wapp)` guards in `WINGs/wappresource.c`, `WINGs/wfontpanel.c`, `src/winspector.c`, and `src/dock.c:823`.
-
-### Step 2: Logical Integrity & Undefined Behavior (Priority P2)
-1. **`src/dock.c:4986`**: Initialize `x, y` and handle `sscanf()` parse errors safely.
-2. **`src/icon.c:932`**: Handle `XGrabPointer()` failure with immediate `return;` before entering the event mask loop.
-3. **`wrlib/` and `src/properties.c`**: Apply `(size_t)` casts to image dimension calculations prior to `malloc()` / `memcpy()`.
-4. **`WINGs/wtext.c:75`**: Declare explicitly as `signed int script:8;`.
-5. **`src/wsmap.c:358`**: Change loop counter to `int workspace_index;`.
-
-### Step 3: System Hardening & API Cleanup (Priority P3)
-1. **`src/main.c:557, 575`**: Secure startup and exit script invocations.
-2. **`WPrefs.app/WPrefs.c`**: Replace unconstrained `sprintf()` calls with bounded `snprintf()`.
-3. **Thread Safety**: Replace `localtime` with `localtime_r` across core and telemetry modules.
-4. **Header Guard**: Fix include guard order in `src/usermenu.h`.
-
----
-
-## 7. Conclusions
-
-The GitHub CodeQL analysis identified concrete security vulnerabilities and stability defects (notably command injection in `wmsetbg.c`, potential stack corruption in `wcolorpanel.c`, an empty grab failure branch in `icon.c`, and uninitialized reads following `sscanf` failures in `dock.c`).
-
-Executing the remediation plan according to the prioritized phases will significantly elevate Window Maker's safety, security, and software quality baseline while preserving backward compatibility and preparing the codebase for modern C23 language features.
-
----
-
-## 8. Re-Scan Verification & Status Update (2026-11-09)
-
-A fresh static analysis scan was executed across the entire repository using **GitHub CodeQL CLI 2.27.4** with the official `cpp-security-and-quality.qls` query suite (183 rules evaluated against 221 compiled C translation units).
-
-### 8.1. Findings Comparison (Baseline vs Current)
-
-| Severity Level | Baseline (2026-11-05) | Current Scan (2026-11-09) | Net Change |
-|:---|:---:|:---:|:---:|
-| **Error (Critical / Vulnerability)** | 53 | **19** | **-34 (-64.2%)** |
-| **Warning (Robustness / Conversions)** | 179 | **150** | **-29 (-16.2%)** |
-| **Recommendation (Hygiene / Practices)** | 331 | **278** | **-53 (-16.0%)** |
-| **TOTAL** | **563** | **447** | **-116 (-20.6%)** |
-
-### 8.2. Component Breakdown (Current Tree)
-
-| Module / Directory | Error | Warning | Recommendation | Total |
-|:---|:---:|:---:|:---:|:---:|
-| **`src/`** | 9 | 55 | 129 | **193** |
-| **`WINGs/`** | 6 | 17 | 43 | **66** |
-| **`util/`** | 1 | 23 | 54 | **78** |
-| **`WPrefs.app/`** | 1 | 37 | 34 | **72** |
-| **`wrlib/`** | 2 | 18 | 18 | **38** |
-| **TOTAL** | **19** | **150** | **278** | **447** |
-
-### 8.3. Status of Previous Critical Findings
-- **CWE-078 (OS Command Injection in `util/wmsetbg.c:1045`)**: **RESOLVED** (Replaced `system()` with direct process execution).
-- **CWE-120 (Buffer Overrun in `WINGs/wcolorpanel.c` ×17 `char tmp[4]`)**: **RESOLVED** (Expanded stack buffers and bounded formatting).
-- **CWE-120 (`WPrefs.app/Expert.c:411` `char tmp[10]`)**: **RESOLVED**.
-- **CWE-562 (`util/xdnd.c:1596` stack escape)**: **RESOLVED**.
-- **Remaining 19 Errors**:
-  - 12 instances of `Unbounded write` (`rootmenu.c`, `userdefaults.c`, `dialog.c`, `getstyle.c`, `load.c`) are dynamic allocations sized from `strlen` components where CodeQL cannot determine the arithmetic equality (false positives).
-  - 2 instances of float formatting in `sprintf` (`userdefaults.c:601`, `MouseSettings.c:166`).
-  - 4 instances of inconsistent nullness checks (`wwindow.c:427`, `event.c:1402`, `menu.c:199`, `window.c:2032`).
-  - 1 redundant null check (`wfilepanel.c:648`).
-
-> **Post-scan remediation (same day):** the 2 float `sprintf` instances, the 4
-> inconsistent nullness checks and the redundant null check listed above were
-> fixed in `03d4e300`, i.e. *after* the scan that produced §8. This section is a
-> faithful snapshot of that scan, so the live error count is now expected to be
-> lower; the 12 `Unbounded write` false positives remain. A re-scan will refresh
-> this section.
-
+- **P3 remainder:** `(size_t)` casts for the 20 multiplication sites (fragile
+  cap invariant), `showError` refactor (non-constant format).
+- **P4 optional:** `localtime_r` (wmclock), explicit 0700 for autostart
+  creation, FontSimple lossy cast, selective commented-out-code cleanup.
+- Optional diagnosability: wwarning when the root-menu rebuild returns NULL
+  (event.c:911 path).
