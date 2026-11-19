@@ -3061,7 +3061,7 @@ Bool wDockFindFreeSlot(WDock *dock, int *x_pos, int *y_pos)
 
 	r = (mwidth - 1) / 2;
 
-	slot_map = wmalloc(mwidth * mwidth);
+	slot_map = wmalloc((size_t)mwidth * mwidth);
 
 #define XY2OFS(x,y) (WMAX(abs(x),abs(y)) > r) ? 0 : (((y)+r)*(mwidth)+(x)+r)
 

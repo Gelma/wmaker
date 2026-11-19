@@ -471,7 +471,7 @@ static void dumpRImage(const char *path, RImage * image)
 	}
 	fprintf(f, "%02x%02x%1x", image->width, image->height, channels);
 
-	fwrite(image->data, 1, image->width * image->height * channels, f);
+	fwrite(image->data, 1, (size_t)image->width * image->height * channels, f);
 
 	fsync(fileno(f));
 	if (fclose(f) < 0) {
@@ -1364,7 +1364,7 @@ static Pixmap loadRImage(WMScreen * scr, const char *path)
 		fclose(f);
 		return None;
 	}
-	read_size = w * h * d;
+	read_size = (size_t)w * h * d;
 	if (fread(image->data, 1, read_size, f) == read_size)
 		RConvertImage(WMScreenRContext(scr), image, &pixmap);
 	else

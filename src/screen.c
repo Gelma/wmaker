@@ -922,7 +922,7 @@ void wScreenUpdateUsableArea(WScreen *scr)
 			scr->totalUsableArea[i].y2 = rect.pos.y + rect.size.height;
 		}
 
-		tmp_area = (scr->totalUsableArea[i].x2 - scr->totalUsableArea[i].x1) *
+		tmp_area = (size_t)(scr->totalUsableArea[i].x2 - scr->totalUsableArea[i].x1) *
 		    (scr->totalUsableArea[i].y2 - scr->totalUsableArea[i].y1);
 
 		if (tmp_area > best_area) {

@@ -115,7 +115,7 @@ static void resizeBufferData(BufferData * data, int width, int height, int magfa
 	data->buffer = wrealloc(data->buffer, sizeof(unsigned long) * w * h);
 	data->width = w;
 	data->height = h;
-	memset(data->buffer, 0, w * h * sizeof(unsigned long));
+	memset(data->buffer, 0, (size_t)w * h * sizeof(unsigned long));
 
 	WMResizeWidget(data->label, width, height);
 

@@ -1864,7 +1864,7 @@ static wheelMatrix *wheelCreateMatrix(unsigned int width, unsigned int height)
 	matrix->height = height;
 
 	for (i = 0; i < 3; i++) {
-		matrix->data[i] = wmalloc(width * height * sizeof(unsigned char));
+		matrix->data[i] = wmalloc((size_t)width * height * sizeof(unsigned char));
 	}
 
 	return matrix;

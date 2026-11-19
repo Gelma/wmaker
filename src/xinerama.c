@@ -110,7 +110,7 @@ int wGetRectPlacementInfo(WScreen * scr, WMRect rect, int *flags)
 
 		if (a == 0) {
 			*flags |= XFLAG_DEAD;
-		} else if (a != rw * rh) {
+		} else if (a != (size_t)rw * rh) {
 			*flags |= XFLAG_PARTIAL;
 		}
 
@@ -138,7 +138,7 @@ int wGetRectPlacementInfo(WScreen * scr, WMRect rect, int *flags)
 	if (best == -1) {
 		*flags |= XFLAG_DEAD;
 		best = wGetHeadForPointerLocation(scr);
-	} else if (totalArea != rw * rh)
+	} else if (totalArea != (size_t)rw * rh)
 		*flags |= XFLAG_PARTIAL;
 
 	return best;
