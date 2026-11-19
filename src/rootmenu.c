@@ -873,6 +873,14 @@ static WMenuEntry *addWindowsMenu(WScreen *scr, WMenu *menu, const char *title)
 	return entry;
 }
 
+/*
+ * Add one entry to a root menu from a parsed menu-file line.  The
+ * command selects the entry kind: OPEN_MENU/OPEN_PLMENU create a lazy
+ * cascade built by constructMenu() on first use, while EXEC/SHEXEC and
+ * the built-in actions (RESTART, SAVE_SESSION, ...) become direct
+ * callbacks.  When the command supports shortcuts, addShortcut()
+ * registers it and the entry shows the formatted key string.
+ */
 static WMenuEntry *addMenuEntry(WMenu *menu, const char *title, const char *shortcut, const char *command,
 				const char *params, const char *file_name)
 {
@@ -883,6 +891,7 @@ static WMenuEntry *addMenuEntry(WMenu *menu, const char *title, const char *shor
 	if (!menu)
 		return NULL;
 	scr = menu->frame->screen_ptr;
+	/* OPEN_MENU/OPEN_PLMENU: lazy cascade built on first map */
 	if (strcmp(command, "OPEN_MENU") == 0) {
 		if (!params) {
 			wwarning(_("%s:missing parameter for menu command \"%s\""), file_name, command);
@@ -991,11 +1000,13 @@ static WMenuEntry *addMenuEntry(WMenu *menu, const char *title, const char *shor
 		entry = wMenuAddCallback(menu, title, legalPanelCommand, NULL);
 		shortcutOk = True;
 	} else {
+		/* unknown commands are rejected with a warning */
 		wwarning(_("%s:unknown command \"%s\" in menu config."), file_name, command);
 
 		return NULL;
 	}
 
+	/* only commands flagged shortcutOk accept a key binding */
 	if (shortcut && entry) {
 		if (!shortcutOk) {
 			wwarning(_("%s:can't add shortcut for entry \"%s\""), file_name, title);

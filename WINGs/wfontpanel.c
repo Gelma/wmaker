@@ -167,6 +167,12 @@ static void revertClickedAction(WMWidget * w, void *data)
 	/* XXX TODO */
 }
 
+/*
+ * Return the screen's shared font panel, building it on first use and
+ * caching it in scr->sharedFontPanel.  The panel is a split view: the
+ * sample text preview in the upper half, the family/typeface/size lists
+ * in the lower half, and a Set/Revert button row at the bottom.
+ */
 WMFontPanel *WMGetFontPanel(WMScreen * scr)
 {
 	FontPanel *panel;
@@ -174,6 +180,7 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	WMFont *font;
 	int divThickness;
 
+	/* one shared panel per screen, built lazily on first use */
 	if (scr->sharedFontPanel)
 		return scr->sharedFontPanel;
 
@@ -212,6 +219,7 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	white = WMWhiteColor(scr);
 	dark = WMDarkGrayColor(scr);
 
+	/* upper half: editable sample text rendered with the selected font */
 	panel->sampleT = WMCreateTextField(panel->upperF);
 	WMResizeWidget(panel->sampleT, DEF_WIDTH - 20, 50);
 	WMMoveWidget(panel->sampleT, 10, 10);
@@ -219,6 +227,7 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 
 	font = WMBoldSystemFontOfSize(scr, 12);
 
+	/* lower half: family, typeface and size lists driving the preview */
 	panel->famL = WMCreateLabel(panel->lowerF);
 	WMSetWidgetBackgroundColor(panel->famL, dark);
 	WMSetLabelText(panel->famL, _("Family"));
@@ -258,6 +267,7 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	WMReleaseColor(white);
 	WMReleaseColor(dark);
 
+	/* Set/Revert button row; Revert starts hidden */
 	panel->setB = WMCreateCommandButton(panel->win);
 	WMResizeWidget(panel->setB, 70, 24);
 	WMMoveWidget(panel->setB, 240, DEF_HEIGHT - (BUTTON_SPACE_HEIGHT - 5));

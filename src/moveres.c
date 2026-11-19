@@ -2061,6 +2061,18 @@ static int getResizeDirection(WWindow * wwin, int x, int y, int dy, int flags)
 	return dir;
 }
 
+/*
+ * Interactive mouse resize of a window, started by dragging a frame
+ * edge or the resizebar.  After MOVE_THRESHOLD pixels the resize
+ * direction is derived from the original grab point; Shift (or a
+ * mostly-horizontal drag) on the resizebar constrains it horizontally.
+ * The pointer cursor tracks the direction and the keyboard is grabbed
+ * for the duration of the drag.  With opaque_resize the window is
+ * resized live, otherwise a wire frame plus a geometry display is drawn.
+ * Button release commits the geometry, clears the maximized flags on
+ * the axes that changed, and re-arranges icons if the window ended up
+ * on another head with auto_arrange_icons enabled.
+ */
 void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 {
 	XEvent event;
@@ -2197,6 +2209,7 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 					fy = ry1;
 			} else if (abs(orig_x - event.xmotion.x_root) >= MOVE_THRESHOLD
 				   || abs(orig_y - event.xmotion.y_root) >= MOVE_THRESHOLD) {
+				/* the drag passed the threshold: start resizing */
 				int tx, ty;
 				Window junkw;
 				int flags;
@@ -2214,8 +2227,10 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 						     || abs(orig_y - event.xmotion.y_root) < HRESIZE_THRESHOLD))
 					flags |= HCONSTRAIN;
 
+				/* direction from the original grab point; Shift constrains */
 				res = getResizeDirection(wwin, tx, ty, orig_y - event.xmotion.y_root, flags);
 
+				/* keep the pointer cursor in sync with the direction */
 				if (res == (UP | LEFT))
 					XChangeActivePointerGrab(dpy, ButtonMotionMask
 								 | ButtonReleaseMask | ButtonPressMask,
@@ -2277,6 +2292,7 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 					showGeometry(wwin, fx, fy, fx + fw, fy + fh, res);
 				}
 
+				/* live resize vs wire frame + geometry display */
 				if (opaqueResize) {
 					/* Fist clean the geometry line */
 					showGeometry(wwin, fx, fy, fx + fw, fy + fh, res);
@@ -2306,6 +2322,7 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 				WMUnmapWidget(scr->gview);
 				XUngrabServer(dpy);
 
+				/* commit: drop maximized flags on the axes that changed */
 				if (fw != original_fw)
 					wwin->flags.maximized &= ~(MAX_HORIZONTAL | MAX_TOPHALF | MAX_BOTTOMHALF | MAX_MAXIMUS | MAX_CENTRAL);
 
@@ -2328,6 +2345,7 @@ void wMouseResizeWindow(WWindow * wwin, XEvent * ev)
 	}
 
  resize_done:
+	/* re-arrange icons if the window ended up on another head */
 	if (wPreferences.auto_arrange_icons && wXineramaHeads(scr) > 1 && head != wGetHeadForWindow(wwin))
 		wArrangeIcons(scr, True);
 }

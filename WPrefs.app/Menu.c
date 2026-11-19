@@ -1595,6 +1595,13 @@ static Bool notblank(const char *s)
 	return False;
 }
 
+/*
+ * Translate one WPrefs menu item (ItemData) into a WMRootMenu proplist
+ * entry: an array of the title, an optional SHORTCUT pair, the command
+ * and its parameters.  Exec commands containing shell metacharacters
+ * become SHEXEC instead of EXEC; menu items become OPEN_MENU/OPEN_PLMENU.
+ * The command-name strings are cached in statics.
+ */
 static WMPropList *processData(const char *title, ItemData * data)
 {
 	WMPropList *item;
@@ -1607,6 +1614,7 @@ static WMPropList *processData(const char *title, ItemData * data)
 	if (data == NULL)
 		return NULL;
 
+	/* cache the reused command-name strings */
 	if (!pscut) {
 		pscut = WMCreatePLString("SHORTCUT");
 		pomenu = WMCreatePLString("OPEN_MENU");
@@ -1620,6 +1628,7 @@ static WMPropList *processData(const char *title, ItemData * data)
 		if (data->param.exec.command == NULL)
 			goto return_null;
 
+		/* shell metacharacters force the SHEXEC (shell) path */
 		if (strpbrk(data->param.exec.command, "&$*|><?`=;")) {
 			s1 = "SHEXEC";
 		} else {
@@ -1671,6 +1680,7 @@ static WMPropList *processData(const char *title, ItemData * data)
 		else
 			WMAddToPLArray(item, pomenu);
 
+		/* "| " caches the pipe output, "|| " re-runs it on each map */
 		if (data->param.pipe.cached)
 			s1 = wstrconcat("| ", data->param.pipe.command);
 		else
@@ -1700,6 +1710,7 @@ static WMPropList *processData(const char *title, ItemData * data)
 
 			WMAddToPLArray(item, pomenu);
 
+			/* directory menu: optional -noext, path and the WITH command */
 			tmp = wmalloc(l);
 			sprintf(tmp, "%s%s WITH %s",
 				data->param.directory.stripExt ? "-noext " : "",

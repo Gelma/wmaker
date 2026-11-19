@@ -68,6 +68,13 @@ static int errorHandler(Display * dpy, XErrorEvent * err)
 
 #endif
 
+/*
+ * Create an RXImage (XImage wrapper) for the given context, depth and
+ * size.  With USE_XSHM the pixel buffer is a MIT-SHM segment attached
+ * to the server; a failed attach (BadAccess handler sets shmError)
+ * falls back to a plain XImage.  Without SHM the buffer is page-aligned
+ * on Linux and madvise()d for huge pages and KSM merging.
+ */
 RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned height)
 {
 	RXImage *rximg;
@@ -89,6 +96,7 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		size_t xsize = (size_t)rximg->image->bytes_per_line * height;
 #ifdef __linux__
 		void *xdata = NULL;
+		/* page-aligned buffer; hint huge pages and KSM merging */
 		if (xsize >= 4096 && posix_memalign(&xdata, 4096, xsize) == 0) {
 			rximg->image->data = xdata;
 			if (xsize >= 2 * 1024 * 1024)
@@ -108,6 +116,7 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		return NULL;
 	}
 #else				/* USE_XSHM */
+	/* SHM disabled or previously failed: plain XImage path */
 	if (!context->attribs->use_shared_memory) {
  retry_without_shm:
 
@@ -149,6 +158,7 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		rximg->image = XShmCreateImage(context->dpy, visual, depth,
 					       ZPixmap, NULL, &rximg->info, width, height);
 
+		/* private SHM segment sized for the whole image */
 		rximg->info.shmid = shmget(IPC_PRIVATE, (size_t)rximg->image->bytes_per_line * (size_t)height, IPC_CREAT | 0777);
 		if (rximg->info.shmid < 0) {
 			context->attribs->use_shared_memory = 0;
@@ -167,6 +177,8 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 			goto retry_without_shm;
 		}
 
+		/* probe the attach with a temporary error handler; on failure
+		 * detach, remove the segment and retry without SHM */
 		shmError = 0;
 		XSync(context->dpy, False);
 		oldErrorHandler = XSetErrorHandler(errorHandler);
