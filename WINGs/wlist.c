@@ -228,7 +228,6 @@ void WMRemoveListItem(WMList * lPtr, int row)
 
 	CHECK_CLASS(lPtr, WC_List);
 
-	/*wassertr(row>=0 && row<WMGetArrayItemCount(lPtr->items)); */
 	if (row < 0 || row >= WMGetArrayItemCount(lPtr->items))
 		return;
 

@@ -441,7 +441,6 @@ void W_MoveView(W_View * view, int x, int y)
 
 void W_ResizeView(W_View * view, unsigned int width, unsigned int height)
 {
-	/*int shrinked; */
 
 	if (view->delegate && view->delegate->willResize) {
 		(*view->delegate->willResize) (view->delegate, view, &width, &height);
@@ -453,7 +452,6 @@ void W_ResizeView(W_View * view, unsigned int width, unsigned int height)
 	if (view->size.width == width && view->size.height == height)
 		return;
 
-	/*shrinked = width < view->size.width || height < view->size.height; */
 
 	if (view->flags.realized) {
 		XResizeWindow(view->screen->display, view->window, width, height);

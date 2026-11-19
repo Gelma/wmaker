@@ -52,24 +52,18 @@ void WMDeleteSelectionHandler(WMView * view, Atom selection, Time timestamp)
 	if (!selHandlers)
 		return;
 
-	/*//printf("deleting selection handler for %d", win); */
-
 	WM_ITERATE_ARRAY(selHandlers, handler, iter) {
 		if (handler->view == view && (handler->selection == selection || selection == None)
 		    && (handler->timestamp == timestamp || timestamp == CurrentTime)) {
 
 			if (handler->flags.done_pending) {
 				handler->flags.delete_pending = 1;
-				/*//puts(": postponed because still pending"); */
 				return;
 			}
-			/*//printf(": found & removed"); */
 			WMRemoveFromArray(selHandlers, handler);
 			break;
 		}
 	}
-
-	/*//printf("\n"); */
 
 	XGrabServer(dpy);
 	if (XGetSelectionOwner(dpy, selection) == win) {
@@ -122,8 +116,6 @@ static Bool writeSelection(Display * dpy, Window requestor, Atom property, Atom 
 
 	bpi = format / 8;
 
-	/* printf("write to %x: %s\n", requestor, XGetAtomName(dpy, property)); */
-
 	oldHandler = XSetErrorHandler(handleXError);
 
 	gotXError = False;
@@ -141,8 +133,6 @@ static Bool writeSelection(Display * dpy, Window requestor, Atom property, Atom 
 static void notifySelection(XEvent * event, Atom prop)
 {
 	XEvent ev;
-
-	/* printf("event to %x\n", event->xselectionrequest.requestor); */
 
 	memset(&ev, 0, sizeof(ev));
 	ev.xselection.type = SelectionNotify;
@@ -357,17 +347,6 @@ static void handleNotifyEvent(XEvent * event)
 
 void W_HandleSelectionEvent(XEvent * event)
 {
-	/*//printf("%d received selection ", event->xany.window); */
-	/*//switch(event->type) {
-	   case SelectionNotify:
-	   puts("notify"); break;
-	   case SelectionRequest:
-	   puts("request"); break;
-	   case SelectionClear:
-	   puts("clear"); break;
-	   default:
-	   puts("unknown"); break;
-	   } */
 
 	if (event->type == SelectionNotify) {
 		handleNotifyEvent(event);
@@ -387,8 +366,6 @@ Bool WMCreateSelectionHandler(WMView * view, Atom selection, Time timestamp, WMS
 	}
 
 	WMPostNotificationName(WMSelectionOwnerDidChangeNotification, (void *)selection, (void *)view);
-
-	/*//printf("created selection handler for %d\n", W_VIEW_DRAWABLE(view)); */
 
 	handler = wmalloc(sizeof(SelectionHandler));
 	handler->view = view;

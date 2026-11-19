@@ -2003,7 +2003,6 @@ static void wheelRender(W_ColorPanel * panel)
 	unsigned char *ptr;
 	RColor gray;
 	unsigned long ofs = 0;
-	/*unsigned char     shift = getShift(sizeof(unsigned char)); */
 
 	image = RCreateImage(colorWheelSize + 4, colorWheelSize + 4, True);
 	if (!image) {

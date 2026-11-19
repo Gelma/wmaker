@@ -427,7 +427,6 @@ static void handleKeyPress2(XEvent * event, void *clientData)
 		if (panel->altBtn) {
 			WMPerformButtonClick(panel->altBtn);
 		} else {
-			/*           printf("got esc\n"); */
 			WMBreakModalLoop(WMWidgetScreen(panel->win));
 			panel->result = WAPRDefault;
 		}

@@ -957,7 +957,6 @@ static void handleTextFieldKeyPress(TextField * tPtr, XEvent * event)
 	Bool shifted, controled, modified;
 	Bool relay = True;
 
-	/*printf("(%d,%d) -> ", tPtr->selection.position, tPtr->selection.count); */
 	if (((XKeyEvent *) event)->state & WM_EMACSKEYMASK)
 		control_pressed = 1;
 
@@ -966,7 +965,6 @@ static void handleTextFieldKeyPress(TextField * tPtr, XEvent * event)
 	modified = shifted || controled;
 
 	count = W_LookupString(tPtr->view, &event->xkey, buffer, 63, &ksym, NULL);
-	//count = XLookupString(&event->xkey, buffer, 63, &ksym, NULL);
 	buffer[count] = '\0';
 
 	switch (ksym) {
@@ -1249,7 +1247,6 @@ static void handleTextFieldKeyPress(TextField * tPtr, XEvent * event)
 		}
 	}
 
-	/*printf("(%d,%d)\n", tPtr->selection.position, tPtr->selection.count); */
 
 	if (textEvent) {
 		WMNotification *notif = WMCreateNotification(textEvent, tPtr, data);
@@ -1272,7 +1269,6 @@ static void handleTextFieldKeyPress(TextField * tPtr, XEvent * event)
 	if (refresh)
 		paintTextField(tPtr);
 
-	/*printf("(%d,%d)\n", tPtr->selection.position, tPtr->selection.count); */
 }
 
 static int pointToCursorPosition(TextField * tPtr, int x)

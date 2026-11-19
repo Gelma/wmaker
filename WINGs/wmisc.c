@@ -266,10 +266,6 @@ W_PaintTextAndImage(W_View * view, int wrap, WMColor * textColor, W_Font * font,
 		case WIPImageOnly:
 			ix = (view->size.width - image->width) / 2;
 			iy = (view->size.height - image->height) / 2;
-			/*
-			   x = 2;
-			   y = 0;
-			 */
 			break;
 
 		case WIPLeft:

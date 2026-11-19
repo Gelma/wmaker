@@ -71,7 +71,6 @@ void WMEmptyArray(WMArray * array)
 			array->destructor(array->items[array->itemCount]);
 		}
 	}
-	/*memset(array->items, 0, array->itemCount * sizeof(void*)); */
 	array->itemCount = 0;
 }
 

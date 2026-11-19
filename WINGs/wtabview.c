@@ -471,7 +471,6 @@ void WMSelectTabViewItemAtIndex(WMTabView * tPtr, int index)
 static void recalcTabWidth(TabView * tPtr)
 {
 	int i;
-	/*int twidth = W_VIEW(tPtr)->size.width; */
 	int width;
 
 	if (tPtr->flags.uniformTabs) {

@@ -6,7 +6,6 @@
 typedef struct W_TreeNode {
 	void *data;
 
-	/*unsigned int uflags:16; */
 
 	WMArray *leaves;
 
@@ -45,7 +44,6 @@ WMTreeNode *WMCreateTreeNodeWithDestructor(void *data, WMFreeDataProc * destruct
 	aNode->parent = NULL;
 	aNode->depth = 0;
 	aNode->leaves = NULL;
-	/*aNode->leaves = WMCreateArrayWithDestructor(1, destroyNode); */
 
 	return aNode;
 }

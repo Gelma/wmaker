@@ -285,7 +285,6 @@ static void drawBalloon(WMScreen * scr, Pixmap bitmap, Pixmap pix, int x, int y,
 		ipt[2].y = pt[2].y + 1;
 	}
 
-	/*w1 = WMAX(h, 24); */
 	w1 = WMAX(h, 21);
 
 	if (side & RIGHT) {
@@ -295,9 +294,6 @@ static void drawBalloon(WMScreen * scr, Pixmap bitmap, Pixmap pix, int x, int y,
 		ipt[0].x = x + 1 + w - w1 + 2 * (w1 - 1) / 16;
 		ipt[1].x = x + 1 + w - w1 + 11 * (w1 - 1) / 16;
 		ipt[2].x = x + 1 + w - w1 + 7 * (w1 - 1) / 16;
-		/*ipt[0].x = pt[0].x+1;
-		   ipt[1].x = pt[1].x;
-		   ipt[2].x = pt[2].x; */
 	} else {
 		pt[0].x = x + w1 - 2 * w1 / 16;
 		pt[1].x = x + w1 - 11 * w1 / 16;
@@ -305,9 +301,6 @@ static void drawBalloon(WMScreen * scr, Pixmap bitmap, Pixmap pix, int x, int y,
 		ipt[0].x = x - 1 + w1 - 2 * (w1 - 1) / 16;
 		ipt[1].x = x - 1 + w1 - 11 * (w1 - 1) / 16;
 		ipt[2].x = x - 1 + w1 - 7 * (w1 - 1) / 16;
-		/*ipt[0].x = pt[0].x-1;
-		   ipt[1].x = pt[1].x;
-		   ipt[2].x = pt[2].x; */
 	}
 
 	XFillPolygon(dpy, bitmap, bgc, pt, 3, Convex, CoordModeOrigin);

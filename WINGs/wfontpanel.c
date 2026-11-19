@@ -180,7 +180,6 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	panel = wmalloc(sizeof(FontPanel));
 
 	panel->win = WMCreateWindow(scr, "fontPanel");
-	/*    WMSetWidgetBackgroundColor(panel->win, WMWhiteColor(scr)); */
 	WMSetWindowTitle(panel->win, _("Font Panel"));
 	WMResizeWidget(panel->win, DEF_WIDTH, DEF_HEIGHT);
 	WMSetWindowMinSize(panel->win, MIN_WIDTH, MIN_HEIGHT);
@@ -198,7 +197,6 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	WMSetFrameRelief(panel->upperF, WRFlat);
 	WMSetViewNotifySizeChanges(WMWidgetView(panel->upperF), True);
 	panel->lowerF = WMCreateFrame(panel->win);
-	/*    WMSetWidgetBackgroundColor(panel->lowerF, WMBlackColor(scr)); */
 	WMSetFrameRelief(panel->lowerF, WRFlat);
 	WMSetViewNotifySizeChanges(WMWidgetView(panel->lowerF), True);
 
@@ -252,7 +250,6 @@ WMFontPanel *WMGetFontPanel(WMScreen * scr)
 	WMSetLabelTextAlignment(panel->sizL, WACenter);
 
 	panel->sizT = WMCreateTextField(panel->lowerF);
-	/*    WMSetTextFieldAlignment(panel->sizT, WARight); */
 
 	panel->sizLs = WMCreateList(panel->lowerF);
 	WMSetListAction(panel->sizLs, sizeClick, panel);
@@ -338,7 +335,6 @@ void WMSetFontPanelFont(WMFontPanel * panel, const char *fontName)
 	} else {
 		/* maybe its proper xlfd and we can convert it to an FcPattern */
 		pattern = XftXlfdParse(fontName, False, False);
-		/*//FcPatternPrint(pattern); */
 	}
 
 	if (!pattern)

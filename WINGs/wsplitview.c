@@ -30,7 +30,6 @@ typedef struct W_SplitView {
 		unsigned int subviewsWereManuallyMoved:1;
 	} flags;
 
-	/* WMSplitViewResizeSubviewsProc *resizeSubviewsProc; */
 
 } W_SplitView;
 

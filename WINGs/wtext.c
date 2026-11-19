@@ -187,7 +187,6 @@ static void output(char *ptr, int len)
 	s = wmalloc(len + 1);
 	memcpy(s, ptr, len);
 	s[len] = 0;
-	/* printf(" s is [%s] (%d)\n",  s, strlen(s)); */
 	printf("[%s]\n", s);
 	wfree(s);
 }
@@ -1039,7 +1038,7 @@ static void cursorToTextPosition(Text * tPtr, int x, int y)
 			if ((dir ? tb->next : tb->prior)) {
 				tb = (dir ? tb->next : tb->prior);
 			} else {
-				break;	/* goto _doneH; */
+				break;
 			}
 		}
 	}
@@ -1407,7 +1406,6 @@ static int layOutLine(Text * tPtr, myLineItems * items, int nitems, int x, int y
 
 		} else {
 			font = (tPtr->flags.monoFont) ? tPtr->dFont : tb->d.font;
-			/*max_d = WMAX(max_d, abs(font->height-font->y)); */
 			max_d = 2;
 			line_height = WMAX(line_height, font->height + max_d);
 			text = &(tb->text[items[i].begin]);
@@ -2148,17 +2146,12 @@ static void autoSelectText(Text * tPtr, int clicks)
 		switch (tb->text[tPtr->tpos]) {
 		case ' ':
 			return;
-			/*
-			   case '<': case '>': behind = '<'; ahead = '>'; break;
-			   case '{': case '}': behind = '{'; ahead = '}'; break;
-			   case '[': case ']': behind = '['; ahead = ']'; break;
-			 */
 		default:
 			behind = ahead = ' ';
 		}
 
 		tPtr->sel.y = tPtr->cursor.y + 5;
-		tPtr->sel.h = 6;	/*tPtr->cursor.h-10; */
+		tPtr->sel.h = 6;
 
 		if (tb->graphic) {
 			tPtr->sel.x = tb->sections[0].x;

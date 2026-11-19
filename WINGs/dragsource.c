@@ -927,7 +927,6 @@ Bool WMIsDraggingFromView(WMView * view)
 	WMDraggingInfo *info = &W_VIEW_SCREEN(view)->dragInfo;
 
 	return (XDND_SOURCE_INFO(info) != NULL && XDND_SOURCE_STATE(info) != finishDropState);
-	/* return W_VIEW_SCREEN(view)->dragInfo.sourceInfo != NULL; */
 }
 
 void WMDragImageFromView(WMView * view, XEvent * event)

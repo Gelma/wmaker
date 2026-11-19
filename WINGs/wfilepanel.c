@@ -148,7 +148,6 @@ static void textChangedObserver(void *observerData, WMNotification * notificatio
 			range.position = textLen;
 			range.count = itemTextLen - textLen;
 			WMSelectTextFieldRange(panel->fileField, range);
-			/*WMSetTextFieldCursorPosition(panel->fileField, itemTextLen); */
 		}
 	}
 

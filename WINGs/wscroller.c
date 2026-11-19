@@ -193,7 +193,6 @@ void WMSetScrollerParameters(WMScroller * sPtr, float floatValue, float knobProp
 	if (sPtr->view->flags.realized)
 		paintScroller(sPtr);
 
-	/*   WMPostNotificationName(WMScrollerDidScrollNotification, sPtr, NULL); */
 }
 
 float WMGetScrollerKnobProportion(WMScroller * sPtr)

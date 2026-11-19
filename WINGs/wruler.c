@@ -486,7 +486,6 @@ void WMSetRulerOffset(WMRuler * rPtr, int pixels)
 	if (!rPtr || pixels < 0 || pixels + MIN_DOC_WIDTH >= rPtr->view->size.width)
 		return;
 	rPtr->offset = pixels;
-	/*rulerDidResize(rPtr, rPtr->view); */
 }
 
 int WMGetRulerOffset(WMRuler * rPtr)
