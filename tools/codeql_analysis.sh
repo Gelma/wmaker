@@ -190,7 +190,7 @@ preflight() {
 		[[ -d "$REUSE_DB" ]] || die "Database directory not found: $REUSE_DB"
 		[[ -f "$REUSE_DB/codeql-database.yml" ]] || die "Not a CodeQL database: $REUSE_DB"
 	else
-		for tool in git make autoconf automake libtool autopoint pkg-config; do
+		for tool in git tar make autoconf automake libtool autopoint pkg-config; do
 			command -v "$tool" >/dev/null 2>&1 || die "Required build tool not found: $tool"
 		done
 		[[ -x "$CC_BIN" ]] || die "Compiler not executable at: $CC_BIN"
@@ -204,21 +204,26 @@ preflight() {
 
 create_database() {
 	local db_target="$1"
+	local relpath
 	local -a codeql_flags=("--threads=${THREADS}")
 
 	if [[ -n "$RAM_MB" ]]; then
 		codeql_flags+=("--ram=${RAM_MB}")
 	fi
 
-	log "Copying repository working tree to isolated build dir: $WORKDIR"
-	cp -af "$REPO_ROOT/." "$WORKDIR/"
+	log "Copying tracked repository files to isolated build dir: $WORKDIR"
+	(
+		cd -- "$REPO_ROOT"
+		git ls-files -z | while IFS= read -r -d '' relpath; do
+			if [[ -e "$relpath" || -L "$relpath" ]]; then
+				printf '%s\0' "$relpath"
+			fi
+		done | tar --null -T - -cf -
+	) | tar -xf - -C "$WORKDIR"
 
 	(
 		cd -- "$WORKDIR"
-		[[ -d .git && "$PWD" != "$REPO_ROOT" ]] || die "Safety check failed in $WORKDIR"
-
-		log "Cleaning copied tree (git clean -xdf)..."
-		git clean -xdf >/dev/null
+		[[ -f configure.ac && "$PWD" != "$REPO_ROOT" ]] || die "Safety check failed in $WORKDIR"
 
 		log "Running ./autogen.sh..."
 		./autogen.sh
