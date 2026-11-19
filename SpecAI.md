@@ -1877,5 +1877,14 @@ memcheck), not bad luck. The scripts now kill only the PID they started (`WM=$!`
 - `CoverityReport/cid_1686058.json` flagged `pevent->name` inside `handle_inotify_events()` as a 1-byte `OVERRUN` (`1344 bytes at byte offset 1344`): Coverity typed `buff` as 85 `16`-byte `struct inotify_event` slots, inferred `i <= 1344` from `while (i + 16 <= eventQLength)`, and did not propagate the three-variable check `i + 16 + pevent->len <= eventQLength` across `if (pevent->len > 0)`. Computing `name_off = i + sizeof(struct inotify_event)` explicitly, checking `name_off < sizeof(buff)`, and copying from `&buff[name_off]` bounded by `avail = sizeof(buff) - name_off` makes both buffers provably safe under single-variable interval analysis.
 - Previously, `inotifyWatchConfig()` watched `IN_ALL_EVENTS` (including `IN_OPEN`/`IN_ACCESS`/`IN_CLOSE_NOWRITE` whenever anything read `~/GNUstep/Defaults`) and `handle_inotify_events()` unconditionally called `wKeyTreeRebuild(scr)` across all screens at the end of every read—explaining the `11,388` `Key Grabs Installed` counter seen in the native session.
 
+## 168. CodeQL Automation Script (2026-11-19)
+
+Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to automate clean CodeQL C/C++ extraction, query evaluation, and report generation into `QLCodeAnalysis/`:
+
+- **Isolated clean build**: Copies the current repository working tree to `/tmp/.wmaker-codeql.XXXXXXXX`, runs `git clean -xdf`, `./autogen.sh`, and `./configure` (matching the full production feature set: `--enable-debug --enable-modelock --enable-xinerama --enable-randr --enable-usermenu --enable-sni`) with `CC=/usr/bin/gcc` and `CCACHE_DISABLE=1` so `ccache` cannot bypass CodeQL's build tracer (§153).
+- **Toolchain & suite**: Uses `/opt/dev/codeql/codeql` (overridable via `CODEQL_BIN`) and defaults to `codeql/cpp-queries:codeql-suites/cpp-security-and-quality.qls` (183 queries), verified upfront via `codeql resolve queries`.
+- **Single-evaluation SARIF + CSV export**: Evaluates queries once with `codeql database analyze --format=sarif-latest` to a temporary file and converts the stored BQRS results to CSV via `codeql database interpret-results --format=csv`, then atomically replaces `QLCodeAnalysis/wmaker-results.sarif` and `QLCodeAnalysis/wmaker-results.csv` and prints a severity, component, and top-rule summary.
+- **Flags**: `--out-dir`, `--suite`, `--keep-db` (persists gitignored `./codeql-db`), `--db-dir`, `--reuse-db`, `--threads`, `--jobs`, `--ram`, `--keep-workdir`.
+- **Verification**: `bash -n tools/codeql_analysis.sh` and `shellcheck tools/codeql_analysis.sh` both pass with 0 warnings; `--help`, error paths, and CSV summary formatting against existing `QLCodeAnalysis/wmaker-results.csv` were verified.
 
 
