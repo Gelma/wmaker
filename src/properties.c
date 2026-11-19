@@ -24,6 +24,7 @@
 #include <X11/Xatom.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "WindowMaker.h"
 #include "window.h"
@@ -176,10 +177,19 @@ void PropSetIconTileHint(WScreen * scr, RImage * image)
 {
 	static Atom imageAtom = 0;
 	unsigned char *tmp;
+	size_t pixels, nbytes;
 	int x, y;
 
 	if (scr->info_window == None)
 		return;
+
+	if (image->width <= 0 || image->height <= 0)
+		return;
+
+	pixels = (size_t)image->width * (size_t)image->height;
+	if (pixels > ((size_t)INT_MAX - 4) / 4)
+		return;
+	nbytes = pixels * 4 + 4;
 
 	if (!imageAtom) {
 		/*
@@ -189,7 +199,7 @@ void PropSetIconTileHint(WScreen * scr, RImage * image)
 		imageAtom = XInternAtom(dpy, "_RGBA_IMAGE", False);
 	}
 
-	tmp = malloc(image->width * image->height * 4 + 4);
+	tmp = malloc(nbytes);
 	if (!tmp) {
 		wwarning("could not allocate memory to set _WINDOWMAKER_ICON_TILE hint");
 		return;
@@ -201,7 +211,7 @@ void PropSetIconTileHint(WScreen * scr, RImage * image)
 	tmp[3] = image->height & 0xff;
 
 	if (image->format == RRGBAFormat) {
-		memcpy(&tmp[4], image->data, (size_t)image->width * image->height * 4);
+		memcpy(&tmp[4], image->data, pixels * 4);
 	} else {
 		unsigned char *ptr = tmp + 4;
 		unsigned char *src = (unsigned char *)image->data;
@@ -217,7 +227,7 @@ void PropSetIconTileHint(WScreen * scr, RImage * image)
 	}
 
 	XChangeProperty(dpy, scr->info_window, w_global.atom.wmaker.icon_tile,
-			imageAtom, 8, PropModeReplace, tmp, image->width * image->height * 4 + 4);
+			imageAtom, 8, PropModeReplace, tmp, (int)nbytes);
 	wfree(tmp);
 
 }
