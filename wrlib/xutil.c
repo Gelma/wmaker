@@ -175,7 +175,6 @@ RXImage *RCreateXImage(RContext * context, int depth, unsigned width, unsigned h
 		XSetErrorHandler(oldErrorHandler);
 
 		rximg->image->data = rximg->info.shmaddr;
-		/*      rximg->image->obdata = &(rximg->info); */
 
 		if (shmError) {
 			fprintf(stderr, _("wrlib: could not attach shared memory segment to XImage\n"));
