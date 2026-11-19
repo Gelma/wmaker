@@ -707,15 +707,19 @@ static void fixLeaderProperties(WWindow *wwin)
 	for (i = 0; i < 2; i++) {
 		window = leaders[i];
 		if (window) {
-			if (XGetClassHint(dpy, window, classHint) == 0) {
-				classHint->res_name = wwin->wm_instance;
-				classHint->res_class = wwin->wm_class;
-				XSetClassHint(dpy, window, classHint);
-			} else {
-				if (classHint->res_name)
-					XFree(classHint->res_name);
-				if (classHint->res_class)
-					XFree(classHint->res_class);
+			/* classHint is NULL only on Xlib OOM: skip the class-hint
+			 * propagation but still fix group/command/notifications. */
+			if (classHint) {
+				if (XGetClassHint(dpy, window, classHint) == 0) {
+					classHint->res_name = wwin->wm_instance;
+					classHint->res_class = wwin->wm_class;
+					XSetClassHint(dpy, window, classHint);
+				} else {
+					if (classHint->res_name)
+						XFree(classHint->res_name);
+					if (classHint->res_class)
+						XFree(classHint->res_class);
+				}
 			}
 			hints = XGetWMHints(dpy, window);
 			if (hints) {
@@ -741,7 +745,8 @@ static void fixLeaderProperties(WWindow *wwin)
 		}
 	}
 
-	XFree(classHint);
+	if (classHint)
+		XFree(classHint);
 	if (clientHints)
 		XFree(clientHints);
 	if (haveCommand)
@@ -757,24 +762,29 @@ static Window createFakeWindowGroupLeader(WScreen *scr, Window win, char *instan
 	char **argv;
 
 	leader = XCreateSimpleWindow(dpy, scr->root_win, 10, 10, 10, 10, 0, 0, 0);
-	/* set class hint */
+	/* set class hint (XAllocClassHint can return NULL on OOM) */
 	classHint = XAllocClassHint();
-	classHint->res_name = instance;
-	classHint->res_class = class;
-	XSetClassHint(dpy, leader, classHint);
-	XFree(classHint);
+	if (classHint) {
+		classHint->res_name = instance;
+		classHint->res_class = class;
+		XSetClassHint(dpy, leader, classHint);
+		XFree(classHint);
+	}
 
 	/* inherit these from the original leader if available */
 	hints = XGetWMHints(dpy, win);
 	if (!hints) {
 		hints = XAllocWMHints();
-		hints->flags = 0;
+		if (hints)
+			hints->flags = 0;
 	}
-	/* set window group leader to self */
-	hints->window_group = leader;
-	hints->flags |= WindowGroupHint;
-	XSetWMHints(dpy, leader, hints);
-	XFree(hints);
+	if (hints) {
+		/* set window group leader to self */
+		hints->window_group = leader;
+		hints->flags |= WindowGroupHint;
+		XSetWMHints(dpy, leader, hints);
+		XFree(hints);
+	}
 
 	if (XGetCommand(dpy, win, &argv, &argc) != 0 && argc > 0) {
 		XSetCommand(dpy, leader, argv, argc);
