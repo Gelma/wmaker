@@ -357,7 +357,6 @@ char *capture_shortcut(Display *dpy, Bool *capturing, Bool convert_case)
 	char *key;
 	unsigned int numlock_mask;
 	Bool have_key = False;
-	Bool chain_mode;
 	int timeout_ms;
 
 	timeout_ms = GetIntegerForKey("KeychainTimeoutDelay");
@@ -394,9 +393,9 @@ char *capture_shortcut(Display *dpy, Bool *capturing, Bool convert_case)
 		WMHandleEvent(&ev);
 	}
 
-	/* ---- Phase 2: collect additional chain keys with timeout ---- */
-	chain_mode = (timeout_ms > 0);
-	while (*capturing && chain_mode) {
+	/* ---- Phase 2: collect additional chain keys with timeout ----
+	 * timeout_ms is clamped to >= 1 above, so chaining is always enabled. */
+	while (*capturing) {
 		int xfd = ConnectionNumber(dpy);
 		fd_set rfds;
 		struct timeval tv;
