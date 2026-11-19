@@ -1,7 +1,7 @@
-cppcheck total 1124
+cppcheck total 1121
 cppcheck error 6
 cppcheck portability 10
-cppcheck style 1106
+cppcheck style 1103
 cppcheck warning 2
 tidy total 443
 tidy bugprone-assignment-in-if-condition 1
