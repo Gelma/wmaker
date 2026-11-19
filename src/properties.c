@@ -52,6 +52,13 @@ int PropGetWMClass(Window window, char **wm_class, char **wm_instance)
 	XClassHint *class_hint;
 
 	class_hint = XAllocClassHint();
+	if (!class_hint) {
+		/* Xlib allocation can fail on OOM (unlike wmalloc): fall back
+		 * to the same defaults used when the property is unreadable. */
+		*wm_class = strdup("default");
+		*wm_instance = strdup("default");
+		return False;
+	}
 	if (XGetClassHint(dpy, window, class_hint) == 0) {
 		*wm_class = strdup("default");
 		*wm_instance = strdup("default");
