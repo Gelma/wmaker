@@ -139,8 +139,16 @@ int main(int argc, char **argv)
 
 	while (running) {
 		time_t now = time(NULL);
-		struct tm *tm = localtime(&now);
+		struct tm tm_buf;
+		struct tm *tm = localtime_r(&now, &tm_buf);
 		char date_buf[32];
+
+		if (!tm) {
+			/* unrepresentable time: draw midnight rather than crash,
+			 * keeping the loop's event handling and 1s cadence */
+			memset(&tm_buf, 0, sizeof(tm_buf));
+			tm = &tm_buf;
+		}
 
 		/* Background */
 		XSetForeground(dpy, gc, col_bg);
