@@ -351,7 +351,7 @@ void UpdateSwitchMenu(WScreen * scr, WWindow * wwin, int action)
 						it = entry->flags.indicator_type;
 						ion = entry->flags.indicator_on;
 
-						if (!IS_OMNIPRESENT(wwin) && idx < 0) {
+						if (!IS_OMNIPRESENT(wwin)) {
 							idx = menuIndexForWindow(switchmenu, wwin, i);
 						}
 
