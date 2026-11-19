@@ -348,8 +348,8 @@ static RXImage *image2TrueColor(RContext * ctx, RImage * image)
 			signed char *nerr;
 			int ch = (HAS_ALPHA(image) ? 4 : 3);
 
-			err = malloc(ch * (image->width + 2));
-			nerr = malloc(ch * (image->width + 2));
+			err = malloc((size_t)ch * (image->width + 2));
+			nerr = malloc((size_t)ch * (image->width + 2));
 			if (!err || !nerr) {
 				NFREE(err);
 				NFREE(nerr);
@@ -358,8 +358,8 @@ static RXImage *image2TrueColor(RContext * ctx, RImage * image)
 				return NULL;
 			}
 
-			memset(err, 0, ch * (image->width + 2));
-			memset(nerr, 0, ch * (image->width + 2));
+			memset(err, 0, (size_t)ch * (image->width + 2));
+			memset(nerr, 0, (size_t)ch * (image->width + 2));
 
 			convertTrueColor_generic(ximg, image, err, nerr,
 						 rtable, gtable, btable, dr, dg, db, roffs, goffs, boffs);

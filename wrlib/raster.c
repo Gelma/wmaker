@@ -216,14 +216,15 @@ RImage *RCloneImage(RImage * image)
 		return NULL;
 
 	new_image->background = image->background;
-	memcpy(new_image->data, image->data, image->width * image->height * (HAS_ALPHA(image) ? 4 : 3));
+	memcpy(new_image->data, image->data, (size_t)image->width * image->height * (HAS_ALPHA(image) ? 4 : 3));
 
 	return new_image;
 }
 
 RImage *RGetSubImage(RImage * image, int x, int y, unsigned width, unsigned height)
 {
-	int i, ofs;
+	int i;
+	size_t ofs;
 	RImage *new_image;
 	unsigned total_line_size, line_size;
 
@@ -246,10 +247,10 @@ RImage *RGetSubImage(RImage * image, int x, int y, unsigned width, unsigned heig
 	total_line_size = image->width * (HAS_ALPHA(image) ? 4 : 3);
 	line_size = width * (HAS_ALPHA(image) ? 4 : 3);
 
-	ofs = x * (HAS_ALPHA(image) ? 4 : 3) + y * total_line_size;;
+	ofs = (size_t)x * (HAS_ALPHA(image) ? 4 : 3) + (size_t)y * total_line_size;
 
 	for (i = 0; i < height; i++) {
-		memcpy(&new_image->data[i * line_size], &image->data[i * total_line_size + ofs], line_size);
+		memcpy(&new_image->data[(size_t)i * line_size], &image->data[(size_t)i * total_line_size + ofs], line_size);
 	}
 	return new_image;
 }
@@ -672,7 +673,7 @@ RImage *RMakeTiledImage(RImage * tile, unsigned width, unsigned height)
 {
 	int x, y;
 	unsigned w;
-	unsigned long tile_size = tile->width * tile->height;
+	unsigned long tile_size = (size_t)tile->width * tile->height;
 	unsigned long tx = 0;
 	RImage *image;
 	unsigned char *s, *d;

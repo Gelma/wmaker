@@ -136,7 +136,7 @@ static RImage *renderHGradient(unsigned width, unsigned height, int r0, int g0, 
 		unsigned copied = 1;
 		while (copied < height) {
 			unsigned batch = (copied < height - copied) ? copied : (height - copied);
-			memcpy(image->data + copied * lineSize, image->data, batch * lineSize);
+			memcpy(image->data + (size_t)copied * lineSize, image->data, (size_t)batch * lineSize);
 			copied += batch;
 		}
 	}
@@ -338,7 +338,7 @@ static RImage *renderMHGradient(unsigned width, unsigned height, RColor ** color
 		unsigned copied = 1;
 		while (copied < height) {
 			unsigned batch = (copied < height - copied) ? copied : (height - copied);
-			memcpy(image->data + copied * lineSize, image->data, batch * lineSize);
+			memcpy(image->data + (size_t)copied * lineSize, image->data, (size_t)batch * lineSize);
 			copied += batch;
 		}
 	}

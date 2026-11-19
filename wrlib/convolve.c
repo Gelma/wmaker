@@ -45,7 +45,7 @@ int RBlurImage(RImage * image)
 	unsigned char *pptr = NULL, *tmpp;
 	int ch = image->format == RRGBAFormat ? 4 : 3;
 
-	pptr = malloc(image->width * ch);
+	pptr = malloc((size_t)image->width * ch);
 	if (!pptr) {
 		RErrorCode = RERR_NOMEMORY;
 		return False;
@@ -55,10 +55,10 @@ int RBlurImage(RImage * image)
     +*(cur-ch) + 2 * *cur + *(cur+ch)\
     +*(next-ch) + *next + *(next+ch)) / 10
 
-	memcpy(pptr, image->data, image->width * ch);
+	memcpy(pptr, image->data, (size_t)image->width * ch);
 
 	ptr = image->data;
-	nptr = ptr + image->width * ch;
+	nptr = ptr + (size_t)image->width * ch;
 	tmpp = pptr;
 
 	if (ch == 3) {
