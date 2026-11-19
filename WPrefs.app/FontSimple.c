@@ -521,7 +521,7 @@ static void selectedOption(WMWidget * w, void *data)
 				WMListItem *item = WMGetListItem(panel->sizeL, i);
 				int distance;
 
-				distance = fabs(size - atoi(item->text));
+				distance = (int)fabs(size - atoi(item->text));
 
 				if (i == 0 || distance < closest) {
 					closest = distance;
