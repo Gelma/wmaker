@@ -1360,19 +1360,16 @@ void animateResize(WScreen *scr, int x, int y, int w, int h, int fx, int fy, int
 	switch (style) {
 	case WIS_TWIST:
 		steps = MINIATURIZE_ANIMATION_STEPS_T;
-		if (steps > 0)
-			animateResizeTwist(scr, x, y, w, h, fx, fy, fw, fh, steps);
+		animateResizeTwist(scr, x, y, w, h, fx, fy, fw, fh, steps);
 		break;
 	case WIS_FLIP:
 		steps = MINIATURIZE_ANIMATION_STEPS_F;
-		if (steps > 0)
-			animateResizeFlip(scr, x, y, w, h, fx, fy, fw, fh, steps);
+		animateResizeFlip(scr, x, y, w, h, fx, fy, fw, fh, steps);
 		break;
 	case WIS_ZOOM:
 	default:
 		steps = MINIATURIZE_ANIMATION_STEPS_Z;
-		if (steps > 0)
-			animateResizeZoom(scr, x, y, w, h, fx, fy, fw, fh, steps);
+		animateResizeZoom(scr, x, y, w, h, fx, fy, fw, fh, steps);
 		break;
 	}
 }
@@ -2451,21 +2448,20 @@ static void shade_animate(WWindow *wwin, Bool what)
 			s = 1;
 		w = wwin->frame->core->width;
 		XMoveWindow(dpy, wwin->client_win, 0, y);
-		if (s > 0) {
-			while (h < wwin->client.height + wwin->frame->top_width + wwin->frame->bottom_width) {
-				XResizeWindow(dpy, wwin->frame->core->window, w, h);
-				XMoveWindow(dpy, wwin->client_win, 0, y);
-				XFlush(dpy);
-				if (SHADE_DELAY > 0)
-					wusleep(SHADE_DELAY * 2000L / 3);
-				else
-					wusleep(10);
-				h += s;
-				y += s;
+		/* s is clamped to >= 1 above, so the loop always makes progress */
+		while (h < wwin->client.height + wwin->frame->top_width + wwin->frame->bottom_width) {
+			XResizeWindow(dpy, wwin->frame->core->window, w, h);
+			XMoveWindow(dpy, wwin->client_win, 0, y);
+			XFlush(dpy);
+			if (SHADE_DELAY > 0)
+				wusleep(SHADE_DELAY * 2000L / 3);
+			else
+				wusleep(10);
+			h += s;
+			y += s;
 
-				if (time(NULL) - time0 > MAX_ANIMATION_TIME)
-					break;
-			}
+			if (time(NULL) - time0 > MAX_ANIMATION_TIME)
+				break;
 		}
 		XMoveWindow(dpy, wwin->client_win, 0, wwin->frame->top_width);
 		break;
