@@ -144,9 +144,10 @@ int main(int argc, char **argv)
 		char date_buf[32];
 
 		if (!tm) {
-			/* unrepresentable time: draw midnight rather than crash,
-			 * keeping the loop's event handling and 1s cadence */
+			/* unrepresentable time: draw midnight (1 Jan) rather than
+			 * crash, keeping the loop's event handling and 1s cadence */
 			memset(&tm_buf, 0, sizeof(tm_buf));
+			tm_buf.tm_mday = 1;
 			tm = &tm_buf;
 		}
 
