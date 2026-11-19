@@ -641,21 +641,15 @@ static void storeCommandInScript(const char *cmd, const char *line)
 	char *path;
 	FILE *f;
 	char buffer[128];
-	mode_t permissions;
-
-	/* Calculate permission to be Executable but taking into account user's umask */
-	permissions = umask(0);
-	umask(permissions);
-	permissions = (S_IRWXU | S_IRWXG | S_IRWXO) & (~permissions);
+	/* Keep the session startup script owner-only (0700) under every umask so
+	 * another local user can never inject commands even when umask is 0. */
+	const mode_t permissions = S_IRWXU;
 
 	path = wstrconcat(wuserdatapath(), "/" PACKAGE_TARNAME "/autostart");
 
 	f = fopen(path, "rb");
 	if (!f) {
-		/* Create owner-only: this script runs at session start, so the
-		 * 0666&~umask window of fopen("wb") would let another local user
-		 * inject commands under umask 0.  0700 is never world-writable. */
-		int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0700);
+		int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, permissions);
 
 		f = (fd >= 0) ? fdopen(fd, "wb") : NULL;
 		if (!f) {
@@ -664,6 +658,8 @@ static void storeCommandInScript(const char *cmd, const char *line)
 			werror(_("could not create %s"), path);
 			goto end;
 		}
+		if (fchmod(fileno(f), permissions) != 0)
+			wwarning(_("could not set permission 0%03o on file \"%s\""), permissions, path);
 		fprintf(f, "#!/bin/sh\n");
 		fputs(line, f);
 		fputs("\n", f);
@@ -675,8 +671,8 @@ static void storeCommandInScript(const char *cmd, const char *line)
 		FILE *fo;
 
 		tmppath = wstrconcat(wuserdatapath(), "/" PACKAGE_TARNAME "/autostart.tmp");
-		/* owner-only until the fchmod below sets the final umask-aware mode */
-		fd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0700);
+		/* owner-only; fchmod below also tightens any pre-existing tmp file */
+		fd = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, permissions);
 		fo = (fd >= 0) ? fdopen(fd, "wb") : NULL;
 		if (!fo) {
 			if (fd >= 0)
