@@ -5,11 +5,13 @@
 run via `tools/codeql_analysis.sh` (isolated `/tmp` copy, `git clean -xdf`,
 full feature configure, `CC=/usr/bin/gcc`, `CCACHE_DISABLE=1`).
 **Artifacts:** `wmaker-results.csv` / `wmaker-results.sarif` (same directory)
-hold the **post-remediation** scan; the 522 baseline is commit `36f08483`,
-the post-P1 scan (512) is `a974dfd4`.
-**Triage author:** Qwen Code, 2026-11-19. Supersedes the 2026-11-05/09 report
-(563/53 and 447/19 eras). Remediation batches: SpecAI §169 (P1+P2) and §170
-(P3+P4), both approved by Andrea; suppression policy **report-only**.
+hold the **final post-follow-up** scan (`5f79d19e`); the 522 baseline is
+commit `05c27bd3`, the post-P1 scan (512) is `3ca48f49`, and the
+post-P3/P4 scan (402) is `f01fcd48`.
+**Triage author:** Qwen Code (and Gemini follow-up), 2026-11-19. Supersedes
+the 2026-11-05/09 report (563/53 and 447/19 eras). Remediation batches:
+SpecAI §169 (P1+P2), §170 (P3+P4), and §171 (review follow-up), approved
+by Andrea; suppression policy **report-only**.
 
 ---
 
@@ -46,10 +48,10 @@ full-coverage baseline**. Error trend: 53 (2026-11-05) → 19 (2026-11-09) →
 
 | # | Rule | Site | Defect | Fix |
 |---|------|------|--------|-----|
-| 1 | cpp/inconsistent-null-check | `WINGs/dragsource.c:375` | `sourceScreen()` returns NULL once the source view is destroyed mid-drag; `sendEnterMessage` and the sink `sendDnDClientMessage:358` dereferenced unguarded (the :105 comment claiming they guarded was wrong); six other call sites were guarded | `ad949138` |
-| 2 | cpp/inconsistent-null-check | `src/properties.c:54` | `XAllocClassHint()` unchecked → `XGetClassHint(dpy, win, NULL)` on OOM (Xlib mallocs, unlike `wmalloc` which aborts) | `57326aaf` |
-| 3 | cpp/inconsistent-null-check | `src/window.c:688` | `classHint->res_name` dereferenced without NULL check in `fixLeaderProperties` | `ddf4f69a` |
-| 4 | cpp/inconsistent-null-check | `src/window.c:761` | same in `createFakeWindowGroupLeader`; **bonus unflagged:** `XAllocWMHints()` fallback equally unchecked | `ddf4f69a` |
+| 1 | cpp/inconsistent-null-check | `WINGs/dragsource.c:375` | `sourceScreen()` returns NULL once the source view is destroyed mid-drag; `sendEnterMessage` and the sink `sendDnDClientMessage:358` dereferenced unguarded (the :105 comment claiming they guarded was wrong); six other call sites were guarded | `bc78cba7` |
+| 2 | cpp/inconsistent-null-check | `src/properties.c:54` | `XAllocClassHint()` unchecked → `XGetClassHint(dpy, win, NULL)` on OOM (Xlib mallocs, unlike `wmalloc` which aborts) | `7d0dc0c0` |
+| 3 | cpp/inconsistent-null-check | `src/window.c:688` | `classHint->res_name` dereferenced without NULL check in `fixLeaderProperties` | `dd2b29fd` |
+| 4 | cpp/inconsistent-null-check | `src/window.c:761` | same in `createFakeWindowGroupLeader`; **bonus unflagged:** `XAllocWMHints()` fallback equally unchecked | `dd2b29fd` |
 
 ### 2.2 False positives / acceptable — registered in §7, no code action
 
@@ -83,13 +85,16 @@ Focus.c:139 / HotCornerShortcuts.c:148 / TexturePanel.c:851 (`if (sscanf!=1)
 i = default;`), appmenu.c:149 (outer sscanf guard `< 2 → return NULL`).
 
 ### cpp/integer-multiplication-cast-to-long — 20 baseline — FIXED (P3)
-`becb538c` (wrlib ×10) + `b1e93444` (UI/geometry ×10): first operand widened
+`7c37f1c4` (wrlib ×10) + `92efe704` (UI/geometry ×10): first operand widened
 to `size_t`. The products were safe under the MAX_WIDTH/HEIGHT=20000 cap +
 `RCreateImage` ckd_mul, but the invariant now lives at the use sites.
-**Follow-up:** the post-cast range analysis surfaced one more site,
-`RCombineImages`' bulk memcpy (raster.c), fixed in `62a6a430` — 21 casts total.
-The same casts also closed 14 clang-tidy
-`bugprone-implicit-widening-of-multiplication-result` findings.
+**Follow-ups:** the post-cast range analysis surfaced one more site,
+`RCombineImages`' bulk memcpy (raster.c), fixed in `1ec96d21` — 21 casts total.
+In `a537a8ed`, `PropSetIconTileHint` (src/properties.c) also widened its
+`malloc()`/`XChangeProperty()` size calculation to checked `size_t` (bounded
+by `INT_MAX`) to match its `memcpy()`. Together these casts closed 15
+clang-tidy `bugprone-implicit-widening-of-multiplication-result` findings
+(`75 → 61 → 60`).
 
 ### cpp/stack-address-escape — 6 — 4 FP / 1 mitigated / 1 by-design (audited, P2)
 - proplist.c:1507/1572/1636 — FP: `PLData` is function-local (`wfree` before
@@ -109,13 +114,14 @@ monitor.c:168→170 (CID 1686042, §164 rationale: unlink never follows symlinks
 the lstat is advisory). CodeQL does not read Coverity annotations.
 
 ### cpp/constant-comparison — 6 — FIXED (P1)
-`b8f549ba` (actions.c ×4), `59f6822e` (KeyboardShortcuts chain_mode),
-`652dc381` (switchmenu idx<0).
+`31f1fd6a` (actions.c ×4), `7cdcf660` (KeyboardShortcuts chain_mode),
+`2948e69d` (switchmenu idx<0).
 
 ### cpp/world-writable-file-creation — 7 — 2 FIXED, 5 accepted
-MouseSettings.c:655/670 **FIXED** (`11024f92`): autostart/autostart.tmp created
-with `open(O_WRONLY|O_CREAT|O_TRUNC, 0700)` + fdopen — never world-writable
-under any umask; the tmp file's final mode still set by the existing fchmod.
+MouseSettings.c:655/670 **FIXED** (`5f143631` + `565bb84e`): autostart and
+autostart.tmp are created with `open(O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU)` +
+fdopen and explicitly enforced via `fchmod(..., 0700)` in both branches so
+the script is never world-writable under any umask (including `umask 0`).
 Remaining 5 (Appearance.c:467, wmiv.c:508, save_jpeg.c:185, save_png.c:199,
 save_xpm.c:176): user's own files, 0666&~umask, accepted.
 
@@ -123,13 +129,16 @@ save_xpm.c:176): user's own files, 0666&~umask, accepted.
 main.c:239/560/587 (user-configured commands — the WM's purpose),
 monitor.c:131 (own argv), WPrefs.c:631 (execlp of wmaker from PATH).
 
-### Singles — FIXED (P4)
-- wmclock.c:142 `localtime` → `localtime_r` + midnight fallback (`ad19b835`).
-- FontSimple.c:524 double→int → explicit `(int)` cast (`257e4040`).
+### Singles — FIXED (P4 + follow-up)
+- wmclock.c:142 `localtime` → `localtime_r` + midnight fallback (`1bb269c3`,
+  and `1c2db4be` setting `tm_mday = 1` for a valid POSIX date).
+- FontSimple.c:524 double→int → explicit `(int)` cast (`c295beab`), then
+  replaced with `double` distance (`d5b8fbad`) to preserve fractional-size
+  ordering and drop the shadowed `distance` variable.
 
 ### cpp/poorly-documented-function — 46 — style, kept
 The comment cleanup temporarily pushed 5 functions below the 2% ratio;
-`92b5b277` documented them (purpose block + internal phase comments — the
+`47beb639` documented them (purpose block + internal phase comments — the
 query only counts comments inside the function extent, verified with a
 minimal CodeQL DB). Count back to the baseline 46; bulk documentation pass
 declined by decision.
@@ -138,8 +147,8 @@ declined by decision.
 
 ## 4. Recommendation triage (337 baseline)
 
-- **cpp/commented-out-code — 117 → 32**: selective cleanup (`8e544bcd`,
-  `d18fba6c`, `e28452bb`, `2ef89d72`) removed 85 findings in 40 files.
+- **cpp/commented-out-code — 117 → 32**: selective cleanup (`b2657b4b`,
+  `7b4b7681`, `e226c928`, `2955cf70`) removed 85 findings in 40 files.
   **Rule**: remove dead debug traces and superseded alternatives with no
   rationale; **keep** comments with explanations/TODO/rationale (the "-Dan"
   notes, menu.c inside_handler, appicon.c "can't remember why", proplist
@@ -147,13 +156,14 @@ declined by decision.
   public-header API placeholders, the WMFreeArray memory-ownership questions,
   DND_DEBUG/XDND_VERSION toggles, the undo-button feature disable, and the
   TexturePanel test scaffolding. The 32 remaining are these kept comments.
-- **cpp/non-constant-format — 1 — FIXED** (`ddb60271`): showError() takes a
+- **cpp/non-constant-format — 1 — FIXED** (`66cac588`): showError() takes a
   preformatted message; the caller-supplied-format sprintf is gone.
 - Remaining families kept by decision (no bulk action): loop-variable-changed
-  51 (idiomatic parsing), declaration-hides-* 61, long-switch 34, guarded-free
-  24 (harmless; destructors NULL-safe per §155), trivial-switch 14,
-  short-global-name 14, empty-block 8, fixme-comment 7, futile-conditional 5,
-  complex-condition 1.
+  51 (idiomatic parsing), declaration-hides-* **60** (`42+13+5`, down 1 after
+  `d5b8fbad` removed the shadowed `distance` in `FontSimple.c`),
+  long-switch 34, guarded-free 24 (harmless; destructors NULL-safe per §155),
+  trivial-switch 14, short-global-name 14, empty-block 8, fixme-comment 7,
+  futile-conditional 5, complex-condition 1.
 
 ---
 
@@ -162,46 +172,65 @@ declined by decision.
 ### P1 + P2 batch (SpecAI §169)
 | Commit | Scope |
 |--------|-------|
-| `36f08483` | baseline csv/sarif (522, pre-fix) |
-| `ad949138` | dragsource NULL guards + comment fix |
-| `57326aaf` | PropGetWMClass XAllocClassHint check |
-| `ddf4f69a` | window.c leader functions + XAllocWMHints bonus |
-| `b8f549ba` `59f6822e` `652dc381` | 6 dead constant comparisons |
-| `b39c3df7` | static-analysis re-baseline (cppcheck 1124→1121) |
-| `a974dfd4` | post-P1 re-scan (512) |
-| `e66d0a36` | this report (first full-coverage edition) |
-| `3a905a4b` | SpecAI §169 |
+| `05c27bd3` | baseline csv/sarif (522, pre-fix) |
+| `bc78cba7` | dragsource NULL guards + comment fix |
+| `7d0dc0c0` | PropGetWMClass XAllocClassHint check |
+| `dd2b29fd` | window.c leader functions + XAllocWMHints bonus |
+| `31f1fd6a` `7cdcf660` `2948e69d` | 6 dead constant comparisons |
+| `a78d7def` | static-analysis re-baseline (cppcheck 1124→1121) |
+| `3ca48f49` | post-P1 re-scan (512) |
+| `6f329b5b` | this report (first full-coverage edition) |
+| `8d12742e` | SpecAI §169 |
 
 P2 audits (menuparser/handlers callers, new-code path sites): no code changes.
 
 ### P3 + P4 batch (SpecAI §170)
 | Commit | Scope |
 |--------|-------|
-| `becb538c` | wrlib size_t arithmetic (10 sites) |
-| `b1e93444` | UI/geometry size_t arithmetic (10 sites) |
-| `ddb60271` | showError preformatted message |
-| `ad19b835` | wmclock localtime_r |
-| `11024f92` | autostart owner-only creation |
-| `257e4040` | FontSimple explicit cast |
-| `8e544bcd` `d18fba6c` `e28452bb` `2ef89d72` | selective comment cleanup (85 findings, 40 files) |
-| `008f91be` | static-analysis re-baseline (cppcheck 1121→1119, tidy 443→428) |
-| `92b5b277` | document the 5 functions uncovered by the cleanup |
-| `62a6a430` | RCombineImages size_t cast (surfaced by post-cast range analysis) |
+| `7c37f1c4` | wrlib size_t arithmetic (10 sites) |
+| `92efe704` | UI/geometry size_t arithmetic (10 sites) |
+| `66cac588` | showError preformatted message |
+| `1bb269c3` | wmclock localtime_r |
+| `5f143631` | autostart owner-only creation |
+| `c295beab` | FontSimple explicit cast |
+| `b2657b4b` `7b4b7681` `e226c928` `2955cf70` | selective comment cleanup (85 findings, 40 files) |
+| `aedad13c` | static-analysis re-baseline (cppcheck 1121→1119, tidy 443→428) |
+| `47beb639` | document the 5 functions uncovered by the cleanup |
+| `1ec96d21` | RCombineImages size_t cast (surfaced by post-cast range analysis) |
+| `f01fcd48` | post-P3/P4 re-scan (402) |
+| `f407f6b6` | report update (402 edition) |
+| `9fe7b492` | SpecAI §170 |
 
-### Verification evidence (both batches)
+### Review follow-up batch (SpecAI §171)
+| Commit | Scope |
+|--------|-------|
+| `a1c167cf` `8d3dce3a` | rewritten §168 commit messages wrapped to ≤80 columns |
+| `a537a8ed` | PropSetIconTileHint checked `size_t`/INT_MAX allocation and length |
+| `565bb84e` | MouseSettings autostart consistent `0700` `fchmod` in both branches |
+| `1c2db4be` | wmclock fallback `tm_mday = 1` |
+| `d5b8fbad` | FontSimple `double` size distance (drops shadowed `distance`) |
+| `4395a09f` | codeql_analysis.sh tracked-files `git ls-files -z \| tar` copy |
+| `022f0cb6` | static-analysis re-baseline (cppcheck 1119→1118, tidy 428→427 / 61→60) |
+| `5f79d19e` | post-follow-up re-scan (**401**) |
+
+### Verification evidence (all batches)
 - gcc 14.2 full rebuild, project strict flags (`-Werror=trampolines`,
-  `-std=gnu23`): **0 errors, 0 warnings** after each batch.
+  `-std=gnu23`): **0 errors, 0 warnings** after each batch (including post-follow-up).
 - clang-23 `-fsyntax-only` with exact build flags: clean on all touched files
   (6 in P1, 50 in P3/P4).
-- `make check` **4/4**; `make exit-test` pass (SIGTERM/SIGUSR1/SIGUSR2);
-  `EXIT_TEST_ARGS=--valgrind make exit-test` pass, no invalid accesses.
+- `make check` **4/4**; `make exit-test` pass (SIGTERM/SIGUSR1/SIGUSR2) re-verified
+  after the follow-up; `EXIT_TEST_ARGS=--valgrind make exit-test` pass, no
+  invalid accesses (verified on P1 and P3/P4).
 - Isolated Xvfb `:97` smoke (`/tmp/wm_smoke_p1.sh`, throw-away HOME, PID-only
   cleanup): **10/10** — switchmenu creation, root menu mapping, omnipresent
   ON/OFF + workspace round-trip (the edited ACTION_CHANGE_WORKSPACE branch,
   both directions), ShadeKey shade + titlebar-double-click unshade (both
-  shade_animate branches), clean SIGTERM exit 0. Re-run after P3/P4.
-- `tools/static-analysis.sh check`: no regressions; all count changes
-  downward (see re-baseline commits).
+  shade_animate branches), clean SIGTERM exit 0 (verified on P1 and P3/P4).
+- `tools/static-analysis.sh check`: exits **0** against the updated baseline
+  (`022f0cb6`); all count changes strictly downward (`cppcheck` 1124→1118,
+  `clang-tidy` 443→427).
+- `tools/codeql_analysis.sh`: `bash -n` and `shellcheck` 0 warnings; full
+  end-to-end CodeQL run on the follow-up tree produced **401** findings.
 - Not runtime-reproduced (static verification only): mid-drag source-view
   destruction (dragsource guard) and OOM paths (XAllocClassHint/XAllocWMHints,
   need fault injection).
@@ -212,16 +241,21 @@ P2 audits (menuparser/handlers callers, new-code path sites): no code changes.
 
 | Scan | Commit | Total | error | warning | rec | Delta |
 |------|--------|-------|-------|---------|-----|-------|
-| baseline (pre-fix) | `36f08483` | 522 | 17 | 168 | 337 | first full coverage |
-| post-P1 | `a974dfd4` | 512 | 13 | 162 | 337 | −10 targets, 0 new |
-| post-P3/P4 cleanup (intermediate) | — | 408 | 13 | 144 | 251 | −110, +6 (5 doc side effects + 1 site shift) |
-| **final (post-doc + RCombineImages)** | committed with this report | **402** | **13** | **138** | **251** | −111 vs 512, +1 site shift (net zero) |
+| baseline (pre-fix) | `05c27bd3` | 522 | 17 | 168 | 337 | first full coverage |
+| post-P1 | `3ca48f49` | 512 | 13 | 162 | 337 | −10 targets, 0 new |
+| post-P3/P4 cleanup (intermediate) | — | 408 | 13 | 144 | 251 | −110 vs 512, +6 (5 doc side effects + 1 site shift) |
+| post-doc + RCombineImages | `f01fcd48` | 402 | 13 | 138 | 251 | −110 real findings closed vs 512, +1 site shift (net zero) |
+| **final (follow-up)** | `5f79d19e` | **401** | **13** | **138** | **250** | −1 vs 402 (`FontSimple` `distance` shadow), 0 new |
 
-The 5 poorly-documented side effects were closed by `92b5b277`; the
-MouseSettings path-injection "new" finding is the same by-design autostart
-flow moved from fopen to open (net zero). The RCombineImages multiplication
-surfaced only after the other casts widened the analyzer's dimension ranges
-(fixed in `62a6a430`). **The 13 residual errors are exactly the registered
+Compared to the 512 post-P1 scan, `f01fcd48` closed **110 real findings**
+(`85` commented-out-code, `20` multiplication casts, `2` world-writable
+autostart, `1` localtime, `1` lossy cast, `1` non-constant format), plus the
+`fopen → open` path-injection site shift (`-1/+1`, net zero); the 5
+poorly-documented side effects and the 21st `RCombineImages` multiplication
+cast only surfaced in the intermediate scan and were closed by `47beb639` and
+`1ec96d21` before `f01fcd48`. The follow-up run (`5f79d19e`) closed 1
+additional `cpp/declaration-hides-variable` finding in `FontSimple.c`, leaving
+**401** total findings. **The 13 residual errors are exactly the registered
 FP set (§7); no real error remains open.**
 
 ---
