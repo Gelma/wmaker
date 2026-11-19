@@ -269,7 +269,7 @@ void RCombineImages(RImage * image, RImage * src)
 
 	if (!HAS_ALPHA(src)) {
 		if (!HAS_ALPHA(image)) {
-			memcpy(image->data, src->data, image->height * image->width * 3);
+			memcpy(image->data, src->data, (size_t)image->height * image->width * 3);
 		} else {
 			int x, y;
 			unsigned char *d, *s;
