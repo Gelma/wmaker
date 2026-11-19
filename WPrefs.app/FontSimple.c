@@ -517,17 +517,16 @@ static void selectedOption(WMWidget * w, void *data)
 			WMSelectListItem(panel->styleL, found);
 			WMSetListPosition(panel->styleL, found);
 
-			for (i = 0, found = 0, closest = 0; i < WMGetListNumberOfRows(panel->sizeL); i++) {
-				WMListItem *item = WMGetListItem(panel->sizeL, i);
-				int distance;
+			{
+				double closest_size = 0.0;
 
-				distance = (int)fabs(size - atoi(item->text));
+				for (i = 0, found = 0; i < WMGetListNumberOfRows(panel->sizeL); i++) {
+					WMListItem *item = WMGetListItem(panel->sizeL, i);
+					double dist = fabs(size - atoi(item->text));
 
-				if (i == 0 || distance < closest) {
-					closest = distance;
-					found = i;
-					if (distance == 0) {
-						break;	/* perfect match */
+					if (i == 0 || dist < closest_size) {
+						closest_size = dist;
+						found = i;
 					}
 				}
 			}
