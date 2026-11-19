@@ -1879,7 +1879,7 @@ memcheck), not bad luck. The scripts now kill only the PID they started (`WM=$!`
 
 ## 168. CodeQL Automation Script (2026-11-19)
 
-Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to automate clean CodeQL C/C++ extraction, query evaluation, and report generation into `QLCodeAnalysis/`:
+Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`a1c167cf`, updated by `4395a09f`) to automate clean CodeQL C/C++ extraction, query evaluation, and report generation into `QLCodeAnalysis/`:
 
 - **Isolated clean build**: Copies the current repository working tree to `/tmp/.wmaker-codeql.XXXXXXXX`, runs `git clean -xdf`, `./autogen.sh`, and `./configure` (matching the full production feature set: `--enable-debug --enable-modelock --enable-xinerama --enable-randr --enable-usermenu --enable-sni`) with `CC=/usr/bin/gcc` and `CCACHE_DISABLE=1` so `ccache` cannot bypass CodeQL's build tracer (§153).
 - **Toolchain & suite**: Uses `/opt/dev/codeql/codeql` (overridable via `CODEQL_BIN`) and defaults to `codeql/cpp-queries:codeql-suites/cpp-security-and-quality.qls` (183 queries), verified upfront via `codeql resolve queries`.
@@ -1893,7 +1893,7 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
 - **New baseline**: `tools/codeql_analysis.sh` re-run (CodeQL 2.27.4,
   `cpp-security-and-quality.qls`): **522 = 17 error / 168 warning / 337
   recommendation**, 27 rules. CSV/SARIF fully consistent (SARIF severity lives in
-  `rules[].defaultConfiguration.level`). Baseline committed pre-fix as `36f08483`.
+  `rules[].defaultConfiguration.level`). Baseline committed pre-fix as `05c27bd3`.
 - **447 → 522 is coverage, not regression**: the normalized diff shows 29 files
   with zero findings in the 2026-11-09 scan (18 WINGs widgets incl. `wtext.c`,
   6 util dockapps, `util/xdnd.c`, `wmlib/event.c`, `src/dockedapp.c`,
@@ -1916,17 +1916,17 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
   menu.c `&d_data`, is confined to menuMouseDown's frame: deleted on every exit
   path, one-shot auto-free verified in W_CheckTimerHandlers).
 - **Fixes implemented (P1 + dead comparisons, approved by Andrea)**:
-  - `ad949138` — dragsource.c: NULL guards in sendDnDClientMessage/sendEnterMessage
+  - `bc78cba7` — dragsource.c: NULL guards in sendDnDClientMessage/sendEnterMessage
     (sourceScreen() returns NULL when the source view dies mid-drag; the :105
     comment claiming they guarded was wrong), XDND_DEBUG site guarded too.
-  - `57326aaf` — properties.c PropGetWMClass: XAllocClassHint NULL check with
+  - `7d0dc0c0` — properties.c PropGetWMClass: XAllocClassHint NULL check with
     "default" fallback (Xlib OOM, unlike wmalloc).
-  - `ddf4f69a` — window.c fixLeaderProperties + createFakeWindowGroupLeader:
+  - `dd2b29fd` — window.c fixLeaderProperties + createFakeWindowGroupLeader:
     XAllocClassHint NULL checks, plus the unflagged XAllocWMHints fallback.
-  - `b8f549ba` — actions.c: 4 dead cpp/constant-comparison guards removed
+  - `31f1fd6a` — actions.c: 4 dead cpp/constant-comparison guards removed
     (animateResize steps≡16 ×3, shade_animate UNSHADE s≥1).
-  - `59f6822e` — KeyboardShortcuts.c: always-true chain_mode removed.
-  - `652dc381` — switchmenu.c: dead `idx < 0` conjunct removed.
+  - `7cdcf660` — KeyboardShortcuts.c: always-true chain_mode removed.
+  - `2948e69d` — switchmenu.c: dead `idx < 0` conjunct removed.
 - **P2 audits** (menuparser/handlers callers, new-code path sites): no additional
   code changes needed; verdicts in the report.
 - **Suppression policy: report-only** (Andrea's choice) — no in-source
@@ -1943,7 +1943,7 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
   verification + guarded siblings) and OOM paths (need fault injection).
   `tools/static-analysis.sh check`: cppcheck 1124 → 1121 (style −3, the removed
   dead code), error/warning/portability unchanged, clang-tidy 443 unchanged;
-  baseline re-written and committed (`b39c3df7`).
+  baseline re-written and committed (`a78d7def`).
 - **Xvfb harness lessons** (cost several probe runs): mouse-opened WM menus grab
   neither pointer nor keyboard and stay mapped (assert mapping, not closing);
   ShadeKey/OmnipresentKey act only on ISMAPPED+ISFOCUSED clients, so a shaded
@@ -1961,6 +1961,7 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
   multiplication sites, showError preformatted-message refactor; P4 optional
   style (localtime_r, autostart 0700, FontSimple cast, selective commented-code
   cleanup). Bulk style cleanup declined by decision.
+
 ## 170. CodeQL P3/P4 Remediation Batch (2026-11-19)
 
 Andrea approved the remainder of the §169 plan: **P3** (size_t casts for the 20
@@ -1969,33 +1970,33 @@ owner-only creation, FontSimple explicit cast, selective commented-out-code
 cleanup). The bulk documentation pass stays excluded per the earlier decision.
 
 - **Commits**:
-  - `becb538c` — wrlib size_t arithmetic (raster/convert/convolve/gradient,
+  - `7c37f1c4` — wrlib size_t arithmetic (raster/convert/convolve/gradient,
     10 sites): products were safe under the MAX_WIDTH/HEIGHT=20000 cap +
     RCreateImage ckd_mul, but the invariant now lives at the use sites;
     RGetSubImage ofs becomes size_t.
-  - `b1e93444` — UI/geometry size_t arithmetic (wcolorpanel, Appearance ×2,
+  - `92efe704` — UI/geometry size_t arithmetic (wcolorpanel, Appearance ×2,
     dock, properties, screen, xinerama ×2, wmagnify; 10 sites).
-  - `ddb60271` — wfilepanel showError() takes a preformatted message; the
+  - `66cac588` — wfilepanel showError() takes a preformatted message; the
     caller-supplied-format sprintf is gone (cpp/non-constant-format).
-  - `ad19b835` — wmclock localtime_r with stack buffer + midnight fallback.
-  - `11024f92` — MouseSettings autostart/autostart.tmp created with
+  - `1bb269c3` — wmclock localtime_r with stack buffer + midnight fallback.
+  - `5f143631` — MouseSettings autostart/autostart.tmp created with
     open(O_WRONLY|O_CREAT|O_TRUNC, 0700)+fdopen: never world-writable under
     any umask; tmp final mode still set by the existing fchmod.
-  - `257e4040` — FontSimple explicit (int) truncation of fabs distance.
-  - `8e544bcd` / `d18fba6c` / `e28452bb` / `2ef89d72` — selective
+  - `c295beab` — FontSimple explicit (int) truncation of fabs distance.
+  - `b2657b4b` / `7b4b7681` / `e226c928` / `2955cf70` — selective
     commented-out-code cleanup (WINGs / WPrefs.app / src / wrlib): 85 of the
     117 flagged findings closed across 40 files.
-  - `92b5b277` — document the five functions the cleanup pushed below the 2%
+  - `47beb639` — document the five functions the cleanup pushed below the 2%
     comment ratio (WMGetFontPanel, processData, wMouseResizeWindow,
     addMenuEntry, RCreateXImage): purpose block above + phase comments inside.
     **Lesson**: cpp/poorly-documented-function only counts comments within the
     function extent — leading doc blocks do NOT count (verified with a minimal
     CodeQL DB in /tmp/qltest before writing the fix).
-  - `008f91be` — static-analysis re-baseline: cppcheck 1121 → 1119 (style −2),
+  - `aedad13c` — static-analysis re-baseline: cppcheck 1121 → 1119 (style −2),
     clang-tidy 443 → 428 (bugprone-implicit-widening-of-multiplication-result
     75 → 61, the twin findings of the size_t casts; narrowing-conversions
     74 → 73, the FontSimple cast). No regressions.
-  - `62a6a430` — RCombineImages bulk memcpy size_t cast: a 21st multiplication
+  - `1ec96d21` — RCombineImages bulk memcpy size_t cast: a 21st multiplication
     site surfaced only after the other casts widened the analyzer's dimension
     ranges (it was not flagged in the 522 baseline).
 - **Cleanup rule** (selective, not bulk): removed dead debug traces
@@ -2013,15 +2014,67 @@ cleanup). The bulk documentation pass stays excluded per the earlier decision.
   `make check` 4/4; `make exit-test` pass; `EXIT_TEST_ARGS=--valgrind make
   exit-test` pass; isolated Xvfb `:97` smoke 10/10 (same harness as §169).
 - **Re-scan history**: 522 baseline → 512 post-P1 → 408 intermediate post-P3/P4
-  cleanup (110 closed: 85 commented-out-code, 20 multiplication, 2
-  world-writable, lossy cast, non-constant format, localtime; 6 new: 5
-  poorly-documented side effects closed by `92b5b277` + 1 path-injection site
-  shift fopen→open in MouseSettings, net zero) → **final 402 = 13 error /
-  138 warning / 251 recommendation** after the doc commit and the
-  RCombineImages cast (111 closed vs 512, the only "new" finding is the
-  fopen→open site shift). The 13 residual errors remain exactly the
-  registered FP set; no real error open.
+  cleanup (110 real findings closed vs 512: 85 commented-out-code, 20
+  multiplication, 2 world-writable, 1 localtime, 1 lossy cast, 1 non-constant
+  format; +6 intermediate: 5 poorly-documented side effects closed by `47beb639`
+  + 1 path-injection site shift `fopen`→`open` in MouseSettings, net zero) →
+  **402 = 13 error / 138 warning / 251 recommendation** (`f01fcd48`) after the
+  doc commit (`47beb639`) and the RCombineImages cast (`1ec96d21`, which only
+  surfaced during the intermediate post-cast range-analysis pass — so vs 512,
+  110 real findings were closed plus the `fopen`→`open` net-zero site shift).
+  The 13 residual errors remain exactly the registered FP set; no real error open.
 - `QLCodeAnalysis/QLCODEReport.md` updated (remediation record, re-scan
   results, registry). With this batch every actionable CodeQL finding from
   the §169 triage is closed; what remains is the registered FP/by-design set
   plus the style families kept by decision.
+
+## 171. Review Follow-Up & Hardening Refinements (2026-11-19)
+
+Follow-up fixes addressing all findings from the review of today's CodeQL and
+static-analysis commits:
+
+- **Commit-message line-length compliance**: Rewrote the first two unpushed
+  commits of the day (`a1c167cf`, `8d3dce3a`) so every commit in
+  `origin/master..HEAD` satisfies the ≤80-column commit-message rule while
+  preserving exact trees, authorship, and `Made-by-IA:` trailers; updated all
+  rebased hash references across `SpecAI.md` and `QLCodeAnalysis/QLCODEReport.md`
+  and corrected the 512→402 delta wording in §170 and the report.
+- **Commits**:
+  - `a537a8ed` — `src/properties.c` (`PropSetIconTileHint`): guard non-positive
+    dimensions, compute `pixels` and `nbytes` in `size_t` bounded by
+    `INT_MAX`, and use the checked `nbytes` consistently across `malloc()`,
+    `memcpy()`, and `XChangeProperty()` (closing the asymmetry left when only
+    `memcpy()` was widened to `size_t`).
+  - `565bb84e` — `WPrefs.app/MouseSettings.c` (`storeCommandInScript`): remove
+    the `0777 & ~umask` calculation in the update branch and enforce owner-only
+    `S_IRWXU` (`0700`) via `open()` and `fchmod()` in both fresh-creation and
+    update paths so `autostart` is never world-writable even under `umask 0`.
+  - `1c2db4be` — `util/wmclock.c`: initialize `tm_buf.tm_mday = 1` in the
+    `!tm` midnight fallback so `strftime("%a %d %b")` formats a valid POSIX
+    date (`Sun 01 Jan`) rather than day `00`.
+  - `d5b8fbad` — `WPrefs.app/FontSimple.c` (`selectedOption`): compare font-size
+    distances in `double` precision instead of truncating `fabs(...)` to `int`
+    (fixing early stop on fractional sizes such as `10.9`, without comparing
+    `dist == 0.0` under `-Wfloat-equal`), and remove the shadowed inner
+    `distance` declaration.
+  - `4395a09f` — `tools/codeql_analysis.sh`: require `tar` in `preflight()`
+    and copy only existing tracked files via `git ls-files -z | tar` into the
+    isolated `/tmp` build tree instead of `cp -af` + `git clean -xdf`,
+    preserving local edits while skipping `.git`, build objects, and any
+    persisted `./codeql-db`. (`codeql database interpret-results` accepts
+    `--threads`, not `--ram`, verified via `--help`, so `--ram` stays on
+    `database create` and `database analyze` only.)
+  - `022f0cb6` — `tools/static-analysis.txt` re-baselined after the post-baseline
+    `RCombineImages` cast (`1ec96d21`) and `FontSimple` cleanup (`d5b8fbad`):
+    `cppcheck` 1119 → 1118 (style 1101 → 1100) and `clang-tidy` 428 → 427
+    (`bugprone-implicit-widening-of-multiplication-result` 61 → 60).
+  - `5f79d19e` — Fresh end-to-end `tools/codeql_analysis.sh` scan on the
+    follow-up tree: **401 = 13 error / 138 warning / 250 recommendation**
+    (closes 1 `cpp/declaration-hides-variable` in `FontSimple.c`, 0 new
+    findings, CSV/SARIF 100% consistent).
+- **Verification**: Full `make -j$(nproc)` rebuild (0 errors, 0 warnings),
+  `make check` 4/4 PASS, `make exit-test` 3/3 PASS, `tools/static-analysis.sh
+  check` exit 0 against `022f0cb6`, `bash -n` and `shellcheck` clean on
+  `tools/codeql_analysis.sh`, and fresh CodeQL re-scan clean (401 findings).
+  Note: `/opt/wmaker` was intentionally not overwritten (outside workspace;
+  `make install` / `build_and_install.sh` left to the user).
