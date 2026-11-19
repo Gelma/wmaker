@@ -592,18 +592,12 @@ static void browserClick(WMWidget *widget, void *p_panel)
 	}
 }
 
-static void showError(WMScreen * scr, WMWindow * owner, const char *s, const char *file)
+/* Takes an already-formatted message: the old (format, file) pair used a
+ * sprintf with a caller-supplied format string, which a translation adding
+ * a conversion specifier would turn into undefined behavior. */
+static void showError(WMScreen * scr, WMWindow * owner, const char *msg)
 {
-	char *errStr;
-
-	if (file) {
-		errStr = wmalloc(strlen(file) + strlen(s) + 1);
-		sprintf(errStr, s, file);
-	} else {
-		errStr = wstrdup(s);
-	}
-	WMRunAlertPanel(scr, owner, _("Error"), errStr, _("OK"), NULL, NULL);
-	wfree(errStr);
+	WMRunAlertPanel(scr, owner, _("Error"), msg, _("OK"), NULL, NULL);
 }
 
 static void createDir(WMWidget *widget, void *p_panel)
@@ -646,7 +640,7 @@ static void createDir(WMWidget *widget, void *p_panel)
 #define __msgbufsize__ 512
 		char *buffer = wmalloc(__msgbufsize__);
 		snprintf(buffer, __msgbufsize__, _("Can not create %s: %s"), file, strerror(errno));
-		showError(scr, panel->win, buffer, NULL);
+		showError(scr, panel->win, buffer);
 		wfree(buffer);
 #undef __msgbufsize__
 	} else {
@@ -717,7 +711,7 @@ static void deleteFile(WMWidget *widget, void *p_panel)
 		snprintf(buffer, sizeof(buffer),
 		         _("Can not find %s: %s"),
 		         file, strerror(errno));
-		showError(scr, panel->win, buffer, NULL);
+		showError(scr, panel->win, buffer);
 		goto out;
 	}
 
@@ -731,7 +725,7 @@ static void deleteFile(WMWidget *widget, void *p_panel)
 			snprintf(buffer, sizeof(buffer),
 			         _("Removing %s failed: %s"),
 			         file, strerror(errno));
-			showError(scr, panel->win, buffer, NULL);
+			showError(scr, panel->win, buffer);
 		} else {
 			char *s = strrchr(file, '/');
 			if (s)
@@ -761,10 +755,16 @@ static void goFloppy(WMWidget *widget, void *p_panel)
 	(void) widget;
 
 	if (stat(WINGsConfiguration.floppyPath, &filestat)) {
-		showError(scr, panel->win, _("An error occurred browsing '%s'."), WINGsConfiguration.floppyPath);
+		char msg[512];
+
+		snprintf(msg, sizeof(msg), _("An error occurred browsing '%s'."), WINGsConfiguration.floppyPath);
+		showError(scr, panel->win, msg);
 		return;
 	} else if (!S_ISDIR(filestat.st_mode)) {
-		showError(scr, panel->win, _("'%s' is not a directory."), WINGsConfiguration.floppyPath);
+		char msg[512];
+
+		snprintf(msg, sizeof(msg), _("'%s' is not a directory."), WINGsConfiguration.floppyPath);
+		showError(scr, panel->win, msg);
 		return;
 	}
 
