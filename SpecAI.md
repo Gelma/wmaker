@@ -1888,3 +1888,76 @@ Added [`tools/codeql_analysis.sh`](tools/codeql_analysis.sh) (`5bc5a0d9`) to aut
 - **Verification**: `bash -n tools/codeql_analysis.sh` and `shellcheck tools/codeql_analysis.sh` both pass with 0 warnings; `--help`, error paths, and CSV summary formatting against existing `QLCodeAnalysis/wmaker-results.csv` were verified.
 
 
+## 169. CodeQL Full-Coverage Baseline (522) + P1 Remediation (2026-11-19)
+
+- **New baseline**: `tools/codeql_analysis.sh` re-run (CodeQL 2.27.4,
+  `cpp-security-and-quality.qls`): **522 = 17 error / 168 warning / 337
+  recommendation**, 27 rules. CSV/SARIF fully consistent (SARIF severity lives in
+  `rules[].defaultConfiguration.level`). Baseline committed pre-fix as `36f08483`.
+- **447 → 522 is coverage, not regression**: the normalized diff shows 29 files
+  with zero findings in the 2026-11-09 scan (18 WINGs widgets incl. `wtext.c`,
+  6 util dockapps, `util/xdnd.c`, `wmlib/event.c`, `src/dockedapp.c`,
+  `src/geomview.c`, `src/winspector.c`). The old DB was built on a partially
+  built tree (incremental make → partial tracer coverage), contradicting §153's
+  "all 221 TUs" claim. The new script's isolated `git clean -xdf` full build is
+  the first trustworthy full-coverage extraction. Error trend still down:
+  53 → 19 → 17, and only 4 of the 17 were real.
+- **Triage** (full record: `QLCodeAnalysis/QLCODEReport.md`, which replaces the
+  deleted 563/447-era report): 12 unbounded-write errors are FPs (strlen-sized
+  mallocs, confirms §128); `event.c:911` configureMenu nullness is an FP (NULL
+  tolerated by consumers); all 11 scanf warnings are FPs (guards verified);
+  3 TOCTOU accepted (Coverity CIDs 1686069/1686074/1686042, §164 rationale);
+  62 path-injection by design (new-code sites reviewed: telemetry `open_private`
+  O_NOFOLLOW+0600, shutdown sentinel §164, dialog/dockedapp/winspector user-config
+  paths); 20 multiplication warnings safe under the MAX_WIDTH/HEIGHT=20000 cap +
+  `ckd_mul` in RCreateImage but a fragile invariant (P3 casts pending approval);
+  stack-escape: proplist ×3 FP (PLData function-local), xdnd.c:1593 already
+  mitigated in-tree, menuparser/handlers audited by-design (the only stack cdata,
+  menu.c `&d_data`, is confined to menuMouseDown's frame: deleted on every exit
+  path, one-shot auto-free verified in W_CheckTimerHandlers).
+- **Fixes implemented (P1 + dead comparisons, approved by Andrea)**:
+  - `ad949138` — dragsource.c: NULL guards in sendDnDClientMessage/sendEnterMessage
+    (sourceScreen() returns NULL when the source view dies mid-drag; the :105
+    comment claiming they guarded was wrong), XDND_DEBUG site guarded too.
+  - `57326aaf` — properties.c PropGetWMClass: XAllocClassHint NULL check with
+    "default" fallback (Xlib OOM, unlike wmalloc).
+  - `ddf4f69a` — window.c fixLeaderProperties + createFakeWindowGroupLeader:
+    XAllocClassHint NULL checks, plus the unflagged XAllocWMHints fallback.
+  - `b8f549ba` — actions.c: 4 dead cpp/constant-comparison guards removed
+    (animateResize steps≡16 ×3, shade_animate UNSHADE s≥1).
+  - `59f6822e` — KeyboardShortcuts.c: always-true chain_mode removed.
+  - `652dc381` — switchmenu.c: dead `idx < 0` conjunct removed.
+- **P2 audits** (menuparser/handlers callers, new-code path sites): no additional
+  code changes needed; verdicts in the report.
+- **Suppression policy: report-only** (Andrea's choice) — no in-source
+  `// codeql[...]` annotations; the accepted/FP registry is QLCODEReport.md §7.
+- **Verification**: gcc full rebuild 0 errors/0 warnings (strict flags, gnu23);
+  clang-23 `-fsyntax-only` with exact build flags clean on all 6 touched files;
+  `make check` 4/4; `make exit-test` 3/3; `EXIT_TEST_ARGS=--valgrind make
+  exit-test` 4/4 (no invalid accesses); isolated Xvfb `:97` smoke 10/10
+  (`/tmp/wm_smoke_p1.sh`): switchmenu creation, root menu mapping, omnipresent
+  ON/OFF + workspace round-trip (exercises the edited ACTION_CHANGE_WORKSPACE
+  branch both directions), ShadeKey shade + titlebar-double-click unshade
+  (exercises both shade_animate branches incl. the edited UNSHADE loop), clean
+  SIGTERM exit 0. Not runtime-reproduced: mid-drag source destruction (static
+  verification + guarded siblings) and OOM paths (need fault injection).
+  `tools/static-analysis.sh check`: cppcheck 1124 → 1121 (style −3, the removed
+  dead code), error/warning/portability unchanged, clang-tidy 443 unchanged;
+  baseline re-written and committed (`b39c3df7`).
+- **Xvfb harness lessons** (cost several probe runs): mouse-opened WM menus grab
+  neither pointer nor keyboard and stay mapped (assert mapping, not closing);
+  ShadeKey/OmnipresentKey act only on ISMAPPED+ISFOCUSED clients, so a shaded
+  window is unshaded via titlebar double-click, not the key; xterm leaves an
+  abandoned 10×10 window with the same WM_CLASS — resolve the managed client via
+  WM_STATE; the defaults domain file must be a proplist dictionary `{ ... }`;
+  `AdvanceToNewWorkspace = YES` needed for Alt+N with few workspaces (§ pitfall
+  memory); avoid `cmd | head` under pipefail in harnesses (SIGPIPE kills them).
+- **Post-fix re-scan**: **512 = 13 error / 162 warning / 337 recommendation**
+  (522 → 512). Closed exactly the 10 targeted findings (4 real errors + 6
+  constant comparisons), **zero new findings** — no statistical-nullness churn.
+  Residual 13 errors = exactly the registered FP set (12 unbounded-write +
+  configureMenu). No real error remains open.
+- **Open (awaiting approval)**: P3 remainder — `(size_t)` casts for the 20
+  multiplication sites, showError preformatted-message refactor; P4 optional
+  style (localtime_r, autostart 0700, FontSimple cast, selective commented-code
+  cleanup). Bulk style cleanup declined by decision.
