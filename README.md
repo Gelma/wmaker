@@ -17,7 +17,7 @@ to contribute, but - nowadays - my contribution is
 about telling AI what to do, in which way, and
 much more (much more than this...) test it extensively
 because - again - I always use [WMaker](https://www.windowmaker.org), every day
-(and more than this... long sessione, seldom laptop reboot, usually suspend/resume for
+(and more than this... long sessions, seldom laptop reboot, usually suspend/resume for
 weeks).
 
 So, what's this?
@@ -32,7 +32,7 @@ I use this tree for my job, every day. If there's something
 good for the real developers, I would be happy to
 contribute just by saying: it works for me!
 
-If someone is going to cherry-picking, I am glad and happy.
+If someone is going to cherry-picking, I would be glad and happy.
 
 ## Short change history
 
@@ -65,7 +65,8 @@ At the moment, it's keeping a little bit of telemetry in `$XDG_RUNTIME_DIR/wmake
 `/tmp/wmaker_runtime_logs/`, overridable with `WM_RUNTIME_LOG_DIR`) to evaluate later, and adding some
 stress tests to speed up finding bugs related to recent changes.
 
-Anyway, nights are going letting Gemini and DeepSeek arguing each other as a crazy wedding or, as they call it, doing *Reflection*.
+Anyway, nights are going letting Gemini and DeepSeek arguing each other as a crazy wedding or,
+as they call it, doing *Reflection*.
 
 Also, [Coverity Scan](https://scan.coverity.com/projects/gelma-wmaker) fixes are in, right now. I left all the analysis and related files in dir [CoverityReport](https://github.com/Gelma/wmaker/blob/master/CoverityReport), for a few reasons: easy way to access them for the [main project](http://windowmaker.org) - just in case - and track the approach differences between Gemini and DeepSeek to implement fixes.
 Fun fact the relation chain of: open tools finding issues, Coverity finding much more, Gemini/DeepSeek extrapolate the false positive finding real root case, and while patching 'em, find two more issues not saw by Coverity!
@@ -81,6 +82,8 @@ in WMaker. It is **optional at build time** — configure with `--enable-sni` (t
 a plain `./configure && make` does not include it.
 
 Import of features and ideas from [WayLand porting](https://github.com/phkaeser/wlmaker). Also, notify the author about what he can probably "up-port" to its wonderful project.
+
+Now, it's working without a glitch, so, maybe, time to tell to the world!
 
 ---
 ### (Original README)
